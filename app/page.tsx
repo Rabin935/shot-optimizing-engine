@@ -158,6 +158,137 @@ export default function Home() {
           </motion.div>
         </section>
       </div>
+
+      <section id="demo" className="relative border-y border-white/10 bg-[#080907]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(249,115,22,0.12),transparent_28%),radial-gradient(circle_at_80%_70%,rgba(22,163,74,0.12),transparent_28%)]" />
+        <div className="relative mx-auto grid w-full max-w-7xl gap-12 px-5 py-24 sm:px-6 lg:grid-cols-[0.88fr_1.12fr] lg:px-8 lg:py-32">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.25 }}
+            transition={{ duration: 0.65 }}
+          >
+            <p className="text-sm font-bold uppercase tracking-[0.28em] text-orange-300">
+              The Problem
+            </p>
+            <h2 className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
+              Shot charts show where. They rarely show what it is worth.
+            </h2>
+            <p className="mt-6 text-lg leading-8 text-slate-300">
+              Traditional heatmaps and FG% treat every make like the same event.
+              A clean mid-range jumper can look better than a tougher corner
+              three, even when the three produces more expected points over a
+              full game.
+            </p>
+            <div className="mt-8 grid gap-3 text-sm text-slate-300">
+              {[
+                "Static color bands hide shot value.",
+                "FG% ignores the two-point versus three-point tradeoff.",
+                "Defender pressure and spacing are flattened into one number.",
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3"
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 28 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ delay: 0.1, duration: 0.7 }}
+            className="space-y-6"
+          >
+            <div className="rounded-2xl border border-orange-300/20 bg-orange-500/[0.06] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.32)] sm:p-6">
+              <p className="text-sm font-bold uppercase tracking-[0.24em] text-green-300">
+                Our Solution
+              </p>
+              <h3 className="mt-3 text-3xl font-black text-white">
+                Expected Points Per Shot
+              </h3>
+              <div className="mt-5 rounded-xl border border-white/10 bg-black/45 p-5 text-center">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  Formula
+                </p>
+                <p className="mt-2 text-2xl font-black text-orange-200 sm:text-3xl">
+                  EPPS = P(make) x Shot Value
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-white">
+                      Traditional Heatmap
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Static, misleading
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-orange-500/15 px-3 py-1 text-xs font-bold text-orange-200">
+                    FG%
+                  </span>
+                </div>
+                <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-white/10 bg-[#17120d]">
+                  <div className="absolute left-[24%] top-[30%] size-24 rounded-full bg-orange-400/70 blur-xl" />
+                  <div className="absolute left-[56%] top-[58%] size-20 rounded-full bg-orange-500/45 blur-xl" />
+                  <div className="absolute inset-x-8 bottom-8 h-20 rounded-t-full border-x border-t border-white/25" />
+                  <div className="absolute bottom-14 left-1/2 -translate-x-1/2 rounded-full border border-white/25 px-3 py-1 text-xs text-white">
+                    50% mid-range
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-green-300/20 bg-green-500/[0.06] p-5">
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-white">
+                      ShotOptix EPPS Map
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Dynamic, value-aware
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-green-400/15 px-3 py-1 text-xs font-bold text-green-200">
+                    EPPS
+                  </span>
+                </div>
+                <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-white/10 bg-[#0f1d13]">
+                  <div className="absolute left-[18%] top-[22%] size-14 rounded-full bg-orange-300/70" />
+                  <div className="absolute right-[14%] bottom-[26%] size-16 rounded-full bg-green-300/85 shadow-[0_0_36px_rgba(134,239,172,0.5)]" />
+                  <div className="absolute inset-x-8 bottom-8 h-20 rounded-t-full border-x border-t border-white/25" />
+                  <div className="absolute bottom-[34%] right-[11%] rounded-full border border-green-200/50 bg-black/55 px-3 py-1 text-xs font-bold text-green-100">
+                    Corner 3
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-5">
+                <p className="text-sm text-slate-400">Mid-range jumper</p>
+                <p className="mt-2 text-3xl font-black text-white">50%</p>
+                <p className="mt-1 text-sm font-bold text-orange-200">
+                  EPPS 1.00
+                </p>
+              </div>
+              <div className="rounded-xl border border-green-300/25 bg-green-400/10 p-5">
+                <p className="text-sm text-slate-400">Corner three</p>
+                <p className="mt-2 text-3xl font-black text-white">38%</p>
+                <p className="mt-1 text-sm font-bold text-green-200">
+                  EPPS 1.14
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
     </main>
   );
 }
