@@ -6,11 +6,16 @@ import {
   ArrowRight,
   BarChart3,
   BrainCircuit,
+  Cpu,
   Crosshair,
+  Database,
+  Layers,
   Move,
   Play,
   Shield,
+  Sparkles,
   Target,
+  Upload,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -57,6 +62,36 @@ const featureCards: {
     description:
       "Turn every possession sample into simple recommendations for smarter shot diets.",
   },
+];
+
+const howItWorksSteps = [
+  {
+    icon: Upload,
+    title: "Upload / Select Player Shot Data",
+    description:
+      "Start with a player profile, a shot log, or a sample dataset for fast exploration.",
+  },
+  {
+    icon: BrainCircuit,
+    title: "AI Predicts Make Probability",
+    description:
+      "The model estimates make chance from location, context, and pressure signals.",
+  },
+  {
+    icon: Sparkles,
+    title: "Get Expected Points + Recommendations",
+    description:
+      "ShotOptix converts probability into EPPS and points toward better attempts.",
+  },
+];
+
+const techStack = [
+  { name: "Next.js", detail: "App Router", icon: Layers },
+  { name: "React", detail: "UI system", icon: Activity },
+  { name: "Tailwind CSS", detail: "Dark theme", icon: Sparkles },
+  { name: "TypeScript", detail: "Typed core", icon: Crosshair },
+  { name: "FastAPI + XGBoost", detail: "Backend model", icon: Cpu },
+  { name: "Plotly / Konva", detail: "Court visuals", icon: Database },
 ];
 
 export default function Home() {
@@ -395,6 +430,102 @@ export default function Home() {
               );
             })}
           </div>
+        </div>
+      </section>
+
+      <section className="relative border-y border-white/10 bg-[#080907] px-5 py-24 sm:px-6 lg:px-8 lg:py-32">
+        <div className="absolute inset-0 opacity-25 [background-image:linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.08)_50%,transparent_100%)] [background-size:180px_100%]" />
+        <div className="relative mx-auto max-w-7xl">
+          <motion.div
+            initial={{ opacity: 0, y: 22 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.35 }}
+            transition={{ duration: 0.6 }}
+            className="max-w-3xl"
+          >
+            <p className="text-sm font-bold uppercase tracking-[0.28em] text-orange-300">
+              How It Works
+            </p>
+            <h2 className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
+              From shot data to better possessions in three steps.
+            </h2>
+          </motion.div>
+
+          <div className="mt-12 grid gap-4 lg:grid-cols-3">
+            {howItWorksSteps.map((step, index) => {
+              const Icon = step.icon;
+
+              return (
+                <motion.div
+                  key={step.title}
+                  initial={{ opacity: 0, y: 28 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.25 }}
+                  transition={{ delay: index * 0.08, duration: 0.58 }}
+                  className="relative rounded-xl border border-white/10 bg-white/[0.045] p-6"
+                >
+                  <div className="mb-8 flex items-center justify-between">
+                    <span className="text-5xl font-black text-white/10">
+                      0{index + 1}
+                    </span>
+                    <span className="grid size-12 place-items-center rounded-lg border border-green-300/25 bg-green-400/10 text-green-100">
+                      <Icon className="size-5" />
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-black text-white">
+                    {step.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-6 text-slate-300">
+                    {step.description}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.25 }}
+            transition={{ duration: 0.6 }}
+            className="mt-20"
+          >
+            <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+              <div>
+                <p className="text-sm font-bold uppercase tracking-[0.28em] text-green-300">
+                  Built With
+                </p>
+                <h2 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
+                  Modern tooling for a fast analytics surface.
+                </h2>
+              </div>
+            </div>
+
+            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {techStack.map((tech) => {
+                const Icon = tech.icon;
+
+                return (
+                  <div
+                    key={tech.name}
+                    className="flex items-center gap-4 rounded-lg border border-white/10 bg-black/35 p-4 transition hover:border-green-300/35 hover:bg-green-400/[0.07]"
+                  >
+                    <span className="grid size-11 place-items-center rounded-md border border-orange-300/25 bg-orange-500/10 text-orange-100">
+                      <Icon className="size-5" />
+                    </span>
+                    <span>
+                      <span className="block font-black text-white">
+                        {tech.name}
+                      </span>
+                      <span className="text-sm text-slate-400">
+                        {tech.detail}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
         </div>
       </section>
     </main>
