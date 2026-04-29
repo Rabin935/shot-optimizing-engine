@@ -6,6 +6,7 @@ import {
   ArrowRight,
   BarChart3,
   BrainCircuit,
+  Code,
   Cpu,
   Crosshair,
   Database,
@@ -16,10 +17,12 @@ import {
   Sparkles,
   Target,
   Upload,
+  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 const navLinks = ["Home", "Demo", "Features", "About"];
+const githubUrl = "https://github.com/Rabin935/shot-optimizing-engine";
 
 const featureCards: {
   icon: LucideIcon;
@@ -528,6 +531,122 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
+
+      <section className="relative overflow-hidden bg-background px-5 py-24 sm:px-6 lg:px-8 lg:py-32">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(249,115,22,0.2),transparent_28%),radial-gradient(circle_at_18%_72%,rgba(22,163,74,0.14),transparent_24%)]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-300/45 to-transparent" />
+        <motion.div
+          initial={{ opacity: 0, y: 26 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.65 }}
+          className="relative mx-auto max-w-5xl text-center"
+        >
+          <p className="text-sm font-bold uppercase tracking-[0.28em] text-green-300">
+            Final Possession
+          </p>
+          <h2 className="mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl">
+            Ready to optimize your shot selection?
+          </h2>
+          <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-slate-300">
+            Put EPPS thinking on the court and compare shot quality before the
+            next possession starts.
+          </p>
+          <div className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <a
+              href="#demo"
+              className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-orange-500 px-8 py-4 text-base font-black text-black shadow-[0_24px_65px_rgba(249,115,22,0.3)] transition hover:-translate-y-0.5 hover:bg-orange-400"
+            >
+              Launch Interactive Demo
+              <ArrowRight className="size-5" />
+            </a>
+            <a
+              href={githubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-8 py-4 text-base font-bold text-white transition hover:-translate-y-0.5 hover:border-green-300/45 hover:bg-green-400/[0.08]"
+            >
+              <Code className="size-5" />
+              GitHub Repository
+            </a>
+          </div>
+        </motion.div>
+      </section>
+
+      <footer
+        id="about"
+        className="border-t border-white/10 bg-[#050505] px-5 py-12 sm:px-6 lg:px-8"
+      >
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.2fr_0.8fr_0.8fr]">
+          <div>
+            <a href="#home" className="flex items-center gap-3">
+              <span className="grid size-10 place-items-center rounded-lg border border-orange-400/40 bg-orange-500/15 text-orange-100">
+                <Target className="size-5" />
+              </span>
+              <span>
+                <span className="block text-lg font-black text-white">
+                  ShotOptix
+                </span>
+                <span className="text-sm text-slate-400">
+                  Expected Points Per Shot engine
+                </span>
+              </span>
+            </a>
+            <p className="mt-5 max-w-md text-sm leading-6 text-slate-400">
+              Made for basketball analytics enthusiasts who want shot selection
+              to feel visual, fast, and evidence-driven.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.22em] text-slate-300">
+              Quick Links
+            </p>
+            <div className="mt-4 grid gap-3 text-sm text-slate-400">
+              {navLinks.map((link) => (
+                <a
+                  key={link}
+                  href={`#${link.toLowerCase()}`}
+                  className="transition hover:text-white"
+                >
+                  {link}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.22em] text-slate-300">
+              Follow
+            </p>
+            <div className="mt-4 flex gap-3">
+              <a
+                href={githubUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="ShotOptix GitHub repository"
+                className="grid size-11 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-300 transition hover:border-orange-300/45 hover:text-white"
+              >
+                <Code className="size-5" />
+              </a>
+              <a
+                href="https://x.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="ShotOptix on X/Twitter"
+                className="grid size-11 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-300 transition hover:border-green-300/45 hover:text-white"
+              >
+                <X className="size-5" />
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div className="mx-auto mt-10 flex max-w-7xl flex-col gap-3 border-t border-white/10 pt-6 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>ShotOptix EPPS Engine</p>
+          <p>Basketball analytics, rendered in the dark.</p>
+        </div>
+      </footer>
     </main>
   );
 }
