@@ -1,9 +1,63 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Play, Target } from "lucide-react";
+import {
+  Activity,
+  ArrowRight,
+  BarChart3,
+  BrainCircuit,
+  Crosshair,
+  Move,
+  Play,
+  Shield,
+  Target,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 const navLinks = ["Home", "Demo", "Features", "About"];
+
+const featureCards: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+}[] = [
+  {
+    icon: Move,
+    title: "Interactive Shot Sandbox",
+    description:
+      "Drag the shooter and defenders around the floor to test shot context instantly.",
+  },
+  {
+    icon: BrainCircuit,
+    title: "Real-time EPPS Prediction",
+    description:
+      "Convert shot probability and point value into an expected scoring readout.",
+  },
+  {
+    icon: BarChart3,
+    title: "Expected Value Heatmap",
+    description:
+      "See zones by expected return, not just raw frequency or field goal percentage.",
+  },
+  {
+    icon: Crosshair,
+    title: "Optimal Shooting Zones",
+    description:
+      "Highlight the areas where a player profile creates the most efficient offense.",
+  },
+  {
+    icon: Shield,
+    title: "Defender Pressure Simulation",
+    description:
+      "Model closeouts, distance, and angle to understand pressure-adjusted shot quality.",
+  },
+  {
+    icon: Activity,
+    title: "Data-Driven Insights",
+    description:
+      "Turn every possession sample into simple recommendations for smarter shot diets.",
+  },
+];
 
 export default function Home() {
   return (
@@ -287,6 +341,60 @@ export default function Home() {
               </div>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      <section
+        id="features"
+        className="relative overflow-hidden bg-background px-5 py-24 sm:px-6 lg:px-8 lg:py-32"
+      >
+        <div className="absolute inset-0 bg-[linear-gradient(120deg,transparent_0%,rgba(249,115,22,0.08)_34%,transparent_58%),radial-gradient(circle_at_82%_12%,rgba(22,163,74,0.12),transparent_24%)]" />
+        <div className="relative mx-auto max-w-7xl">
+          <motion.div
+            initial={{ opacity: 0, y: 22 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.35 }}
+            transition={{ duration: 0.65 }}
+            className="max-w-3xl"
+          >
+            <p className="text-sm font-bold uppercase tracking-[0.28em] text-green-300">
+              Powerful Features
+            </p>
+            <h2 className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
+              Built for coaches, analysts, and hoopers who want sharper answers.
+            </h2>
+            <p className="mt-5 text-lg leading-8 text-slate-300">
+              ShotOptix blends court interaction with expected value modeling,
+              so every shot location becomes a decision surface.
+            </p>
+          </motion.div>
+
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {featureCards.map((feature, index) => {
+              const Icon = feature.icon;
+
+              return (
+                <motion.div
+                  key={feature.title}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.25 }}
+                  transition={{ delay: index * 0.05, duration: 0.55 }}
+                  className="group rounded-xl border border-white/10 bg-white/[0.045] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-1 hover:border-orange-300/45 hover:bg-orange-500/[0.08]"
+                >
+                  <div className="mb-6 grid size-12 place-items-center rounded-lg border border-orange-300/25 bg-orange-500/15 text-orange-200 transition group-hover:border-green-300/35 group-hover:bg-green-400/15 group-hover:text-green-100">
+                    <Icon className="size-5" />
+                  </div>
+                  <h3 className="text-xl font-black text-white">
+                    {feature.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-6 text-slate-300">
+                    {feature.description}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </div>
         </div>
       </section>
     </main>
