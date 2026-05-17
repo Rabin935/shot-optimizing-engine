@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, Gauge, Target, Trophy } from "lucide-react";
-import { BasketballCourt } from "@/components/court/BasketballCourt";
+import { SandboxCourt } from "@/components/sandbox/SandboxCourt";
 
 export default function SandboxPage() {
   return (
@@ -41,11 +41,7 @@ export default function SandboxPage() {
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,0.73fr)_minmax(280px,0.27fr)]">
           <section className="min-w-0 rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-[0_28px_80px_rgba(0,0,0,0.38)] sm:p-5">
-            <BasketballCourt>
-              <div className="absolute bottom-5 left-5 rounded-lg border border-white/10 bg-black/45 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-200">
-                Interactive court workspace
-              </div>
-            </BasketballCourt>
+            <SandboxCourt />
           </section>
 
           <aside className="rounded-lg border border-white/10 bg-white/[0.04] p-5 shadow-[0_28px_80px_rgba(0,0,0,0.32)]">
