@@ -929,23 +929,8 @@ function PoseCourtDemo() {
         </div>
 
         <div className="relative min-h-[430px] overflow-hidden bg-[#102016]">
-          <div className="absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] [background-size:52px_52px]" />
-          <div className="absolute inset-x-12 top-10 h-28 rounded-b-full border-x border-b border-white/25" />
-          <div className="absolute left-1/2 top-10 h-[75%] w-px -translate-x-1/2 bg-white/18" />
-          <div className="absolute left-1/2 top-[45%] size-28 -translate-x-1/2 rounded-full border border-white/25" />
-          <div className="absolute inset-x-10 bottom-10 h-28 rounded-t-full border-x border-t border-white/25" />
-          <div className="absolute bottom-[6.5rem] left-1/2 size-16 -translate-x-1/2 rounded-full border border-orange-300/75" />
-
-          <div className="absolute left-[19%] top-[36%] grid size-16 place-items-center rounded-full bg-orange-300 text-black shadow-[0_0_30px_rgba(255,77,0,0.5)]">
-            <Target className="size-7" />
-          </div>
-          <div className="absolute right-[22%] top-[40%] grid size-16 place-items-center rounded-full bg-green-300 text-black shadow-[0_0_30px_rgba(34,197,94,0.5)]">
-            <Shield className="size-7" />
-          </div>
-          <div className="absolute left-[25%] top-[42%] h-px w-[50%] origin-left rotate-[-7deg] bg-orange-300/70 shadow-[0_0_18px_rgba(255,77,0,0.65)]" />
-          <div className="absolute left-[43%] top-[34%] rounded-full border border-orange-300/35 bg-black/65 px-3 py-2 text-xs font-black text-orange-100">
-            68% make
-          </div>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_24%_35%,rgba(255,77,0,0.14),transparent_20%),radial-gradient(circle_at_78%_42%,rgba(34,197,94,0.12),transparent_18%)]" />
+          <CourtFigureSvg />
           <div className="absolute right-5 bottom-5 rounded-lg border border-green-300/25 bg-black/70 p-4 text-sm">
             <p className="font-bold uppercase tracking-[0.18em] text-green-200">
               Insight
@@ -958,6 +943,130 @@ function PoseCourtDemo() {
         </div>
       </div>
     </motion.div>
+  );
+}
+
+function CourtFigureSvg() {
+  return (
+    <svg
+      className="absolute inset-0 h-full w-full"
+      viewBox="0 0 920 500"
+      role="img"
+      aria-label="Half-court basketball figure with shooter, defender, shot path, and EPPS markers"
+    >
+      <defs>
+        <linearGradient id="court-floor" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0" stopColor="#14331f" />
+          <stop offset="0.52" stopColor="#0f2417" />
+          <stop offset="1" stopColor="#102c1a" />
+        </linearGradient>
+        <filter id="court-orange-glow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter id="court-green-glow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      <rect width="920" height="500" fill="url(#court-floor)" />
+      <g opacity="0.08" stroke="rgba(255,255,255,0.18)" strokeWidth="1">
+        {Array.from({ length: 18 }).map((_, index) => (
+          <path key={`v-${index}`} d={`M${index * 56 + 8} 0v500`} />
+        ))}
+        {Array.from({ length: 10 }).map((_, index) => (
+          <path key={`h-${index}`} d={`M0 ${index * 56 + 4}h920`} />
+        ))}
+      </g>
+
+      <g fill="none" stroke="rgba(255,255,255,0.52)" strokeWidth="3.5">
+        <rect x="92" y="48" width="736" height="404" rx="8" />
+        <path d="M92 48v404" />
+        <path d="M92 168a82 82 0 0 1 0 164" stroke="rgba(255,255,255,0.32)" />
+
+        <rect x="638" y="154" width="190" height="192" />
+        <path d="M638 154a96 96 0 0 0 0 192" />
+        <path d="M828 98h-78v304h78" stroke="rgba(255,255,255,0.42)" />
+        <path d="M828 94H704C558 138 558 362 704 406H828" />
+        <path d="M744 214a42 42 0 0 0 0 72" stroke="rgba(255,255,255,0.36)" />
+      </g>
+
+      <g fill="none" stroke="rgba(255,77,0,0.92)" strokeWidth="5">
+        <circle cx="758" cy="250" r="14" filter="url(#court-orange-glow)" />
+        <path d="M788 216v68" stroke="rgba(255,255,255,0.72)" />
+        <path d="M772 250h56" />
+      </g>
+
+      <g>
+        <path
+          d="M334 174C452 74 632 92 758 250"
+          fill="none"
+          stroke="#FF4D00"
+          strokeDasharray="9 10"
+          strokeLinecap="round"
+          strokeWidth="5"
+          filter="url(#court-orange-glow)"
+        />
+        <path
+          d="M334 174C468 138 626 151 758 250"
+          fill="none"
+          stroke="#22C55E"
+          strokeLinecap="round"
+          strokeOpacity="0.6"
+          strokeWidth="2"
+        />
+      </g>
+
+      <g>
+        <circle cx="334" cy="174" r="28" fill="#FF4D00" filter="url(#court-orange-glow)" />
+        <circle cx="334" cy="174" r="19" fill="#fed7aa" opacity="0.95" />
+        <path d="M324 174h20M334 164v20" stroke="#431407" strokeLinecap="round" strokeWidth="4" />
+        <rect x="264" y="204" width="142" height="38" rx="9" fill="rgba(0,0,0,0.72)" stroke="rgba(255,77,0,0.35)" />
+        <text x="335" y="228" textAnchor="middle" fill="#fed7aa" fontSize="16" fontWeight="900">
+          Shooter
+        </text>
+      </g>
+
+      <g>
+        <circle cx="558" cy="198" r="28" fill="#22C55E" filter="url(#court-green-glow)" />
+        <circle cx="558" cy="198" r="19" fill="#bbf7d0" opacity="0.95" />
+        <path d="M547 198h22M558 187v22" stroke="#052e16" strokeLinecap="round" strokeWidth="4" />
+        <rect x="496" y="228" width="126" height="38" rx="9" fill="rgba(0,0,0,0.72)" stroke="rgba(34,197,94,0.35)" />
+        <text x="559" y="252" textAnchor="middle" fill="#bbf7d0" fontSize="16" fontWeight="900">
+          Defender
+        </text>
+      </g>
+
+      <g>
+        <circle cx="516" cy="118" r="16" fill="#FF6A00" stroke="#fed7aa" strokeWidth="3" filter="url(#court-orange-glow)" />
+        <path d="M503 118h26M516 105v26M506 108c11 8 17 18 18 27M526 108c-11 8-17 18-18 27" stroke="#431407" strokeLinecap="round" strokeWidth="2" />
+      </g>
+
+      <g>
+        <rect x="346" y="348" width="190" height="48" rx="10" fill="rgba(0,0,0,0.72)" stroke="rgba(34,197,94,0.34)" />
+        <text x="441" y="377" textAnchor="middle" fill="#bbf7d0" fontSize="18" fontWeight="900">
+          EPPS 1.36
+        </text>
+      </g>
+
+      <g fill="rgba(0,0,0,0.7)" stroke="rgba(255,255,255,0.16)">
+        <rect x="116" y="72" width="144" height="38" rx="9" />
+        <rect x="666" y="390" width="142" height="38" rx="9" />
+      </g>
+      <text x="188" y="97" textAnchor="middle" fill="#fed7aa" fontSize="14" fontWeight="900">
+        Half-Court View
+      </text>
+      <text x="737" y="415" textAnchor="middle" fill="#bbf7d0" fontSize="14" fontWeight="900">
+        Pressure
+      </text>
+    </svg>
   );
 }
 
