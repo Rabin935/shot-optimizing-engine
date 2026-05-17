@@ -5,6 +5,7 @@ export type CourtPoint = {
 
 export type ShotZone = "Paint" | "Mid-Range" | "Three Point";
 export type ShotType = "2PT" | "3PT";
+export type DefenderPressure = "Very Tight" | "Tight" | "Open" | "Very Open";
 
 export const COURT_WIDTH_FT = 50;
 export const COURT_LENGTH_FT = 47;
@@ -40,4 +41,20 @@ export function getShotZone(point: CourtPoint): ShotZone {
 
 export function getShotType(point: CourtPoint): ShotType {
   return getShotZone(point) === "Three Point" ? "3PT" : "2PT";
+}
+
+export function getDefenderPressure(distance: number): DefenderPressure {
+  if (distance <= 2) {
+    return "Very Tight";
+  }
+
+  if (distance <= 4) {
+    return "Tight";
+  }
+
+  if (distance <= 6) {
+    return "Open";
+  }
+
+  return "Very Open";
 }
