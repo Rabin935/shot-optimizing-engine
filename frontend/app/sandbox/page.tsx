@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, Gauge, Target, Trophy } from "lucide-react";
+import { BasketballCourt } from "@/components/court/BasketballCourt";
 
 export default function SandboxPage() {
   return (
@@ -40,17 +41,11 @@ export default function SandboxPage() {
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,0.73fr)_minmax(280px,0.27fr)]">
           <section className="min-w-0 rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-[0_28px_80px_rgba(0,0,0,0.38)] sm:p-5">
-            <div className="relative min-h-[460px] overflow-hidden rounded-lg border border-white/10 bg-[#1A472A]">
-              <div className="absolute inset-0 opacity-[0.16] [background-image:linear-gradient(rgba(255,255,255,0.28)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.28)_1px,transparent_1px)] [background-size:42px_42px]" />
-              <div className="absolute inset-6 rounded-lg border-2 border-white/45" />
-              <div className="absolute inset-x-1/2 top-6 h-[72%] w-40 -translate-x-1/2 border-x-2 border-b-2 border-white/45" />
-              <div className="absolute left-1/2 top-[42%] size-32 -translate-x-1/2 rounded-full border-2 border-white/35" />
-              <div className="absolute left-1/2 top-[12%] size-16 -translate-x-1/2 rounded-full border-4 border-orange-400" />
-              <div className="absolute left-1/2 top-[calc(12%+1.75rem)] h-14 w-24 -translate-x-1/2 border-x-2 border-b-2 border-white/30" />
+            <BasketballCourt>
               <div className="absolute bottom-5 left-5 rounded-lg border border-white/10 bg-black/45 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-200">
-                Court workspace
+                Interactive court workspace
               </div>
-            </div>
+            </BasketballCourt>
           </section>
 
           <aside className="rounded-lg border border-white/10 bg-white/[0.04] p-5 shadow-[0_28px_80px_rgba(0,0,0,0.32)]">
