@@ -13,7 +13,7 @@ export function BasketballCourt({
 }: BasketballCourtProps) {
   return (
     <div
-      className={`relative isolate aspect-[50/47] min-h-[420px] overflow-hidden rounded-lg border border-white/10 bg-[#1A472A] shadow-[inset_0_0_70px_rgba(0,0,0,0.28)] ${className}`}
+      className={`relative isolate aspect-[50/47] min-h-[360px] overflow-hidden rounded-lg border border-white/10 bg-[#1A472A] shadow-[inset_0_0_70px_rgba(0,0,0,0.28)] sm:min-h-[460px] xl:min-h-[560px] ${className}`}
     >
       <svg
         className="absolute inset-0 h-full w-full"
@@ -117,6 +117,7 @@ export function BasketballCourt({
         ) : null}
       </svg>
 
+      <div className="pointer-events-none absolute inset-0 opacity-[0.12] [background-image:linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.22)_48%,transparent_54%),linear-gradient(0deg,rgba(0,0,0,0.22),transparent_24%,transparent_76%,rgba(0,0,0,0.28))] [background-size:180px_100%,100%_100%]" />
       <div className="absolute inset-0">{children}</div>
     </div>
   );

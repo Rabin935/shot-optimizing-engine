@@ -1,3 +1,6 @@
+"use client";
+
+import { motion } from "framer-motion";
 import {
   Activity,
   Gauge,
@@ -6,6 +9,7 @@ import {
   Shield,
   Target,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import type {
   DefenderPressure,
   SandboxStats,
@@ -20,7 +24,12 @@ export function StatsPanel({ stats }: StatsPanelProps) {
   const probability = stats.makeProbability * 100;
 
   return (
-    <aside className="rounded-lg border border-white/10 bg-white/[0.04] p-5 shadow-[0_28px_80px_rgba(0,0,0,0.32)]">
+    <motion.aside
+      className="rounded-lg border border-white/10 bg-white/[0.04] p-5 shadow-[0_28px_80px_rgba(0,0,0,0.32)]"
+      initial={{ opacity: 0, x: 14 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: 0.08, duration: 0.42, ease: "easeOut" }}
+    >
       <div className="flex items-center gap-3 border-b border-white/10 pb-5">
         <span className="grid size-10 place-items-center rounded-lg border border-green-300/25 bg-green-400/10 text-green-100">
           <Gauge className="size-5" />
@@ -79,7 +88,7 @@ export function StatsPanel({ stats }: StatsPanelProps) {
           />
         </div>
       </div>
-    </aside>
+    </motion.aside>
   );
 }
 
@@ -91,14 +100,16 @@ function StatCard({
   value,
 }: {
   emphasized?: boolean;
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   tone: "green" | "orange" | "red" | "neutral";
   value: string;
 }) {
   return (
-    <div
+    <motion.div
+      layout
       className={`rounded-lg border p-4 shadow-[0_18px_50px_rgba(0,0,0,0.22)] ${toneClasses[tone]}`}
+      transition={{ type: "spring", stiffness: 320, damping: 28 }}
     >
       <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] opacity-75">
@@ -108,14 +119,18 @@ function StatCard({
           {icon}
         </span>
       </div>
-      <p
+      <motion.p
+        key={value}
+        initial={{ opacity: 0.72, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18 }}
         className={`mt-3 font-black text-white ${
           emphasized ? "text-5xl" : "text-3xl"
         }`}
       >
         {value}
-      </p>
-    </div>
+      </motion.p>
+    </motion.div>
   );
 }
 

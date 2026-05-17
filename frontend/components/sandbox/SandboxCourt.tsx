@@ -13,6 +13,7 @@ import Draggable, {
   type DraggableData,
   type DraggableEvent,
 } from "react-draggable";
+import { motion } from "framer-motion";
 import { Shield, UserRound } from "lucide-react";
 import { BasketballCourt } from "@/components/court/BasketballCourt";
 import {
@@ -38,6 +39,7 @@ type SandboxCourtProps = {
   defenders: SandboxDefender[];
   onDefenderMove: (id: string, point: CourtPoint) => void;
   onShooterMove: (point: CourtPoint) => void;
+  showLines?: boolean;
   shooter: CourtPoint;
   stats?: SandboxStats;
 };
@@ -69,6 +71,7 @@ export function SandboxCourt({
   defenders,
   onDefenderMove,
   onShooterMove,
+  showLines = true,
   shooter,
   stats: providedStats,
 }: SandboxCourtProps) {
@@ -112,7 +115,7 @@ export function SandboxCourt({
   return (
     <div>
       <div ref={courtRef}>
-        <BasketballCourt>
+        <BasketballCourt showLines={showLines}>
           {courtSize.width > 0 ? (
             <>
               <CourtMarker
@@ -231,10 +234,17 @@ function CourtMarker({
         ref={nodeRef}
         type="button"
         aria-label={ariaLabel}
-        className={`absolute grid place-items-center rounded-full outline-none transition hover:scale-105 focus-visible:ring-2 focus-visible:ring-white ${markerStyles[tone]}`}
+        className={`absolute grid cursor-grab place-items-center rounded-full outline-none transition active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-white [touch-action:none] ${markerStyles[tone]}`}
         style={{ width: markerSize, height: markerSize }}
       >
-        {icon}
+        <motion.span
+          className="grid size-full place-items-center rounded-full"
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.94 }}
+          transition={{ type: "spring", stiffness: 420, damping: 24 }}
+        >
+          {icon}
+        </motion.span>
         {label ? (
           <span className="absolute -bottom-6 rounded-full border border-white/10 bg-black/70 px-2 py-0.5 text-[10px] font-black text-white">
             {label}
