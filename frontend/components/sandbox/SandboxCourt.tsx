@@ -16,36 +16,30 @@ import Draggable, {
 import { Shield, UserRound } from "lucide-react";
 import { BasketballCourt } from "@/components/court/BasketballCourt";
 import {
-  BASKET_LOCATION,
   COURT_LENGTH_FT,
   COURT_WIDTH_FT,
-  calculateDistance,
+  calculateSandboxStats,
   clamp,
-  getDefenderPressure,
-  getShotType,
-  getShotZone,
   type CourtPoint,
   type DefenderPressure,
+  type SandboxDefender,
+  type SandboxStats,
 } from "@/lib/sandbox-metrics";
 
 const SHOOTER_SIZE = 58;
 const DEFENDER_SIZE = 46;
-const INITIAL_SHOOTER: CourtPoint = { x: 38, y: 26 };
-const INITIAL_DEFENDERS = [
-  { id: "d1", label: "D1", point: { x: 33, y: 23 }, tone: "red" },
-  { id: "d2", label: "D2", point: { x: 18, y: 20 }, tone: "blue" },
-] as const;
-
-type Defender = {
-  id: string;
-  label: string;
-  point: CourtPoint;
-  tone: "red" | "blue";
-};
 
 type ElementSize = {
   width: number;
   height: number;
+};
+
+type SandboxCourtProps = {
+  defenders: SandboxDefender[];
+  onDefenderMove: (id: string, point: CourtPoint) => void;
+  onShooterMove: (point: CourtPoint) => void;
+  shooter: CourtPoint;
+  stats?: SandboxStats;
 };
 
 function pointToPixels(
@@ -71,17 +65,19 @@ function pixelsToPoint(
   };
 }
 
-export function SandboxCourt() {
+export function SandboxCourt({
+  defenders,
+  onDefenderMove,
+  onShooterMove,
+  shooter,
+  stats: providedStats,
+}: SandboxCourtProps) {
   const courtRef = useRef<HTMLDivElement>(null);
   const shooterRef = useRef<HTMLButtonElement>(null);
   const [courtSize, setCourtSize] = useState<ElementSize>({
     width: 0,
     height: 0,
   });
-  const [shooter, setShooter] = useState<CourtPoint>(INITIAL_SHOOTER);
-  const [defenders, setDefenders] = useState<Defender[]>(
-    INITIAL_DEFENDERS.map((defender) => ({ ...defender })),
-  );
 
   useEffect(() => {
     const court = courtRef.current;
@@ -103,25 +99,15 @@ export function SandboxCourt() {
     return () => observer.disconnect();
   }, []);
 
-  const shotDistance = calculateDistance(shooter, BASKET_LOCATION);
-  const shotZone = getShotZone(shooter);
-  const shotType = getShotType(shooter);
-  const defenderDistances = defenders.map((defender) => ({
-    ...defender,
-    distance: calculateDistance(shooter, defender.point),
-  }));
-  const closestDefenderDistance = Math.min(
-    ...defenderDistances.map((defender) => defender.distance),
-  );
-  const pressure = getDefenderPressure(closestDefenderDistance);
+  const stats =
+    providedStats ?? calculateSandboxStats(shooter, defenders);
 
-  const handleDefenderDrag = useCallback((id: string, point: CourtPoint) => {
-    setDefenders((current) =>
-      current.map((defender) =>
-        defender.id === id ? { ...defender, point } : defender,
-      ),
-    );
-  }, []);
+  const handleDefenderDrag = useCallback(
+    (id: string, point: CourtPoint) => {
+      onDefenderMove(id, point);
+    },
+    [onDefenderMove],
+  );
 
   return (
     <div>
@@ -135,7 +121,7 @@ export function SandboxCourt() {
                 icon={<UserRound className="size-7" />}
                 markerRef={shooterRef}
                 markerSize={SHOOTER_SIZE}
-                onMove={setShooter}
+                onMove={onShooterMove}
                 point={shooter}
                 tone="shooter"
               />
@@ -161,12 +147,18 @@ export function SandboxCourt() {
       <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <MetricPill label="X Coordinate" value={`${shooter.x.toFixed(1)} ft`} />
         <MetricPill label="Y Coordinate" value={`${shooter.y.toFixed(1)} ft`} />
-        <MetricPill label="Distance" value={`${shotDistance.toFixed(1)} ft`} />
-        <MetricPill label="Shot Zone" value={`${shotZone} (${shotType})`} />
+        <MetricPill
+          label="Distance"
+          value={`${stats.distanceToBasket.toFixed(1)} ft`}
+        />
+        <MetricPill
+          label="Shot Zone"
+          value={`${stats.shotZone} (${stats.shotType})`}
+        />
       </div>
 
       <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
-        {defenderDistances.map((defender) => (
+        {stats.defenderDistances.map((defender) => (
           <MetricPill
             key={defender.id}
             label={`${defender.label} Distance`}
@@ -174,13 +166,14 @@ export function SandboxCourt() {
           />
         ))}
         <div
-          className={`rounded-lg border px-4 py-3 ${pressureStyles[pressure]}`}
+          className={`rounded-lg border px-4 py-3 ${pressureStyles[stats.defenderPressure]}`}
         >
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] opacity-75">
             Defender Pressure
           </p>
           <p className="mt-1 font-black">
-            {pressure} · {closestDefenderDistance.toFixed(1)} ft
+            {stats.defenderPressure} ·{" "}
+            {stats.closestDefenderDistance.toFixed(1)} ft
           </p>
         </div>
       </div>

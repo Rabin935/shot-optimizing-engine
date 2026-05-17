@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { ArrowLeft, Gauge, Target, Trophy } from "lucide-react";
-import { SandboxCourt } from "@/components/sandbox/SandboxCourt";
+import { ArrowLeft, Target } from "lucide-react";
+import { SandboxExperience } from "@/components/sandbox/SandboxExperience";
 
 export default function SandboxPage() {
   return (
@@ -39,47 +39,7 @@ export default function SandboxPage() {
           </p>
         </header>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,0.73fr)_minmax(280px,0.27fr)]">
-          <section className="min-w-0 rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-[0_28px_80px_rgba(0,0,0,0.38)] sm:p-5">
-            <SandboxCourt />
-          </section>
-
-          <aside className="rounded-lg border border-white/10 bg-white/[0.04] p-5 shadow-[0_28px_80px_rgba(0,0,0,0.32)]">
-            <div className="flex items-center gap-3 border-b border-white/10 pb-5">
-              <span className="grid size-10 place-items-center rounded-lg border border-green-300/25 bg-green-400/10 text-green-100">
-                <Gauge className="size-5" />
-              </span>
-              <div>
-                <p className="text-sm font-black text-white">Stats Sidebar</p>
-                <p className="text-xs text-slate-400">Live shot readout</p>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-4">
-              <div className="rounded-lg border border-green-300/20 bg-green-400/10 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-green-200">
-                  Make Probability
-                </p>
-                <p className="mt-2 text-4xl font-black text-white">48.5%</p>
-              </div>
-              <div className="rounded-lg border border-orange-300/20 bg-orange-500/10 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-200">
-                  Expected Points
-                </p>
-                <p className="mt-2 text-4xl font-black text-white">1.28</p>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-black/30 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-                  Shot Context
-                </p>
-                <div className="mt-3 flex items-center gap-2 text-sm font-bold text-slate-200">
-                  <Trophy className="size-4 text-orange-200" />
-                  Awaiting player placement
-                </div>
-              </div>
-            </div>
-          </aside>
-        </div>
+        <SandboxExperience />
       </section>
     </main>
   );
