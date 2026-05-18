@@ -17,12 +17,14 @@ import { motion } from "framer-motion";
 import { Shield, UserRound } from "lucide-react";
 import { BasketballCourt } from "@/components/court/BasketballCourt";
 import {
+  BASKET_LOCATION,
   COURT_LENGTH_FT,
   COURT_WIDTH_FT,
   calculateSandboxStats,
   clamp,
   type CourtPoint,
   type DefenderPressure,
+  type DefenderDistance,
   type SandboxDefender,
   type SandboxStats,
 } from "@/lib/sandbox-metrics";
@@ -52,6 +54,13 @@ function pointToPixels(
   return {
     x: (point.x / COURT_WIDTH_FT) * size.width - markerSize / 2,
     y: (point.y / COURT_LENGTH_FT) * size.height - markerSize / 2,
+  };
+}
+
+function pointToCenterPixels(point: CourtPoint, size: ElementSize) {
+  return {
+    x: (point.x / COURT_WIDTH_FT) * size.width,
+    y: (point.y / COURT_LENGTH_FT) * size.height,
   };
 }
 
@@ -118,6 +127,12 @@ export function SandboxCourt({
         <BasketballCourt showLines={showLines}>
           {courtSize.width > 0 ? (
             <>
+              <CourtTelemetryOverlay
+                courtSize={courtSize}
+                defenders={stats.defenderDistances}
+                shooter={shooter}
+              />
+
               <CourtMarker
                 ariaLabel="Drag shooter"
                 courtSize={courtSize}
@@ -175,12 +190,114 @@ export function SandboxCourt({
             Defender Pressure
           </p>
           <p className="mt-1 font-black">
-            {stats.defenderPressure} ·{" "}
+            {stats.defenderPressure} /{" "}
             {stats.closestDefenderDistance.toFixed(1)} ft
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+function CourtTelemetryOverlay({
+  courtSize,
+  defenders,
+  shooter,
+}: {
+  courtSize: ElementSize;
+  defenders: DefenderDistance[];
+  shooter: CourtPoint;
+}) {
+  const shooterPixels = pointToCenterPixels(shooter, courtSize);
+  const basketPixels = pointToCenterPixels(BASKET_LOCATION, courtSize);
+  const scale = Math.min(
+    courtSize.width / COURT_WIDTH_FT,
+    courtSize.height / COURT_LENGTH_FT,
+  );
+  const pressureRadius = 6 * scale;
+  const arcControl = {
+    x: (shooterPixels.x + basketPixels.x) / 2,
+    y: Math.min(shooterPixels.y, basketPixels.y) - 78,
+  };
+  const shotPath = `M ${shooterPixels.x} ${shooterPixels.y} Q ${arcControl.x} ${arcControl.y} ${basketPixels.x} ${basketPixels.y}`;
+  const closestDefender = defenders.reduce((closest, defender) =>
+    defender.distance < closest.distance ? defender : closest,
+  );
+
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 h-full w-full"
+      aria-hidden="true"
+    >
+      <defs>
+        <filter
+          id="sandbox-telemetry-glow"
+          x="-40%"
+          y="-40%"
+          width="180%"
+          height="180%"
+        >
+          <feGaussianBlur stdDeviation="5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      <motion.circle
+        cx={shooterPixels.x}
+        cy={shooterPixels.y}
+        r={pressureRadius}
+        fill="rgba(255,255,255,0.03)"
+        stroke="rgba(255,255,255,0.18)"
+        strokeDasharray="7 9"
+        initial={false}
+        animate={{ cx: shooterPixels.x, cy: shooterPixels.y }}
+        transition={{ type: "spring", stiffness: 180, damping: 28 }}
+      />
+      <motion.path
+        d={shotPath}
+        fill="none"
+        stroke="#FF6A00"
+        strokeDasharray="10 10"
+        strokeLinecap="round"
+        strokeWidth="3"
+        filter="url(#sandbox-telemetry-glow)"
+        initial={{ pathLength: 0, opacity: 0 }}
+        animate={{ pathLength: 1, opacity: 0.88 }}
+        transition={{ duration: 0.55, ease: "easeOut" }}
+      />
+      {defenders.map((defender) => {
+        const defenderPixels = pointToCenterPixels(defender.point, courtSize);
+
+        return (
+          <motion.line
+            key={defender.id}
+            x1={shooterPixels.x}
+            y1={shooterPixels.y}
+            x2={defenderPixels.x}
+            y2={defenderPixels.y}
+            stroke={
+              defender.id === closestDefender.id
+                ? "rgba(248,113,113,0.5)"
+                : "rgba(56,189,248,0.32)"
+            }
+            strokeDasharray={defender.id === closestDefender.id ? "0" : "5 8"}
+            strokeLinecap="round"
+            strokeWidth={defender.id === closestDefender.id ? "2.5" : "1.5"}
+            initial={false}
+            animate={{
+              x1: shooterPixels.x,
+              x2: defenderPixels.x,
+              y1: shooterPixels.y,
+              y2: defenderPixels.y,
+            }}
+            transition={{ type: "spring", stiffness: 200, damping: 30 }}
+          />
+        );
+      })}
+    </svg>
   );
 }
 
