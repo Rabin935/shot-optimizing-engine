@@ -13,7 +13,7 @@ export function BasketballCourt({
 }: BasketballCourtProps) {
   return (
     <div
-      className={`relative isolate aspect-[50/47] min-h-[360px] overflow-hidden rounded-lg border border-white/10 bg-[#1A472A] shadow-[inset_0_0_70px_rgba(0,0,0,0.28)] sm:min-h-[460px] xl:min-h-[560px] ${className}`}
+      className={`relative isolate aspect-[50/47] min-h-[360px] overflow-hidden rounded-lg border border-white/10 bg-[#c99252] shadow-[inset_0_0_70px_rgba(0,0,0,0.28)] sm:min-h-[460px] xl:min-h-[560px] ${className}`}
     >
       <svg
         className="absolute inset-0 h-full w-full"
@@ -23,14 +23,41 @@ export function BasketballCourt({
         preserveAspectRatio="none"
       >
         <defs>
+          <linearGradient id="hardwood-base" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stopColor="#f0c47a" />
+            <stop offset="0.45" stopColor="#c98a43" />
+            <stop offset="1" stopColor="#9f6230" />
+          </linearGradient>
           <pattern
-            id="court-texture"
-            width="34"
-            height="34"
+            id="hardwood-planks"
+            width="500"
+            height="48"
             patternUnits="userSpaceOnUse"
           >
-            <path d="M0 0H34M0 17H34M17 0V34" stroke="#ffffff" strokeOpacity="0.035" />
+            <rect width="500" height="48" fill="transparent" />
+            <path d="M0 0H500M0 48H500" stroke="#6f3f1f" strokeOpacity="0.28" strokeWidth="1.5" />
+            <path d="M76 0V48M184 0V48M307 0V48M426 0V48" stroke="#fff2ca" strokeOpacity="0.1" />
+            <path d="M24 12C88 4 139 24 206 13S326 5 476 18" stroke="#fff0c6" strokeOpacity="0.12" fill="none" />
+            <path d="M9 33C92 43 152 26 242 36S384 48 494 32" stroke="#5f3319" strokeOpacity="0.13" fill="none" />
           </pattern>
+          <radialGradient id="heat-paint" cx="50%" cy="16%" r="34%">
+            <stop offset="0" stopColor="#ef4444" stopOpacity="0.52" />
+            <stop offset="0.45" stopColor="#f97316" stopOpacity="0.28" />
+            <stop offset="1" stopColor="#f97316" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="heat-corner-left" cx="7%" cy="26%" r="22%">
+            <stop offset="0" stopColor="#22c55e" stopOpacity="0.42" />
+            <stop offset="1" stopColor="#22c55e" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="heat-corner-right" cx="93%" cy="26%" r="22%">
+            <stop offset="0" stopColor="#22c55e" stopOpacity="0.42" />
+            <stop offset="1" stopColor="#22c55e" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="heat-wing" cx="50%" cy="62%" r="46%">
+            <stop offset="0" stopColor="#38bdf8" stopOpacity="0.2" />
+            <stop offset="0.58" stopColor="#f59e0b" stopOpacity="0.16" />
+            <stop offset="1" stopColor="#f59e0b" stopOpacity="0" />
+          </radialGradient>
           <filter id="rim-glow" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feMerge>
@@ -40,8 +67,39 @@ export function BasketballCourt({
           </filter>
         </defs>
 
-        <rect width="500" height="470" fill="#1A472A" />
-        <rect width="500" height="470" fill="url(#court-texture)" />
+        <rect width="500" height="470" fill="url(#hardwood-base)" />
+        <rect width="500" height="470" fill="url(#hardwood-planks)" />
+        <rect width="500" height="470" fill="url(#heat-wing)" />
+        <rect width="500" height="470" fill="url(#heat-paint)" />
+        <rect width="500" height="470" fill="url(#heat-corner-left)" />
+        <rect width="500" height="470" fill="url(#heat-corner-right)" />
+        <rect width="500" height="470" fill="rgba(58,32,13,0.12)" />
+        <path
+          d="M170 20V210H330V20Z"
+          fill="rgba(30,64,175,0.16)"
+          stroke="rgba(255,255,255,0.12)"
+          strokeWidth="1"
+        />
+        <circle
+          cx="250"
+          cy="248"
+          r="58"
+          fill="none"
+          stroke="rgba(255,255,255,0.08)"
+          strokeWidth="10"
+        />
+        <text
+          x="250"
+          y="255"
+          fill="rgba(255,255,255,0.08)"
+          fontFamily="Arial, Helvetica, sans-serif"
+          fontSize="32"
+          fontWeight="900"
+          letterSpacing="0"
+          textAnchor="middle"
+        >
+          SHOTOPTIX
+        </text>
         <rect
           x="8"
           y="8"
@@ -72,7 +130,6 @@ export function BasketballCourt({
               <path d="M388 380H480" strokeOpacity="0.36" />
               <path d="M190 466A60 60 0 0 1 310 466" strokeOpacity="0.42" />
             </g>
-
             <g stroke="rgba(255,255,255,0.66)">
               <path d="M30 20V142" />
               <path d="M470 20V142" />
@@ -117,7 +174,7 @@ export function BasketballCourt({
         ) : null}
       </svg>
 
-      <div className="pointer-events-none absolute inset-0 opacity-[0.12] [background-image:linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.22)_48%,transparent_54%),linear-gradient(0deg,rgba(0,0,0,0.22),transparent_24%,transparent_76%,rgba(0,0,0,0.28))] [background-size:180px_100%,100%_100%]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.16] [background-image:linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.2)_48%,transparent_54%),linear-gradient(0deg,rgba(0,0,0,0.32),transparent_24%,transparent_76%,rgba(0,0,0,0.28))] [background-size:180px_100%,100%_100%]" />
       <div className="absolute inset-0">{children}</div>
     </div>
   );
