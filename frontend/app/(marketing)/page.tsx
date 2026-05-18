@@ -168,7 +168,7 @@ export default function Home() {
           </div>
 
           <Link
-            href="/demo"
+            href="/sandbox"
             className="hidden items-center gap-2 rounded-full bg-orange-500 px-5 py-3 text-sm font-black text-black shadow-[0_18px_45px_rgba(255,77,0,0.24)] transition hover:-translate-y-0.5 hover:bg-orange-400 sm:inline-flex"
           >
             Launch Simulator
@@ -221,10 +221,10 @@ export default function Home() {
               className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row"
             >
               <Link
-                href="/demo"
+                href="/sandbox"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-orange-500 px-6 py-3 text-sm font-black text-black shadow-[0_22px_55px_rgba(255,77,0,0.3)] transition hover:-translate-y-0.5 hover:bg-orange-400"
               >
-                Try Interactive Simulator
+                Interactive Simulator
                 <ArrowRight className="size-4" />
               </Link>
               <a
