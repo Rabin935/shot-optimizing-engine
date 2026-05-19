@@ -3,17 +3,21 @@ import type { ReactNode } from "react";
 type BasketballCourtProps = {
   children?: ReactNode;
   className?: string;
+  feedbackTone?: "green" | "orange" | "red" | "sky";
+  showLabels?: boolean;
   showLines?: boolean;
 };
 
 export function BasketballCourt({
   children,
   className = "",
+  feedbackTone = "sky",
+  showLabels = true,
   showLines = true,
 }: BasketballCourtProps) {
   return (
     <div
-      className={`relative isolate aspect-[50/47] min-h-[360px] overflow-hidden rounded-lg border border-white/10 bg-[#c99252] shadow-[inset_0_0_70px_rgba(0,0,0,0.28)] sm:min-h-[460px] xl:min-h-[560px] ${className}`}
+      className={`relative isolate aspect-[50/47] min-h-[320px] overflow-hidden rounded-lg border border-white/10 bg-[#be7b3d] shadow-[0_30px_90px_rgba(0,0,0,0.38),inset_0_0_80px_rgba(0,0,0,0.28)] sm:min-h-[430px] xl:min-h-[560px] ${feedbackGlow[feedbackTone]} ${className}`}
     >
       <svg
         className="absolute inset-0 h-full w-full"
@@ -24,21 +28,21 @@ export function BasketballCourt({
       >
         <defs>
           <linearGradient id="hardwood-base" x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0" stopColor="#f0c47a" />
-            <stop offset="0.45" stopColor="#c98a43" />
-            <stop offset="1" stopColor="#9f6230" />
+            <stop offset="0" stopColor="#f3c987" />
+            <stop offset="0.4" stopColor="#c88742" />
+            <stop offset="1" stopColor="#8a4d27" />
           </linearGradient>
           <pattern
             id="hardwood-planks"
             width="500"
-            height="48"
+            height="42"
             patternUnits="userSpaceOnUse"
           >
-            <rect width="500" height="48" fill="transparent" />
-            <path d="M0 0H500M0 48H500" stroke="#6f3f1f" strokeOpacity="0.28" strokeWidth="1.5" />
-            <path d="M76 0V48M184 0V48M307 0V48M426 0V48" stroke="#fff2ca" strokeOpacity="0.1" />
-            <path d="M24 12C88 4 139 24 206 13S326 5 476 18" stroke="#fff0c6" strokeOpacity="0.12" fill="none" />
-            <path d="M9 33C92 43 152 26 242 36S384 48 494 32" stroke="#5f3319" strokeOpacity="0.13" fill="none" />
+            <rect width="500" height="42" fill="transparent" />
+            <path d="M0 0H500M0 42H500" stroke="#603315" strokeOpacity="0.3" strokeWidth="1.4" />
+            <path d="M64 0V42M151 0V42M263 0V42M361 0V42M452 0V42" stroke="#fff1c4" strokeOpacity="0.11" />
+            <path d="M16 11C82 2 142 22 209 12S326 3 484 17" stroke="#fff2c8" strokeOpacity="0.14" fill="none" />
+            <path d="M7 30C92 40 156 24 245 33S384 46 495 29" stroke="#4d2613" strokeOpacity="0.14" fill="none" />
           </pattern>
           <radialGradient id="heat-paint" cx="50%" cy="16%" r="34%">
             <stop offset="0" stopColor="#ef4444" stopOpacity="0.52" />
@@ -65,6 +69,9 @@ export function BasketballCourt({
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
+          <filter id="paint-shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="8" stdDeviation="7" floodColor="#1f1309" floodOpacity="0.24" />
+          </filter>
         </defs>
 
         <rect width="500" height="470" fill="url(#hardwood-base)" />
@@ -76,9 +83,10 @@ export function BasketballCourt({
         <rect width="500" height="470" fill="rgba(58,32,13,0.12)" />
         <path
           d="M170 20V210H330V20Z"
-          fill="rgba(30,64,175,0.16)"
-          stroke="rgba(255,255,255,0.12)"
+          fill="rgba(15,23,42,0.18)"
+          stroke="rgba(255,255,255,0.16)"
           strokeWidth="1"
+          filter="url(#paint-shadow)"
         />
         <circle
           cx="250"
@@ -100,6 +108,14 @@ export function BasketballCourt({
         >
           SHOTOPTIX
         </text>
+        <path
+          d="M18 112C82 132 133 176 166 238C189 281 218 316 250 316C282 316 311 281 334 238C367 176 418 132 482 112"
+          fill="none"
+          stroke="rgba(15,23,42,0.16)"
+          strokeDasharray="2 11"
+          strokeLinecap="round"
+          strokeWidth="2"
+        />
         <rect
           x="8"
           y="8"
@@ -151,7 +167,7 @@ export function BasketballCourt({
           </g>
         ) : null}
 
-        {showLines ? (
+        {showLabels ? (
           <g
             fill="rgba(255,255,255,0.72)"
             fontFamily="Arial, Helvetica, sans-serif"
@@ -170,12 +186,23 @@ export function BasketballCourt({
             <text x="215" y="302" fontSize="16">
               Mid-Range
             </text>
+            <text x="216" y="354" fontSize="13" fill="rgba(255,255,255,0.58)">
+              Above Break
+            </text>
           </g>
         ) : null}
       </svg>
 
-      <div className="pointer-events-none absolute inset-0 opacity-[0.16] [background-image:linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.2)_48%,transparent_54%),linear-gradient(0deg,rgba(0,0,0,0.32),transparent_24%,transparent_76%,rgba(0,0,0,0.28))] [background-size:180px_100%,100%_100%]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.14] [background-image:linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.22)_48%,transparent_54%),linear-gradient(0deg,rgba(0,0,0,0.32),transparent_24%,transparent_76%,rgba(0,0,0,0.28))] [background-size:180px_100%,100%_100%]" />
+      <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10" />
       <div className="absolute inset-0">{children}</div>
     </div>
   );
 }
+
+const feedbackGlow = {
+  green: "shadow-green-500/10",
+  orange: "shadow-orange-500/10",
+  red: "shadow-red-500/10",
+  sky: "shadow-sky-500/10",
+};
