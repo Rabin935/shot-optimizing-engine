@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.schemas import ShotPredictionRequest, ShotPredictionResponse
+from app.services.shot_predictor import predict_shot
 
 app = FastAPI(title=settings.app_name, version=settings.app_version)
 
@@ -20,3 +22,8 @@ def health_check() -> dict[str, str]:
         "message": "ShotOptix Backend is running",
         "status": "ok",
     }
+
+
+@app.post("/api/predict-shot", response_model=ShotPredictionResponse)
+def predict_shot_endpoint(shot: ShotPredictionRequest) -> ShotPredictionResponse:
+    return predict_shot(shot)
