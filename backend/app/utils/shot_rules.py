@@ -77,3 +77,19 @@ def calculate_make_probability(
         probability -= 0.06
 
     return round(clamp_probability(probability), 2)
+
+
+def score_shot_quality(epps: float) -> str:
+    if epps >= 1.25:
+        return "Excellent"
+
+    if epps >= 1.05:
+        return "Good"
+
+    if epps >= 0.85:
+        return "Average"
+
+    if epps >= 0.65:
+        return "Poor"
+
+    return "Bad"
