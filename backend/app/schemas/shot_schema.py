@@ -1,20 +1,19 @@
-from pydantic import BaseModel, Field
-
+from pydantic import BaseModel, ConfigDict, Field
 
 class ShotPredictionRequest(BaseModel):
-    shooter_x: float = Field(..., description="Shooter x-position from the sandbox court")
-    shooter_y: float = Field(..., description="Shooter y-position from the sandbox court")
-    defender_x: float = Field(..., description="Defender x-position from the sandbox court")
-    defender_y: float = Field(..., description="Defender y-position from the sandbox court")
-    shot_distance: float = Field(..., ge=0, description="Shot distance in feet")
-    shot_angle: float = Field(..., description="Shot angle in degrees")
-    shot_zone: str = Field(..., min_length=1, description="Shot zone label from the frontend")
-    defender_distance: float = Field(..., ge=0, description="Distance to nearest defender in feet")
-    pressure_level: str = Field(..., min_length=1, description="Defender pressure label")
-    shot_value: int = Field(..., ge=1, le=3, description="Point value of the shot")
-
-    model_config = {
-        "json_schema_extra": {
+    shooter_x: float
+    shooter_y: float
+    defender_x: float
+    defender_y: float
+    shot_distance: float = Field(..., ge=0)
+    shot_angle: float = Field(..., ge=0, le=180)
+    shot_zone: str
+    defender_distance: float = Field(..., ge=0)
+    pressure_level: str
+    shot_vlue: int = Field(..., ge=2, le=3)
+    
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "shooter_x": 120,
                 "shooter_y": 340,
@@ -28,30 +27,27 @@ class ShotPredictionRequest(BaseModel):
                 "shot_value": 3,
             }
         }
-    }
-
-
+    )
+    
 class ShotPredictionResponse(BaseModel):
-    make_probability: float
+    make_probability: float = Field(..., ge=0, le=1)
     make_probability_percent: str
-    shot_value: int
-    epps: float
+    shot_value: int = Field(..., ge=2, le=3)
+    epps: float = Field(..., ge=0)
     shot_quality: str
-    defender_pressure: str
     recommendation: str
     confidence: str
-
-    model_config = {
-        "json_schema_extra": {
+    
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "make_probability": 0.38,
                 "make_probability_percent": "38.0%",
                 "shot_value": 3,
                 "epps": 1.14,
                 "shot_quality": "Good",
-                "defender_pressure": "Tight",
-                "recommendation": "Good value shot, but create a little more space from the defender.",
+                "recommendation": "Good value shot, but create more space.",
                 "confidence": "Medium",
-            }
+                }
         }
-    }
+    )
