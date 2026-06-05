@@ -8,15 +8,15 @@ from app.services.shot_predictor import predict_shot
 app = FastAPI(
     title="ShotOptix Backend API",
     description="Backend API for the ShotOptix basketball shot optimization engine",
-    version="0.1.0",
+    version = settings.app_version,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_origin],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins = settings.allowed_origins,
+    allow_credentials = True,
+    allow_methods = ["*"],
+    allow_headers = ["*"],
 )
 
 @app.get("/")
