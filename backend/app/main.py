@@ -5,7 +5,11 @@ from app.core.config import settings
 from app.schemas import ShotPredictionRequest, ShotPredictionResponse
 from app.services.shot_predictor import predict_shot
 
-app = FastAPI(title=settings.app_name, version=settings.app_version)
+app = FastAPI(
+    title="ShotOptix Backend API",
+    description="Backend API for the ShotOptix basketball shot optimization engine",
+    version="0.1.0",
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -15,13 +19,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.get("/")
-def health_check() -> dict[str, str]:
+def read_root():
     return {
-        "message": "ShotOptix Backend is running",
-        "status": "ok",
+        "message": "ShotOptix backend is running",
     }
+
+@app.get("/api/health")
+def health_check():
+    return {
+        "status": "healthy"    
+        }
 
 
 @app.post("/api/predict-shot", response_model=ShotPredictionResponse)
