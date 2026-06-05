@@ -17,10 +17,16 @@ pip install -r requirements.txt
 ## Run
 
 ```powershell
-uvicorn app.main:app --reload
+.\venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
 The API starts at `http://localhost:8000`.
+
+If your virtual environment is activated, this shorter command also works:
+
+```powershell
+uvicorn app.main:app --reload
+```
 
 ## Endpoints
 

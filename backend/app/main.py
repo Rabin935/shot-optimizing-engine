@@ -22,7 +22,8 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     return {
-        "message": "ShotOptix backend is running",
+        "message": "ShotOptix Backend is running",
+        "status": "ok",
     }
 
 @app.get("/api/health")
