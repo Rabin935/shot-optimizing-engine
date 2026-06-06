@@ -87,8 +87,11 @@ def get_confidence_level(shot_distance: float, pressure_level: str) -> str:
     if normalized_pressure not in known_pressure_levels:
         return "Low"
 
-    # Long shots are valid, but the simple rules are less certain for them.
-    if shot_distance >= 28:
+    if normalized_pressure == "very tight":
+        return "Low"
+
+    # Long or contested shots are valid, but the simple rules are less certain for them.
+    if shot_distance >= 28 or normalized_pressure == "tight":
         return "Medium"
 
     return "High"
@@ -112,6 +115,9 @@ def generate_recommendation(
     # Heavy pressure is the clearest coaching signal, so handle it first.
     if normalized_pressure == "very tight" or defender_distance <= 2:
         return "Poor spacing. Create more space before shooting."
+
+    if normalized_pressure == "tight":
+        return "Create more space before taking this shot."
 
     # Low-value mid-range shots are usually worth turning into rim pressure or open threes.
     if normalized_zone in ("mid-range", "mid range") and epps < 0.85:
