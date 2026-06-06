@@ -12,10 +12,17 @@ import {
 } from "@/components/sandbox/SandboxControls";
 import { StatsPanel } from "@/components/sandbox/StatsPanel";
 import {
+  BASKET_LOCATION,
   calculateSandboxStats,
   type CourtPoint,
+  type DefenderPressure,
   type SandboxDefender,
+  type SandboxStats,
+  type ShotQuality,
+  type ShotZone,
 } from "@/lib/sandbox-metrics";
+import { useShotPrediction } from "@/hooks/useShotPrediction";
+import type { ShotPredictionRequest } from "@/lib/api/shotPrediction";
 
 const INITIAL_SHOOTER: CourtPoint = { x: 38, y: 26 };
 const INITIAL_DEFENDERS: SandboxDefender[] = [
@@ -84,6 +91,18 @@ export function SandboxExperience() {
     () => calculateSandboxStats(shooter, activeDefenders),
     [activeDefenders, shooter],
   );
+  const predictionRequest = useMemo(
+    () => buildShotPredictionRequest(shooter, stats),
+    [shooter, stats],
+  );
+  const { isBackendOffline, isLoading, prediction, status } =
+    useShotPrediction(predictionRequest, { debounceMs: 400 });
+  const displayedProbability =
+    prediction?.make_probability ?? stats.makeProbability;
+  const displayedQuality = normalizeShotQuality(
+    prediction?.shot_quality,
+    stats.shotQuality,
+  );
 
   const handleDefenderMove = (id: string, point: CourtPoint) => {
     setDefenders((current) =>
@@ -135,9 +154,7 @@ export function SandboxExperience() {
               <span className="h-2 w-2 rounded-full bg-green-300 shadow-[0_0_12px_rgba(134,239,172,0.7)]" />
               Live court sandbox
             </div>
-            <span className="w-fit rounded-md border border-orange-300/20 bg-orange-500/10 px-2.5 py-1 text-xs font-black uppercase tracking-[0.16em] text-orange-100">
-              Phase 2
-            </span>
+            <BackendBadge status={status} />
           </div>
 
           <SandboxControls
@@ -160,8 +177,13 @@ export function SandboxExperience() {
             <StatusChip
               icon={<Gauge className="size-4" />}
               label="Make Prob"
-              tone={stats.makeProbability >= 0.5 ? "green" : "neutral"}
-              value={`${(stats.makeProbability * 100).toFixed(1)}%`}
+              tone={displayedProbability >= 0.5 ? "green" : "neutral"}
+              value={
+                isLoading
+                  ? "Calculating..."
+                  : prediction?.make_probability_percent ??
+                    `${(stats.makeProbability * 100).toFixed(1)}%`
+              }
             />
             <StatusChip
               icon={<Crosshair className="size-4" />}
@@ -179,13 +201,13 @@ export function SandboxExperience() {
               icon={<Activity className="size-4" />}
               label="Quality"
               tone={
-                stats.shotQuality === "Excellent" || stats.shotQuality === "Good"
+                displayedQuality === "Excellent" || displayedQuality === "Good"
                   ? "green"
-                  : stats.shotQuality === "Bad"
+                  : displayedQuality === "Bad"
                     ? "red"
                     : "orange"
               }
-              value={stats.shotQuality}
+              value={isLoading ? "Calculating..." : displayedQuality}
             />
           </div>
 
@@ -206,8 +228,103 @@ export function SandboxExperience() {
         </div>
       </section>
 
-      <StatsPanel shooter={shooter} stats={stats} />
+      <StatsPanel
+        backendStatus={status}
+        isBackendOffline={isBackendOffline}
+        isPredictionLoading={isLoading}
+        prediction={prediction}
+        shooter={shooter}
+        stats={stats}
+      />
     </motion.div>
+  );
+}
+
+function buildShotPredictionRequest(
+  shooter: CourtPoint,
+  stats: SandboxStats,
+): ShotPredictionRequest {
+  const closestDefender =
+    stats.defenderDistances.find(
+      (defender) => defender.id === stats.closestDefenderId,
+    ) ?? null;
+  const defenderPoint = closestDefender?.point ?? shooter;
+  const defenderDistance = Number.isFinite(stats.closestDefenderDistance)
+    ? stats.closestDefenderDistance
+    : 99;
+
+  return {
+    defender_distance: roundMetric(defenderDistance),
+    defender_x: roundMetric(defenderPoint.x),
+    defender_y: roundMetric(defenderPoint.y),
+    pressure_level: toBackendPressureLevel(stats.defenderPressure),
+    shooter_x: roundMetric(shooter.x),
+    shooter_y: roundMetric(shooter.y),
+    shot_angle: roundMetric(calculateShotAngle(shooter)),
+    shot_distance: roundMetric(stats.distanceToBasket),
+    shot_value: stats.shotValue,
+    shot_zone: toBackendShotZone(stats.shotZone, stats.shotValue),
+  };
+}
+
+function calculateShotAngle(shooter: CourtPoint) {
+  const dx = BASKET_LOCATION.x - shooter.x;
+  const dy = BASKET_LOCATION.y - shooter.y;
+  const angle = Math.abs((Math.atan2(dy, dx) * 180) / Math.PI);
+
+  return Math.min(angle, 180);
+}
+
+function toBackendShotZone(shotZone: ShotZone, shotValue: 2 | 3) {
+  if (shotValue === 3) {
+    return "Three Point";
+  }
+
+  return shotZone;
+}
+
+function toBackendPressureLevel(pressure: DefenderPressure) {
+  if (pressure === "Moderate") {
+    return "Tight";
+  }
+
+  return pressure;
+}
+
+function normalizeShotQuality(
+  quality: string | undefined,
+  fallback: ShotQuality,
+): ShotQuality {
+  if (
+    quality === "Excellent" ||
+    quality === "Good" ||
+    quality === "Average" ||
+    quality === "Poor" ||
+    quality === "Bad"
+  ) {
+    return quality;
+  }
+
+  return fallback;
+}
+
+function roundMetric(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function BackendBadge({
+  status,
+}: {
+  status: "idle" | "loading" | "connected" | "offline";
+}) {
+  const badge = backendBadgeContent[status];
+
+  return (
+    <span
+      className={`w-fit rounded-md border px-2.5 py-1 text-xs font-black uppercase tracking-[0.16em] ${badge.className}`}
+    >
+      {badge.label}
+    </span>
   );
 }
 
@@ -242,4 +359,23 @@ const statusTone = {
   neutral: "border-white/10 bg-black/30 text-slate-200",
   orange: "border-orange-300/25 bg-orange-500/10 text-orange-100",
   red: "border-red-300/25 bg-red-500/10 text-red-100",
+};
+
+const backendBadgeContent = {
+  connected: {
+    className: "border-green-300/25 bg-green-400/10 text-green-100",
+    label: "Backend connected",
+  },
+  idle: {
+    className: "border-white/10 bg-white/[0.06] text-slate-200",
+    label: "Backend ready",
+  },
+  loading: {
+    className: "border-sky-300/25 bg-sky-500/10 text-sky-100",
+    label: "Checking backend",
+  },
+  offline: {
+    className: "border-red-300/30 bg-red-500/10 text-red-100",
+    label: "Backend offline",
+  },
 };
