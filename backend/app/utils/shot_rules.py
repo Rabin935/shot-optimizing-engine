@@ -69,3 +69,26 @@ def get_shot_quality(epps: float) -> str:
         return "Poor"
 
     return "Bad"
+
+
+def get_confidence_level(shot_distance: float, pressure_level: str) -> str:
+    """
+    Estimate how reliable the rule-based prediction is for this shot.
+    """
+
+    normalized_pressure = pressure_level.strip().lower()
+    known_pressure_levels = {"very tight", "tight", "open", "very open"}
+
+    # Extreme distances or unknown pressure labels make the rule estimate less reliable.
+    if shot_distance < 0 or shot_distance > 40:
+        return "Low"
+    if not normalized_pressure or normalized_pressure == "unknown":
+        return "Low"
+    if normalized_pressure not in known_pressure_levels:
+        return "Low"
+
+    # Long shots are valid, but the simple rules are less certain for them.
+    if shot_distance >= 28:
+        return "Medium"
+
+    return "High"
