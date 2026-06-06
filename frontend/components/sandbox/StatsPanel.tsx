@@ -18,17 +18,44 @@ import type {
   CourtPoint,
   DefenderPressure,
   SandboxStats,
+  ShotRecommendation,
   ShotQuality,
 } from "@/lib/sandbox-metrics";
+import type { ShotPredictionConnectionStatus } from "@/hooks/useShotPrediction";
+import type { ShotPredictionResponse } from "@/lib/api/shotPrediction";
 
 type StatsPanelProps = {
+  backendStatus: ShotPredictionConnectionStatus;
+  isBackendOffline: boolean;
+  isPredictionLoading: boolean;
+  prediction: ShotPredictionResponse | null;
   shooter: CourtPoint;
   stats: SandboxStats;
 };
 
-export function StatsPanel({ shooter, stats }: StatsPanelProps) {
-  const probability = stats.makeProbability * 100;
-  const eppsMeter = Math.min((stats.expectedPoints / 1.45) * 100, 100);
+export function StatsPanel({
+  backendStatus,
+  isBackendOffline,
+  isPredictionLoading,
+  prediction,
+  shooter,
+  stats,
+}: StatsPanelProps) {
+  const displayQuality = normalizeShotQuality(
+    prediction?.shot_quality,
+    stats.shotQuality,
+  );
+  const displayProbability = prediction?.make_probability ?? stats.makeProbability;
+  const displayEpps = prediction?.epps ?? stats.expectedPoints;
+  const displayShotValue = prediction?.shot_value ?? stats.shotValue;
+  const probability = displayProbability * 100;
+  const eppsMeter = Math.min((displayEpps / 1.45) * 100, 100);
+  const recommendation = getDisplayRecommendation(
+    isPredictionLoading,
+    prediction,
+    stats.recommendation,
+    displayQuality,
+  );
 
   return (
     <motion.aside
@@ -44,32 +71,47 @@ export function StatsPanel({ shooter, stats }: StatsPanelProps) {
           </span>
           <div>
             <p className="text-sm font-black text-white">Live Shot Model</p>
-            <p className="text-xs text-slate-400">Rule-based Phase 2 engine</p>
+            <p className="text-xs text-slate-400">
+              {backendStatus === "connected"
+                ? "FastAPI Phase 3 backend"
+                : "Local fallback ready"}
+            </p>
           </div>
         </div>
-        <span className={`rounded-md border px-2.5 py-1 text-xs font-black ${qualityBadge[stats.shotQuality]}`}>
-          {stats.shotQuality}
+        <span className={`rounded-md border px-2.5 py-1 text-xs font-black ${qualityBadge[displayQuality]}`}>
+          {isPredictionLoading ? "Calculating" : displayQuality}
         </span>
       </div>
+
+      {isBackendOffline ? (
+        <div className="mt-4 rounded-lg border border-red-300/25 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-100">
+          Backend offline — using local estimate
+        </div>
+      ) : null}
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
         <HeroMetric
           icon={<Activity className="size-5" />}
           label="Make Probability"
           tone={probability >= 50 ? "green" : probability >= 38 ? "orange" : "red"}
-          value={`${probability.toFixed(1)}%`}
+          value={
+            isPredictionLoading
+              ? "Calculating..."
+              : prediction?.make_probability_percent ??
+                `${probability.toFixed(1)}%`
+          }
         />
         <HeroMetric
           icon={<Target className="size-5" />}
           label="EPPS"
           tone={
-            stats.expectedPoints >= 1.15
+            displayEpps >= 1.15
               ? "green"
-              : stats.expectedPoints >= 0.9
+              : displayEpps >= 0.9
                 ? "orange"
                 : "red"
           }
-          value={stats.expectedPoints.toFixed(2)}
+          value={isPredictionLoading ? "Calculating..." : displayEpps.toFixed(2)}
         />
       </div>
 
@@ -82,7 +124,7 @@ export function StatsPanel({ shooter, stats }: StatsPanelProps) {
         </div>
         <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/10">
           <motion.div
-            className={`h-full rounded-full shadow-[0_0_18px_rgba(74,222,128,0.45)] ${eppsBarTone[stats.shotQuality]}`}
+            className={`h-full rounded-full shadow-[0_0_18px_rgba(74,222,128,0.45)] ${eppsBarTone[displayQuality]}`}
             initial={false}
             animate={{ width: `${eppsMeter}%` }}
             transition={{ type: "spring", stiffness: 170, damping: 24 }}
@@ -95,15 +137,15 @@ export function StatsPanel({ shooter, stats }: StatsPanelProps) {
       </div>
 
       <div className="mt-4">
-        <RecommendationCard recommendation={stats.recommendation} />
+        <RecommendationCard recommendation={recommendation} />
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
         <StatTile
           icon={<Target className="size-5" />}
           label="Shot Value"
-          tone={stats.shotValue === 3 ? "green" : "neutral"}
-          value={`${stats.shotValue} points`}
+          tone={displayShotValue === 3 ? "green" : "neutral"}
+          value={`${displayShotValue} points`}
         />
         <StatTile
           icon={<Crosshair className="size-5" />}
@@ -132,8 +174,14 @@ export function StatsPanel({ shooter, stats }: StatsPanelProps) {
         <StatTile
           icon={<Medal className="size-5" />}
           label="Shot Quality"
-          tone={qualityTone[stats.shotQuality]}
-          value={stats.shotQuality}
+          tone={qualityTone[displayQuality]}
+          value={isPredictionLoading ? "Calculating..." : displayQuality}
+        />
+        <StatTile
+          icon={<Gauge className="size-5" />}
+          label="Confidence"
+          tone={getConfidenceTone(prediction?.confidence)}
+          value={prediction?.confidence ?? "Local estimate"}
         />
       </div>
 
@@ -167,6 +215,78 @@ export function StatsPanel({ shooter, stats }: StatsPanelProps) {
       </details>
     </motion.aside>
   );
+}
+
+function getDisplayRecommendation(
+  isLoading: boolean,
+  prediction: ShotPredictionResponse | null,
+  fallback: ShotRecommendation,
+  quality: ShotQuality,
+): ShotRecommendation {
+  if (isLoading) {
+    return {
+      message: "Waiting for the backend to calculate the latest shot analytics.",
+      title: "Calculating...",
+      tone: "sky",
+    };
+  }
+
+  if (!prediction) {
+    return fallback;
+  }
+
+  return {
+    message: prediction.recommendation,
+    title: `${quality} shot recommendation`,
+    tone: getRecommendationTone(quality),
+  };
+}
+
+function normalizeShotQuality(
+  quality: string | undefined,
+  fallback: ShotQuality,
+): ShotQuality {
+  if (
+    quality === "Excellent" ||
+    quality === "Good" ||
+    quality === "Average" ||
+    quality === "Poor" ||
+    quality === "Bad"
+  ) {
+    return quality;
+  }
+
+  return fallback;
+}
+
+function getRecommendationTone(quality: ShotQuality): ShotRecommendation["tone"] {
+  if (quality === "Excellent" || quality === "Good") {
+    return "green";
+  }
+
+  if (quality === "Bad" || quality === "Poor") {
+    return "red";
+  }
+
+  return "orange";
+}
+
+function getConfidenceTone(
+  confidence: string | undefined,
+): "green" | "orange" | "red" | "neutral" {
+  if (confidence === "High") {
+    return "green";
+  }
+
+  if (confidence === "Medium") {
+    return "orange";
+  }
+
+  if (confidence === "Low") {
+    return "red";
+  }
+
+  return "neutral";
 }
 
 function HeroMetric({
