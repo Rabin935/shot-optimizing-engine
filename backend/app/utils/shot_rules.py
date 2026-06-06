@@ -92,3 +92,41 @@ def get_confidence_level(shot_distance: float, pressure_level: str) -> str:
         return "Medium"
 
     return "High"
+
+
+def generate_recommendation(
+    shot_zone: str,
+    pressure_level: str,
+    epps: float,
+    shot_quality: str,
+    defender_distance: float,
+) -> str:
+    """
+    Generate short coaching feedback from the shot context and EPPS result.
+    """
+
+    normalized_zone = shot_zone.strip().lower()
+    normalized_pressure = pressure_level.strip().lower()
+    normalized_quality = shot_quality.strip().lower()
+
+    # Heavy pressure is the clearest coaching signal, so handle it first.
+    if normalized_pressure == "very tight" or defender_distance <= 2:
+        return "Poor spacing. Create more space before shooting."
+
+    # Low-value mid-range shots are usually worth turning into rim pressure or open threes.
+    if normalized_zone in ("mid-range", "mid range") and epps < 0.85:
+        return "Low-value mid-range attempt. Look for a paint touch or open three."
+
+    if normalized_zone in ("three point", "three-point", "3pt") and normalized_pressure == "very open":
+        return "High-value open three. This is a strong shot attempt."
+
+    if normalized_zone == "paint" and normalized_pressure in ("open", "very open"):
+        return "Open paint look. Attack the rim with confidence."
+
+    if normalized_quality == "excellent":
+        return "Excellent shot quality. This is a recommended attempt."
+
+    if normalized_quality == "bad":
+        return "Poor shot attempt. Look for a better option before shooting."
+
+    return "Solid shot attempt. Stay balanced and read the defender before releasing."
