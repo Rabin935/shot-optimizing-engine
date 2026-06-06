@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
+
 class ShotPredictionRequest(BaseModel):
     shooter_x: float
     shooter_y: float
@@ -10,7 +11,7 @@ class ShotPredictionRequest(BaseModel):
     shot_zone: str
     defender_distance: float = Field(..., ge=0)
     pressure_level: str
-    shot_vlue: int = Field(..., ge=2, le=3)
+    shot_value: int = Field(..., ge=2, le=3)
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -28,7 +29,8 @@ class ShotPredictionRequest(BaseModel):
             }
         }
     )
-    
+
+
 class ShotPredictionResponse(BaseModel):
     make_probability: float = Field(..., ge=0, le=1)
     make_probability_percent: str
@@ -48,6 +50,6 @@ class ShotPredictionResponse(BaseModel):
                 "shot_quality": "Good",
                 "recommendation": "Good value shot, but create more space.",
                 "confidence": "Medium",
-                }
+            }
         }
     )
