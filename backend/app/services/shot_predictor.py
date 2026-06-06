@@ -2,52 +2,54 @@ from app.schemas import ShotPredictionRequest, ShotPredictionResponse
 from app.utils.epps import calculate_epps
 from app.utils.shot_rules import (
     calculate_make_probability,
-    get_recommendation,
-    normalize_pressure_level,
-    score_shot_quality,
+    generate_recommendation,
+    get_confidence_level,
+    get_shot_quality,
 )
 
 
-def format_probability_percent(make_probability: float) -> str:
+def _format_probability_percent(make_probability: float) -> str:
+    """Convert a decimal probability like 0.25 into a display string like 25.0%."""
+
     return f"{make_probability * 100:.1f}%"
 
 
-def get_confidence_level(shot_quality: str, defender_pressure: str) -> str:
-    if shot_quality == "Excellent" and defender_pressure in {"Open", "Very Open"}:
-        return "High"
+def predict_shot(request: ShotPredictionRequest) -> ShotPredictionResponse:
+    """
+    Run the Phase 3 rule-based shot prediction workflow.
 
-    if shot_quality in {"Poor", "Bad"} or defender_pressure == "Very Tight":
-        return "Low"
+    This service keeps prediction business logic out of the FastAPI route.
+    In Phase 4, the make probability step can be replaced with an ML model.
+    """
 
-    return "Medium"
-
-
-def predict_shot(shot: ShotPredictionRequest) -> ShotPredictionResponse:
-    defender_pressure = normalize_pressure_level(shot.pressure_level)
     make_probability = calculate_make_probability(
-        shot_zone=shot.shot_zone,
-        shot_distance=shot.shot_distance,
-        pressure_level=defender_pressure,
-        shot_value=shot.shot_value,
+        shot_zone=request.shot_zone,
+        shot_distance=request.shot_distance,
+        defender_distance=request.defender_distance,
+        pressure_level=request.pressure_level,
+        shot_value=request.shot_value,
     )
-    epps = calculate_epps(make_probability, shot.shot_value)
-    shot_quality = score_shot_quality(epps)
-    recommendation = get_recommendation(
-        shot_zone=shot.shot_zone,
-        shot_distance=shot.shot_distance,
-        shot_value=shot.shot_value,
-        pressure_level=defender_pressure,
+    make_probability_percent = _format_probability_percent(make_probability)
+    epps = calculate_epps(make_probability, request.shot_value)
+    shot_quality = get_shot_quality(epps)
+    recommendation = generate_recommendation(
+        shot_zone=request.shot_zone,
+        pressure_level=request.pressure_level,
         epps=epps,
         shot_quality=shot_quality,
+        defender_distance=request.defender_distance,
+    )
+    confidence = get_confidence_level(
+        shot_distance=request.shot_distance,
+        pressure_level=request.pressure_level,
     )
 
     return ShotPredictionResponse(
         make_probability=make_probability,
-        make_probability_percent=format_probability_percent(make_probability),
-        shot_value=shot.shot_value,
+        make_probability_percent=make_probability_percent,
+        shot_value=request.shot_value,
         epps=epps,
         shot_quality=shot_quality,
-        defender_pressure=defender_pressure,
         recommendation=recommendation,
-        confidence=get_confidence_level(shot_quality, defender_pressure),
+        confidence=confidence,
     )
