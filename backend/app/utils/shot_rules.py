@@ -14,7 +14,7 @@ def calculate_make_probability(
     normalized_zone = shot_zone.strip().lower()
     normalized_pressure = pressure_level.strip().lower()
     
-    if normalized_zone = "paint":
+    if normalized_zone == "paint":
         probability = 0.65
     elif normalized_zone in ("mid-range", "mid-range"):
         probability = 0.42
@@ -51,3 +51,21 @@ def calculate_make_probability(
     probability = max(0.05, min(probability, 0.95))
     
     return round(probability, 2)
+
+
+def get_shot_quality(epps: float) -> str:
+    """
+    Convert Expected Points Per Shot into a simple quality label.
+    """
+
+    # Higher EPPS means the shot is expected to produce more points on average.
+    if epps >= 1.25:
+        return "Excellent"
+    if epps >= 1.05:
+        return "Good"
+    if epps >= 0.85:
+        return "Average"
+    if epps >= 0.65:
+        return "Poor"
+
+    return "Bad"
