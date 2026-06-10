@@ -1,0 +1,29 @@
+{
+  "model_name": "shot_xgboost_model",
+  "model_type": "XGBoost XGBClassifier",
+  "created_phase": "Phase 4.6 - Save Trained Model and Metadata",
+  "features_used": [
+    "shot_distance",
+    "shot_angle",
+    "defender_distance",
+    "shot_value",
+    "shot_zone_paint",
+    "shot_zone_mid_range",
+    "shot_zone_three_point",
+    "shot_zone_corner_three",
+    "pressure_very_tight",
+    "pressure_tight",
+    "pressure_open",
+    "pressure_very_open"
+  ],
+  "target_column": "shot_made",
+  "metrics": {
+    "accuracy": 0.6126337159365972,
+    "precision": 0.6317293949499762,
+    "recall": 0.34349365339780674,
+    "f1_score": 0.44501622105380917,
+    "roc_auc": 0.6310558180569512
+  },
+  "training_date": "2026-06-10T14:28:38.367246+00:00",
+  "notes": "Feature order is exactly the order in features_used and must match app.ml.feature_builder.MODEL_FEATURES during FastAPI inference. If shot_xgboost_model.pkl is missing or cannot be loaded, keep using the Phase 3 rule-based fallback predictor."
+}

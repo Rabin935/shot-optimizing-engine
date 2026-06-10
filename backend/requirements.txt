@@ -3,3 +3,6 @@ uvicorn
 pydantic
 python-dotenv
 pandas
+scikit-learn
+xgboost
+joblib
