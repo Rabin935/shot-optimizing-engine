@@ -2,81 +2,130 @@
 
 FastAPI backend for the ShotOptix basketball shot optimization engine.
 
-## Phase 3 Overview
+## Phase 4 Overview
 
-Phase 3 provides a working rule-based backend API. It accepts shot context from the frontend, estimates make probability, calculates Expected Points Per Shot, labels shot quality, and returns a short coaching recommendation.
+Phase 4 integrates a trained XGBoost model into the existing prediction API. The
+backend now uses machine learning for make probability when possible, while
+keeping the Phase 3 rule-based logic as a fallback.
 
-This phase is not machine learning yet. The goal is to create a clean API contract and backend workflow before replacing the rule logic with an ML model in Phase 4.
+## What Changed From Phase 3
 
-## What The Backend Does
+Phase 3 predicted make probability with simple rules based on shot zone,
+distance, defender spacing, pressure level, and shot value.
 
-- Runs a FastAPI server.
-- Allows requests from the Next.js frontend at `http://localhost:3000`.
-- Validates shot input using Pydantic schemas.
-- Calculates make probability using simple basketball rules.
-- Calculates EPPS using the formula `make_probability * shot_value`.
-- Returns shot quality, recommendation, and confidence.
+Phase 4 adds:
 
-## Folder Structure
+- `backend/app/services/ml_shot_predictor.py` for ML-only probability
+  prediction.
+- `backend/app/ml/model_loader.py` to load the saved model and metadata.
+- `backend/app/ml/feature_builder.py` to convert API request data into model
+  features.
+- `prediction_source` in `POST /api/predict-shot` responses.
+- `GET /api/model-info` for model diagnostics.
 
-```text
-backend/
-├── app/
-│   ├── main.py
-│   ├── core/
-│   │   └── config.py
-│   ├── schemas/
-│   │   └── shot_schema.py
-│   ├── services/
-│   │   └── shot_predictor.py
-│   └── utils/
-│       ├── epps.py
-│       └── shot_rules.py
-├── requirements.txt
-└── README.md
-```
+The existing rule-based service remains available. If the model is missing or
+fails, the API still returns a prediction.
 
-## Installation
+## Rule-Based Prediction vs ML Prediction
 
-From the `backend/` folder:
+Rule-based prediction uses fixed basketball logic written by the developer. For
+example, open shots receive a positive adjustment and very tight shots receive a
+negative adjustment.
 
-```powershell
-python -m venv venv
-.\venv\Scripts\activate
-pip install -r requirements.txt
-```
+ML prediction uses patterns learned from historical shot data. Instead of using
+only fixed rules, the XGBoost model compares the current shot features with
+patterns from the training dataset and returns a make probability.
 
-## Run The Server
+## Dataset And Target
 
-From the `backend/` folder:
-
-```powershell
-uvicorn app.main:app --reload
-```
-
-If `uvicorn` is not recognized, run it through the virtual environment:
-
-```powershell
-.\venv\Scripts\python.exe -m uvicorn app.main:app --reload
-```
-
-The backend runs at:
+The workflow uses cleaned shot log data from:
 
 ```text
-http://localhost:8000
+data/processed/cleaned_shot_logs.csv
 ```
 
-Swagger API docs are available at:
+The target column is:
 
 ```text
-http://localhost:8000/docs
+shot_made
 ```
 
-## Health Check Endpoint
+`shot_made` is a binary label:
+
+- `1` means the shot was made.
+- `0` means the shot was missed.
+
+## Feature Engineering
+
+The model expects numeric columns in a fixed order. `feature_builder.py` creates
+these columns from API request data:
+
+- `shot_distance`
+- `shot_angle`
+- `defender_distance`
+- `shot_value`
+- `shot_zone_paint`
+- `shot_zone_mid_range`
+- `shot_zone_three_point`
+- `shot_zone_corner_three`
+- `pressure_very_tight`
+- `pressure_tight`
+- `pressure_open`
+- `pressure_very_open`
+
+Shot zone and pressure level are converted into one-hot encoded columns so the
+model can read them as numbers.
+
+## XGBoost Model
+
+XGBoost is a machine learning algorithm based on many decision trees. Each tree
+learns small patterns, and the final model combines those patterns to estimate a
+shot make probability.
+
+The backend uses `predict_proba`, not just `predict`, because the app needs a
+probability such as `0.42`, not only a made/missed label.
+
+## Model Training And Evaluation
+
+Training was done in the notebook workflow under `notebooks/`. The model was
+trained on engineered shot features and evaluated with metrics stored in:
+
+```text
+backend/trained_models/model_metadata.json
+```
+
+Saved metrics include:
+
+- Accuracy
+- Precision
+- Recall
+- F1 score
+- ROC AUC
+
+## Saved Model Location
+
+```text
+backend/trained_models/shot_xgboost_model.pkl
+backend/trained_models/model_metadata.json
+```
+
+## Backend Integration
+
+The request flow is:
+
+1. `POST /api/predict-shot` receives shot context.
+2. `shot_predictor.py` asks `ml_shot_predictor.py` for an ML probability.
+3. `ml_shot_predictor.py` loads the trained model and builds features.
+4. If `predict_proba` succeeds, the response uses `prediction_source:
+   "ml_model"`.
+5. If ML fails, the Phase 3 rule-based probability is used with
+   `prediction_source: "rule_based_fallback"`.
+6. EPPS, shot quality, recommendation, and confidence are calculated with the
+   existing utility functions.
+
+## API Endpoints
 
 ### `GET /`
-
-Example response:
 
 ```json
 {
@@ -85,13 +134,17 @@ Example response:
 }
 ```
 
-## Predict Shot Endpoint
+### `GET /api/health`
+
+```json
+{
+  "status": "healthy"
+}
+```
 
 ### `POST /api/predict-shot`
 
-This endpoint accepts shot information and returns a rule-based prediction.
-
-Example request body:
+Example request:
 
 ```json
 {
@@ -108,58 +161,72 @@ Example request body:
 }
 ```
 
-Example response body:
+Example response:
 
 ```json
 {
-  "make_probability": 0.25,
-  "make_probability_percent": "25.0%",
+  "make_probability": 0.38,
+  "make_probability_percent": "38.0%",
   "shot_value": 3,
-  "epps": 0.75,
-  "shot_quality": "Poor",
-  "recommendation": "Create more space before taking this shot.",
-  "confidence": "Medium"
+  "epps": 1.14,
+  "shot_quality": "Good",
+  "recommendation": "Solid shot attempt. Stay balanced and read the defender before releasing.",
+  "confidence": "Medium",
+  "prediction_source": "ml_model"
 }
 ```
 
-Invalid request data returns FastAPI/Pydantic validation errors. For example, `shot_value` must be `2` or `3`.
+### `GET /api/model-info`
 
-## EPPS Formula
+Example response:
 
-EPPS means Expected Points Per Shot.
-
-```text
-EPPS = P(make) * Shot Value
+```json
+{
+  "model_loaded": true,
+  "model_name": "ShotOptix XGBoost Shot Model",
+  "model_type": "XGBoostClassifier",
+  "features_used": [
+    "shot_distance",
+    "shot_angle",
+    "defender_distance",
+    "shot_value"
+  ],
+  "target_column": "shot_made",
+  "phase": "Phase 4",
+  "prediction_fallback": "rule_based"
+}
 ```
 
-Example:
+## Frontend Display
 
-```text
-0.38 * 3 = 1.14 EPPS
+The Next.js sandbox reads `prediction_source` and shows a small badge in the
+stats panel:
+
+- `ML Model` for `ml_model`
+- `Rule-Based Fallback` for `rule_based_fallback`
+
+If the backend is offline, the frontend keeps using its local estimate state.
+
+## Run The Server
+
+From the `backend/` folder:
+
+```powershell
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
 ```
 
-This means the shot is expected to produce `1.14` points on average.
+Swagger API docs are available at:
 
-## Rule-Based Prediction
+```text
+http://localhost:8000/docs
+```
 
-Phase 3 uses simple rules instead of ML:
+## Phase 5 Improvements
 
-- Paint shots start with a higher make probability.
-- Mid-range shots start with a medium make probability.
-- Three-point shots start with a lower make probability.
-- Tight defender pressure lowers probability.
-- Open spacing improves probability.
-- Very long shots receive a penalty.
-
-The backend then converts EPPS into labels such as `Excellent`, `Good`, `Average`, `Poor`, or `Bad`.
-
-## Phase 4 Plan
-
-In Phase 4, the rule-based probability logic can be replaced with a trained ML model such as XGBoost. The API request and response format can stay the same, which means the frontend should not need major changes.
-
-## Frontend Integration Notes
-
-- The frontend should send requests to `http://localhost:8000/api/predict-shot`.
-- The frontend development server is allowed through CORS at `http://localhost:3000`.
-- Keep request field names in `snake_case` to match the Python backend schemas.
-- Use `/docs` to test the endpoint before connecting the frontend.
+Phase 5 can improve model quality and presentation with better feature
+selection, more robust validation, probability calibration, player-specific
+models, model health checks in the frontend, and clearer shot explanations for
+coaches and users.
