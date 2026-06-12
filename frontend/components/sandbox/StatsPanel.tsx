@@ -56,6 +56,9 @@ export function StatsPanel({
     stats.recommendation,
     displayQuality,
   );
+  const predictionSourceLabel = getPredictionSourceLabel(
+    prediction?.prediction_source,
+  );
 
   return (
     <motion.aside
@@ -65,7 +68,7 @@ export function StatsPanel({
       transition={{ delay: 0.08, duration: 0.42, ease: "easeOut" }}
     >
       <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-5">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <span className="grid size-11 place-items-center rounded-lg border border-green-300/25 bg-green-400/10 text-green-100">
             <Gauge className="size-5" />
           </span>
@@ -73,14 +76,21 @@ export function StatsPanel({
             <p className="text-sm font-black text-white">Live Shot Model</p>
             <p className="text-xs text-slate-400">
               {backendStatus === "connected"
-                ? "FastAPI Phase 3 backend"
+                ? "FastAPI Phase 4 backend"
                 : "Local fallback ready"}
             </p>
           </div>
         </div>
-        <span className={`rounded-md border px-2.5 py-1 text-xs font-black ${qualityBadge[displayQuality]}`}>
-          {isPredictionLoading ? "Calculating" : displayQuality}
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          {prediction && predictionSourceLabel ? (
+            <span className="max-w-36 rounded-md border border-white/10 bg-white/[0.07] px-2.5 py-1 text-right text-[11px] font-black leading-tight text-slate-200">
+              {predictionSourceLabel}
+            </span>
+          ) : null}
+          <span className={`rounded-md border px-2.5 py-1 text-xs font-black ${qualityBadge[displayQuality]}`}>
+            {isPredictionLoading ? "Calculating" : displayQuality}
+          </span>
+        </div>
       </div>
 
       {isBackendOffline ? (
@@ -287,6 +297,22 @@ function getConfidenceTone(
   }
 
   return "neutral";
+}
+
+function getPredictionSourceLabel(source: string | undefined) {
+  if (source === "ml_model") {
+    return "ML Model";
+  }
+
+  if (source === "rule_based_fallback") {
+    return "Rule-Based Fallback";
+  }
+
+  if (!source) {
+    return "Prediction Engine";
+  }
+
+  return "Prediction Engine";
 }
 
 function HeroMetric({

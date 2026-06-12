@@ -19,6 +19,7 @@ export type ShotPredictionResponse = {
   shot_quality: string;
   recommendation: string;
   confidence: string;
+  prediction_source?: "ml_model" | "rule_based_fallback" | string;
 };
 
 type PredictShotOptions = {
