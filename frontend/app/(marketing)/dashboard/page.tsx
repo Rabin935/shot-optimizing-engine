@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { BarChart3, FlaskConical, Gauge, Upload } from "lucide-react";
+import { AppShell } from "@/components/layout/AppShell";
 
 const dashboardCards = [
   {
@@ -19,9 +21,15 @@ const dashboardCards = [
   },
 ];
 
+export const metadata: Metadata = {
+  title: "Dashboard | ShotOptix",
+  description:
+    "ShotOptix analytics dashboard for datasets, model status, and EPPS insights.",
+};
+
 export default function DashboardPage() {
   return (
-    <main className="min-h-screen bg-background px-5 py-10 text-foreground sm:px-6 lg:px-8">
+    <AppShell>
       <div className="mx-auto flex max-w-6xl flex-col gap-10">
         <header className="flex flex-col justify-between gap-5 border-b border-white/10 pb-8 sm:flex-row sm:items-end">
           <div>
@@ -68,6 +76,6 @@ export default function DashboardPage() {
           })}
         </section>
       </div>
-    </main>
+    </AppShell>
   );
 }
