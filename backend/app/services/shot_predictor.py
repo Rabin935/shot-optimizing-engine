@@ -1,4 +1,5 @@
 from app.schemas import ShotPredictionRequest, ShotPredictionResponse
+from app.services.ml_shot_predictor import predict_make_probability_ml
 from app.utils.epps import calculate_epps
 from app.utils.shot_rules import (
     calculate_make_probability,
@@ -16,19 +17,27 @@ def _format_probability_percent(make_probability: float) -> str:
 
 def predict_shot(request: ShotPredictionRequest) -> ShotPredictionResponse:
     """
-    Run the Phase 3 rule-based shot prediction workflow.
+    Run the shot prediction workflow.
 
-    This service keeps prediction business logic out of the FastAPI route.
-    In Phase 4, the make probability step can be replaced with an ML model.
+    Phase 4 tries the trained ML model first for make probability. If the model
+    is unavailable or inference fails, the original Phase 3 rule-based logic is
+    used as a stable fallback.
     """
 
-    make_probability = calculate_make_probability(
-        shot_zone=request.shot_zone,
-        shot_distance=request.shot_distance,
-        defender_distance=request.defender_distance,
-        pressure_level=request.pressure_level,
-        shot_value=request.shot_value,
-    )
+    ml_probability = predict_make_probability_ml(request)
+    if ml_probability is None:
+        make_probability = calculate_make_probability(
+            shot_zone=request.shot_zone,
+            shot_distance=request.shot_distance,
+            defender_distance=request.defender_distance,
+            pressure_level=request.pressure_level,
+            shot_value=request.shot_value,
+        )
+        prediction_source = "rule_based_fallback"
+    else:
+        make_probability = ml_probability
+        prediction_source = "ml_model"
+
     make_probability_percent = _format_probability_percent(make_probability)
     epps = calculate_epps(make_probability, request.shot_value)
     shot_quality = get_shot_quality(epps)
@@ -52,4 +61,5 @@ def predict_shot(request: ShotPredictionRequest) -> ShotPredictionResponse:
         shot_quality=shot_quality,
         recommendation=recommendation,
         confidence=confidence,
+        prediction_source=prediction_source,
     )

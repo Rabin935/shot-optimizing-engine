@@ -39,6 +39,7 @@ class ShotPredictionResponse(BaseModel):
     shot_quality: str
     recommendation: str
     confidence: str
+    prediction_source: str
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -50,6 +51,17 @@ class ShotPredictionResponse(BaseModel):
                 "shot_quality": "Good",
                 "recommendation": "Good value shot, but create more space.",
                 "confidence": "Medium",
+                "prediction_source": "ml_model",
             }
         }
     )
+
+
+class ModelInfoResponse(BaseModel):
+    model_loaded: bool
+    model_name: str
+    model_type: str
+    features_used: list[str]
+    target_column: str
+    phase: str
+    prediction_fallback: str
