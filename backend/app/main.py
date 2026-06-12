@@ -2,7 +2,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.schemas import ShotPredictionRequest, ShotPredictionResponse
+from app.ml.feature_builder import MODEL_FEATURES
+from app.ml.model_loader import get_model_metadata, load_shot_model
+from app.schemas import (
+    ModelInfoResponse,
+    ShotPredictionRequest,
+    ShotPredictionResponse,
+)
 from app.services.shot_predictor import predict_shot
 
 app = FastAPI(
@@ -41,3 +47,19 @@ def predict_shot_endpoint(shot: ShotPredictionRequest) -> ShotPredictionResponse
         return predict_shot(shot)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.get("/api/model-info", response_model=ModelInfoResponse)
+def model_info() -> ModelInfoResponse:
+    metadata = get_model_metadata() or {}
+    model = load_shot_model()
+
+    return ModelInfoResponse(
+        model_loaded=model is not None,
+        model_name="ShotOptix XGBoost Shot Model",
+        model_type="XGBoostClassifier",
+        features_used=metadata.get("features_used", MODEL_FEATURES),
+        target_column=metadata.get("target_column", "shot_made"),
+        phase="Phase 4",
+        prediction_fallback="rule_based",
+    )
