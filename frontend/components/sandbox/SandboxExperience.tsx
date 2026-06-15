@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Activity, Crosshair, Gauge, Shield } from "lucide-react";
@@ -23,18 +23,27 @@ import {
 } from "@/lib/sandbox-metrics";
 import { useShotPrediction } from "@/hooks/useShotPrediction";
 import type { ShotPredictionRequest } from "@/lib/api/shotPrediction";
-
-const INITIAL_SHOOTER: CourtPoint = { x: 38, y: 26 };
-const INITIAL_DEFENDERS: SandboxDefender[] = [
-  { id: "d1", label: "D1", point: { x: 33, y: 23 }, tone: "red" },
-  { id: "d2", label: "D2", point: { x: 18, y: 20 }, tone: "blue" },
-];
+import {
+  useShotStore,
+  type PredictionSource,
+  type SharedPressureLevel,
+  type SharedShotZone,
+  type ShotDefenderPosition,
+} from "@/store/useShotStore";
 
 const INITIAL_TOGGLES: SandboxToggles = {
   analyticsOverlay: true,
   courtLabels: true,
   defenderRadius: true,
   shotLine: true,
+};
+
+const DEFENDER_DISPLAY: Record<
+  string,
+  Pick<SandboxDefender, "label" | "tone">
+> = {
+  d1: { label: "D1", tone: "red" },
+  d2: { label: "D2", tone: "blue" },
 };
 
 const SCENARIOS = [
@@ -77,13 +86,25 @@ const SCENARIOS = [
 ] satisfies SandboxScenario[];
 
 export function SandboxExperience() {
-  // Store all user-editable sandbox state at the top of the experience.
-  const [shooter, setShooter] = useState<CourtPoint>(INITIAL_SHOOTER);
-  const [defenders, setDefenders] =
-    useState<SandboxDefender[]>(INITIAL_DEFENDERS);
+  // Zustand owns shared shot state so sandbox and simulator can stay in sync.
+  const shooter = useShotStore((state) => state.shooter);
+  const defenderPositions = useShotStore((state) => state.defenders);
+  const defenderCount = useShotStore((state) => state.activeDefenderCount);
+  const setShooterPosition = useShotStore((state) => state.setShooterPosition);
+  const setDefenderPosition = useShotStore((state) => state.setDefenderPosition);
+  const setDefenderCount = useShotStore((state) => state.setDefenderCount);
+  const updateShotMetrics = useShotStore((state) => state.updateShotMetrics);
+  const updatePredictionResult = useShotStore(
+    (state) => state.updatePredictionResult,
+  );
+  const resetShot = useShotStore((state) => state.resetShot);
   const [toggles, setToggles] = useState<SandboxToggles>(INITIAL_TOGGLES);
   const [activeScenario, setActiveScenario] = useState("wing-pullup");
-  const [defenderCount, setDefenderCount] = useState<1 | 2>(2);
+  const defenders = useMemo(
+    // Add display-only metadata to the shared defender coordinates.
+    () => defenderPositions.map(toSandboxDefender),
+    [defenderPositions],
+  );
   const activeDefenders = useMemo(
     // Defender count controls whether one or two defenders affect the model.
     () => defenders.slice(0, defenderCount),
@@ -109,13 +130,54 @@ export function SandboxExperience() {
     stats.shotQuality,
   );
 
-  const handleDefenderMove = (id: string, point: CourtPoint) => {
-    // Update only the moved defender and mark the layout as custom.
-    setDefenders((current) =>
-      current.map((defender) =>
-        defender.id === id ? { ...defender, point } : defender,
-      ),
+  useEffect(() => {
+    // Publish local sandbox metrics to the shared store for simulator consumers.
+    updateShotMetrics(
+      {
+        closestDefenderDistance: roundMetric(stats.closestDefenderDistance),
+        confidence: "Local estimate",
+        epps: roundMetric(stats.expectedPoints),
+        makeProbability: stats.makeProbability,
+        predictionSource: "local_estimate",
+        pressureLevel: toSharedPressureLevel(stats.defenderPressure),
+        recommendation: stats.recommendation.message,
+        shotAngle: roundMetric(calculateShotAngle(shooter)),
+        shotDistance: roundMetric(stats.distanceToBasket),
+        shotQuality: stats.shotQuality,
+        shotValue: stats.shotValue,
+        shotZone: toSharedShotZone(stats.shotZone, stats.shotValue),
+      },
+      "sandbox",
     );
+  }, [shooter, stats, updateShotMetrics]);
+
+  useEffect(() => {
+    if (!prediction) {
+      return;
+    }
+
+    // Publish backend ML/fallback prediction results without changing local visuals.
+    updatePredictionResult(
+      {
+        confidence: prediction.confidence,
+        epps: prediction.epps,
+        makeProbability: prediction.make_probability,
+        predictionSource: normalizePredictionSource(
+          prediction.prediction_source,
+        ),
+        recommendation: prediction.recommendation,
+        shotQuality: normalizeShotQuality(
+          prediction.shot_quality,
+          stats.shotQuality,
+        ),
+      },
+      "backend",
+    );
+  }, [prediction, stats.shotQuality, updatePredictionResult]);
+
+  const handleDefenderMove = (id: string, point: CourtPoint) => {
+    // Update only the moved defender in the shared store and mark layout custom.
+    setDefenderPosition(id, point, "sandbox");
     setActiveScenario("custom");
   };
 
@@ -128,24 +190,19 @@ export function SandboxExperience() {
   };
 
   const resetPositions = () => {
-    // Restore the initial court, defender, and overlay state.
-    setShooter(INITIAL_SHOOTER);
-    setDefenders(INITIAL_DEFENDERS);
-    setDefenderCount(2);
+    // Restore the shared shot position plus local-only UI toggles.
+    resetShot("sandbox");
     setToggles(INITIAL_TOGGLES);
     setActiveScenario("wing-pullup");
   };
 
   const applyScenario = (scenario: SandboxScenario) => {
     // Copy scenario coordinates into state so later dragging does not mutate presets.
-    setShooter(scenario.shooter);
-    setDefenders(
-      scenario.defenders.map((defender) => ({
-        ...defender,
-        point: { ...defender.point },
-      })),
-    );
-    setDefenderCount(2);
+    setShooterPosition(scenario.shooter, "sandbox");
+    scenario.defenders.forEach((defender) => {
+      setDefenderPosition(defender.id, defender.point, "sandbox");
+    });
+    setDefenderCount(2, "sandbox");
     setActiveScenario(scenario.id);
   };
 
@@ -172,7 +229,7 @@ export function SandboxExperience() {
             onApplyScenario={applyScenario}
             onReset={resetPositions}
             onToggleDefenderCount={() =>
-              setDefenderCount((current) => (current === 1 ? 2 : 1))
+              setDefenderCount(defenderCount === 1 ? 2 : 1, "sandbox")
             }
             onToggleSetting={handleToggleSetting}
             scenarios={SCENARIOS}
@@ -224,7 +281,7 @@ export function SandboxExperience() {
             defenders={activeDefenders}
             onDefenderMove={handleDefenderMove}
             onShooterMove={(point) => {
-              setShooter(point);
+              setShooterPosition(point, "sandbox");
               setActiveScenario("custom");
             }}
             shooter={shooter}
@@ -247,6 +304,21 @@ export function SandboxExperience() {
       />
     </motion.div>
   );
+}
+
+function toSandboxDefender(defender: ShotDefenderPosition): SandboxDefender {
+  // Keep visual labels/colors outside the shared data model.
+  const display = DEFENDER_DISPLAY[defender.id] ?? {
+    label: defender.id.toUpperCase(),
+    tone: "blue" as const,
+  };
+
+  return {
+    id: defender.id,
+    label: display.label,
+    point: { x: defender.x, y: defender.y },
+    tone: display.tone,
+  };
 }
 
 function buildShotPredictionRequest(
@@ -296,6 +368,14 @@ function toBackendShotZone(shotZone: ShotZone, shotValue: 2 | 3) {
   return shotZone;
 }
 
+function toSharedShotZone(
+  shotZone: ShotZone,
+  shotValue: 2 | 3,
+): SharedShotZone {
+  // The shared store uses the same three broad zones as backend prediction.
+  return toBackendShotZone(shotZone, shotValue) as SharedShotZone;
+}
+
 function toBackendPressureLevel(pressure: DefenderPressure) {
   // Backend model uses Tight instead of the frontend-only Moderate bucket.
   if (pressure === "Moderate") {
@@ -303,6 +383,11 @@ function toBackendPressureLevel(pressure: DefenderPressure) {
   }
 
   return pressure;
+}
+
+function toSharedPressureLevel(pressure: DefenderPressure): SharedPressureLevel {
+  // Convert the frontend-only Moderate bucket into the backend/store Tight bucket.
+  return toBackendPressureLevel(pressure) as SharedPressureLevel;
 }
 
 function normalizeShotQuality(
@@ -321,6 +406,15 @@ function normalizeShotQuality(
   }
 
   return fallback;
+}
+
+function normalizePredictionSource(source: string | undefined): PredictionSource {
+  // Keep unknown backend values from breaking simulator consumers.
+  if (source === "ml_model" || source === "rule_based_fallback") {
+    return source;
+  }
+
+  return "prediction_engine";
 }
 
 function roundMetric(value: number) {
