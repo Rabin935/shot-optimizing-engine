@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+:root {
+  /* Shared design tokens used by Tailwind theme variables below. */
+  --background: #0a0a0a;
+  --foreground: #f8fafc;
+  --court-green: #22c55e;
+  --deep-orange: #ff4d00;
+  --rim-orange: #ff6a00;
+  --surface: #0c0d0b;
+  --surface-strong: #15140f;
+  --line: rgba(255, 255, 255, 0.12);
+}
+
+@theme inline {
+  /* Map CSS variables into Tailwind v4 theme tokens. */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-court-green: var(--court-green);
+  --color-deep-orange: var(--deep-orange);
+  --color-rim-orange: var(--rim-orange);
+  --color-surface: var(--surface);
+  --color-surface-strong: var(--surface-strong);
+  --color-line: var(--line);
+  --font-sans: var(--font-inter);
+}
+
+html {
+  /* Smooth scrolling supports marketing-page anchor links. */
+  scroll-behavior: smooth;
+}
+
+body {
+  /* Apply the app's dark base surface and optimized font globally. */
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+::selection {
+  /* Keep selected text visible against the dark app background. */
+  background: rgba(249, 115, 22, 0.35);
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Respect users who prefer less animation and motion. */
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "model_name": "shot_xgboost_model",
+  "model_type": "XGBoost XGBClassifier",
+  "phase": "Step 6 - Save Trained ShotOptix XGBoost Model",
+  "target_column": "shot_made",
+  "features_used": [
+    "shot_distance",
+    "shot_angle",
+    "defender_distance",
+    "shot_value",
+    "zone_paint",
+    "zone_mid_range",
+    "zone_three_point",
+    "pressure_very_tight",
+    "pressure_tight",
+    "pressure_open",
+    "pressure_very_open"
+  ],
+  "training_dataset": "data/processed/shotoptix_ml_training.csv",
+  "training_rows": 102455,
+  "test_rows": 25614,
+  "metrics": {
+    "accuracy": 0.61271179823534,
+    "precision": 0.6311384809726828,
+    "recall": 0.3451342716518435,
+    "f1_score": 0.44624316177291506,
+    "roc_auc": 0.6306862086889038
+  },
+  "feature_importance": [
+    {
+      "feature": "zone_paint",
+      "importance": 0.4962072968482971
+    },
+    {
+      "feature": "pressure_very_tight",
+      "importance": 0.133988618850708
+    },
+    {
+      "feature": "shot_distance",
+      "importance": 0.12497580796480179
+    },
+    {
+      "feature": "defender_distance",
+      "importance": 0.07424426078796387
+    },
+    {
+      "feature": "pressure_tight",
+      "importance": 0.05680016428232193
+    },
+    {
+      "feature": "shot_value",
+      "importance": 0.03231533244252205
+    },
+    {
+      "feature": "pressure_very_open",
+      "importance": 0.03202425688505173
+    },
+    {
+      "feature": "pressure_open",
+      "importance": 0.021982330828905106
+    },
+    {
+      "feature": "zone_mid_range",
+      "importance": 0.01713753305375576
+    },
+    {
+      "feature": "zone_three_point",
+      "importance": 0.010324308648705482
+    },
+    {
+      "feature": "shot_angle",
+      "importance": 0.0
+    }
+  ],
+  "training_date": "2026-06-13T10:46:06.706071+00:00",
+  "notes": "Feature order is exactly the order in features_used and must match app.ml.feature_builder.MODEL_FEATURES during FastAPI inference. The backend rule-based fallback remains required when the model is missing, incompatible, or unable to predict safely."
+}
