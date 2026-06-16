@@ -27,6 +27,7 @@ export type StickmanPlayerProps = {
   color?: string;
   glowFilter?: string;
   label?: string;
+  showActionMarker?: boolean;
 };
 
 const PLAYER_COLORS: Record<PlayerType, string> = {
@@ -51,6 +52,7 @@ export function StickmanPlayer({
   label,
   leftLegAngle = 0,
   rightLegAngle = 0,
+  showActionMarker = true,
   shootingArmAngle = 52,
   torsoAngle,
   type,
@@ -180,6 +182,14 @@ export function StickmanPlayer({
           <Foot key={`${type}-foot-${index}`} accentColor={accentColor} point={point} />
         ))}
 
+        {showActionMarker ? (
+          <ActionMarker
+            accentColor={accentColor}
+            label={isShooter ? "Release" : "Contest"}
+            point={arms.primaryHand}
+          />
+        ) : null}
+
         {!isShooter ? (
           <circle
             cx={arms.primaryHand.x}
@@ -209,6 +219,52 @@ export function StickmanPlayer({
         textAnchor="middle"
       >
         {displayLabel}
+      </text>
+    </g>
+  );
+}
+
+function ActionMarker({
+  accentColor,
+  label,
+  point,
+}: {
+  accentColor: string;
+  label: string;
+  point: Point;
+}) {
+  // This marker follows the active hand, making release and contest height
+  // visible while the whole body group moves upward during a jump.
+  return (
+    <g>
+      <motion.circle
+        cx={point.x}
+        cy={point.y}
+        r="18"
+        fill="none"
+        stroke={accentColor}
+        strokeDasharray="4 5"
+        strokeWidth="3"
+        initial={false}
+        animate={{ opacity: [0.5, 1, 0.5], scale: [0.94, 1.08, 0.94] }}
+        transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <circle
+        cx={point.x}
+        cy={point.y}
+        r="4"
+        fill="#ffffff"
+        stroke={accentColor}
+        strokeWidth="2"
+      />
+      <text
+        x={point.x + 17}
+        y={point.y - 18}
+        fill={accentColor}
+        fontSize="11"
+        fontWeight="900"
+      >
+        {label}
       </text>
     </g>
   );
