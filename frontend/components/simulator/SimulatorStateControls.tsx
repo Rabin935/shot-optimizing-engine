@@ -10,7 +10,7 @@ import {
   Target,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StickmanPlayer } from "@/components/simulator/StickmanPlayer";
 import {
   useShotStore,
@@ -24,6 +24,8 @@ const STAGE_WIDTH = 920;
 const STAGE_HEIGHT = 520;
 const FLOOR_Y = 418;
 const RIM = { x: 792, y: 178 };
+const SHOOTER_PEAK_ELEVATION = { jumpHeight: 9.2, verticalOffset: 1.45 };
+const DEFENDER_PEAK_ELEVATION = { jumpHeight: 8.4, verticalOffset: 1.2 };
 
 const FALLBACK_DEFENDER_POSE: DefenderPoseState = {
   armRaise: 64,
@@ -65,6 +67,8 @@ export function SimulatorStateControls() {
   const resetPoses = useShotStore((state) => state.resetPoses);
   const [timeline, setTimeline] = useState(62);
   const [isPlaying, setIsPlaying] = useState(false);
+  const shooterJumpTimers = useRef<number[]>([]);
+  const defenderJumpTimers = useRef<number[]>([]);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -79,6 +83,13 @@ export function SimulatorStateControls() {
 
     return () => window.clearInterval(intervalId);
   }, [isPlaying]);
+
+  useEffect(() => {
+    return () => {
+      clearQueuedTimers(shooterJumpTimers);
+      clearQueuedTimers(defenderJumpTimers);
+    };
+  }, []);
 
   const activeDefenders = defenders.slice(0, activeDefenderCount);
   const primaryDefender = activeDefenders[0];
@@ -96,13 +107,134 @@ export function SimulatorStateControls() {
         : { x: 530, y: FLOOR_Y },
     [primaryDefender],
   );
+  const runShooterJump = useCallback(() => {
+    // A jump shot is staged as crouch/takeoff, peak release, and landing.
+    // It writes to the same Zustand pose state that the sliders control.
+    clearQueuedTimers(shooterJumpTimers);
+    setIsPlaying(false);
+    setTimeline(50);
+    updateShooterPose(
+      {
+        isAirborne: true,
+        jumpHeight: 4.5,
+        kneeBend: 18,
+        verticalOffset: 0.45,
+      },
+      "simulator",
+    );
+    queueElevationStep(shooterJumpTimers, 240, () => {
+      setTimeline(62);
+      updateShooterPose(
+        {
+          guideHandAngle: 30,
+          isAirborne: true,
+          jumpHeight: SHOOTER_PEAK_ELEVATION.jumpHeight,
+          kneeBend: 8,
+          shootingArmAngle: 76,
+          verticalOffset: SHOOTER_PEAK_ELEVATION.verticalOffset,
+        },
+        "simulator",
+      );
+    });
+    queueElevationStep(shooterJumpTimers, 760, () => {
+      updateShooterPose(
+        {
+          isAirborne: true,
+          jumpHeight: 4,
+          kneeBend: 20,
+          verticalOffset: 0.45,
+        },
+        "simulator",
+      );
+    });
+    queueElevationStep(shooterJumpTimers, 1080, () => {
+      updateShooterPose(
+        {
+          isAirborne: false,
+          jumpHeight: 0,
+          verticalOffset: 0,
+        },
+        "simulator",
+      );
+    });
+  }, [updateShooterPose]);
+
+  const runDefenderContestJump = useCallback(() => {
+    // Defender contest uses the same elevation sequence, with a raised hand
+    // and contest height emphasized at the hang point.
+    clearQueuedTimers(defenderJumpTimers);
+    updateDefenderPose(
+      primaryDefender?.id ?? "d1",
+      {
+        armRaise: 78,
+        isAirborne: true,
+        jumpHeight: 3.8,
+        kneeBend: 14,
+        verticalOffset: 0.35,
+      },
+      "simulator",
+    );
+    queueElevationStep(defenderJumpTimers, 220, () => {
+      updateDefenderPose(
+        primaryDefender?.id ?? "d1",
+        {
+          armRaise: 96,
+          contestHeight: 10.8,
+          isAirborne: true,
+          jumpHeight: DEFENDER_PEAK_ELEVATION.jumpHeight,
+          kneeBend: 6,
+          verticalOffset: DEFENDER_PEAK_ELEVATION.verticalOffset,
+        },
+        "simulator",
+      );
+    });
+    queueElevationStep(defenderJumpTimers, 740, () => {
+      updateDefenderPose(
+        primaryDefender?.id ?? "d1",
+        {
+          armRaise: 80,
+          isAirborne: true,
+          jumpHeight: 3.2,
+          kneeBend: 16,
+          verticalOffset: 0.3,
+        },
+        "simulator",
+      );
+    });
+    queueElevationStep(defenderJumpTimers, 1060, () => {
+      updateDefenderPose(
+        primaryDefender?.id ?? "d1",
+        {
+          isAirborne: false,
+          jumpHeight: 0,
+          verticalOffset: 0,
+        },
+        "simulator",
+      );
+    });
+  }, [primaryDefender?.id, updateDefenderPose]);
+
+  const resetElevation = useCallback(() => {
+    // Reset elevation only lands the players; it leaves user-tuned angles intact.
+    clearQueuedTimers(shooterJumpTimers);
+    clearQueuedTimers(defenderJumpTimers);
+    updateShooterPose(
+      { isAirborne: false, jumpHeight: 0, verticalOffset: 0 },
+      "simulator",
+    );
+    updateDefenderPose(
+      primaryDefender?.id ?? "d1",
+      { isAirborne: false, jumpHeight: 0, verticalOffset: 0 },
+      "simulator",
+    );
+  }, [primaryDefender?.id, updateDefenderPose, updateShooterPose]);
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-      <section className="min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.045] shadow-[0_28px_90px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+      <section className="min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.045] shadow-[0_28px_90px_rgba(0,0,0,0.34)] backdrop-blur-xl xl:sticky xl:top-5 xl:self-start">
         <div className="flex flex-col gap-3 border-b border-white/10 bg-black/25 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-lg border border-orange-300/25 bg-orange-500/10 text-orange-100">
+            <span className="grid size-11 shrink-0 place-items-center rounded-lg border border-orange-300/25 bg-orange-500/10 text-orange-100">
               <Activity className="size-5" />
             </span>
             <div>
@@ -164,7 +296,20 @@ export function SimulatorStateControls() {
         </div>
       </section>
 
-      <aside className="grid gap-4 xl:sticky xl:top-5 xl:self-start">
+      <aside className="grid gap-4 xl:sticky xl:top-5 xl:max-h-[calc(100vh-2.5rem)] xl:self-start xl:overflow-y-auto xl:pr-1">
+        <PoseControlPanel
+          activeDefenderCount={activeDefenderCount}
+          defenderPose={primaryDefenderPose}
+          onDefenderContestJump={runDefenderContestJump}
+          onResetElevation={resetElevation}
+          onShooterJump={runShooterJump}
+          primaryDefenderId={primaryDefender?.id ?? "d1"}
+          setDefenderCount={setDefenderCount}
+          shooterPose={shooterPose}
+          updateDefenderPose={updateDefenderPose}
+          updateShooterPose={updateShooterPose}
+        />
+
         <ShotInfoPanel
           confidence={confidence}
           epps={epps}
@@ -176,16 +321,6 @@ export function SimulatorStateControls() {
           shotDistance={shotDistance}
           shotQuality={shotQuality}
           shotZone={shotZone}
-        />
-
-        <PoseControlPanel
-          activeDefenderCount={activeDefenderCount}
-          defenderPose={primaryDefenderPose}
-          primaryDefenderId={primaryDefender?.id ?? "d1"}
-          setDefenderCount={setDefenderCount}
-          shooterPose={shooterPose}
-          updateDefenderPose={updateDefenderPose}
-          updateShooterPose={updateShooterPose}
         />
 
         <PositionControlPanel
@@ -482,6 +617,9 @@ function ShotInfoPanel({
 function PoseControlPanel({
   activeDefenderCount,
   defenderPose,
+  onDefenderContestJump,
+  onResetElevation,
+  onShooterJump,
   primaryDefenderId,
   setDefenderCount,
   shooterPose,
@@ -490,6 +628,9 @@ function PoseControlPanel({
 }: {
   activeDefenderCount: ActiveDefenderCount;
   defenderPose: DefenderPoseState;
+  onDefenderContestJump: () => void;
+  onResetElevation: () => void;
+  onShooterJump: () => void;
   primaryDefenderId: string;
   setDefenderCount: (
     count: ActiveDefenderCount,
@@ -506,84 +647,245 @@ function PoseControlPanel({
     source?: "sandbox" | "simulator" | "backend" | "system",
   ) => void;
 }) {
-  // Pose controls write to Zustand so future stickman refinements share state.
+  // Mechanics controls stay first in the side rail so users can tune angles
+  // while the sticky stage remains visible next to them on desktop.
   return (
     <section className="rounded-lg border border-white/10 bg-black/30 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-        Pose Control Panel
+        Mechanics Control Panel
       </p>
-      <div className="mt-4 grid gap-4">
-        <RangeControl
-          label="Release Angle"
-          max={75}
-          min={20}
-          step={1}
-          value={shooterPose.releaseAngle}
-          onChange={(releaseAngle) =>
-            updateShooterPose({ releaseAngle }, "simulator")
-          }
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        <ActionButton
+          icon={<Target className="size-4" />}
+          label="Shooter Jump"
+          tone="orange"
+          onClick={onShooterJump}
         />
-        <RangeControl
-          label="Shooting Arm"
-          max={95}
-          min={10}
-          step={1}
-          value={shooterPose.shootingArmAngle}
-          onChange={(shootingArmAngle) =>
-            updateShooterPose({ shootingArmAngle }, "simulator")
-          }
+        <ActionButton
+          icon={<Shield className="size-4" />}
+          label="Defender Contest Jump"
+          tone="green"
+          onClick={onDefenderContestJump}
         />
-        <RangeControl
-          label="Knee Bend"
-          max={60}
-          min={0}
-          step={1}
-          value={shooterPose.kneeBend}
-          onChange={(kneeBend) => updateShooterPose({ kneeBend }, "simulator")}
+        <ActionButton
+          icon={<RotateCcw className="size-4" />}
+          label="Reset Elevation"
+          tone="neutral"
+          onClick={onResetElevation}
         />
-        <RangeControl
-          label="Defender Arm Raise"
-          max={100}
-          min={0}
-          step={1}
-          value={defenderPose.armRaise}
-          onChange={(armRaise) =>
-            updateDefenderPose(primaryDefenderId, { armRaise }, "simulator")
-          }
-        />
-        <RangeControl
-          label="Defender Lean"
-          max={30}
-          min={-30}
-          step={1}
-          value={defenderPose.leanAngle}
-          onChange={(leanAngle) =>
-            updateDefenderPose(primaryDefenderId, { leanAngle }, "simulator")
-          }
-        />
-        <ToggleRow
-          active={activeDefenderCount === 2}
-          label={`${activeDefenderCount} Active Defender${activeDefenderCount > 1 ? "s" : ""}`}
-          onToggle={() =>
-            setDefenderCount(
-              activeDefenderCount === 1 ? 2 : 1,
-              "simulator",
-            )
-          }
-        />
-        <ToggleRow
-          active={shooterPose.isAirborne}
-          label="Shooter Airborne"
-          onToggle={() =>
-            updateShooterPose(
-              {
-                isAirborne: !shooterPose.isAirborne,
-                verticalOffset: shooterPose.isAirborne ? 0 : 0.6,
-              },
-              "simulator",
-            )
-          }
-        />
+      </div>
+
+      <div className="mt-5 grid gap-5">
+        <div className="grid gap-4 border-t border-white/10 pt-4">
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-orange-100">
+            Shooter Angles
+          </p>
+          <RangeControl
+            label="Release Angle"
+            max={75}
+            min={20}
+            step={1}
+            value={shooterPose.releaseAngle}
+            onChange={(releaseAngle) =>
+              updateShooterPose({ releaseAngle }, "simulator")
+            }
+          />
+          <RangeControl
+            label="Shooting Arm"
+            max={95}
+            min={10}
+            step={1}
+            value={shooterPose.shootingArmAngle}
+            onChange={(shootingArmAngle) =>
+              updateShooterPose({ shootingArmAngle }, "simulator")
+            }
+          />
+          <RangeControl
+            label="Guide Hand"
+            max={70}
+            min={0}
+            step={1}
+            value={shooterPose.guideHandAngle}
+            onChange={(guideHandAngle) =>
+              updateShooterPose({ guideHandAngle }, "simulator")
+            }
+          />
+          <RangeControl
+            label="Knee Bend"
+            max={60}
+            min={0}
+            step={1}
+            value={shooterPose.kneeBend}
+            onChange={(kneeBend) =>
+              updateShooterPose({ kneeBend }, "simulator")
+            }
+          />
+        </div>
+
+        <div className="grid gap-4 border-t border-white/10 pt-4">
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-orange-100">
+            Shooter Elevation
+          </p>
+          <RangeControl
+            label="Jump Height"
+            max={12}
+            min={0}
+            step={0.1}
+            value={shooterPose.jumpHeight}
+            onChange={(jumpHeight) =>
+              updateShooterPose(
+                {
+                  isAirborne: jumpHeight > 0 || shooterPose.verticalOffset > 0,
+                  jumpHeight,
+                },
+                "simulator",
+              )
+            }
+          />
+          <RangeControl
+            label="Vertical Offset"
+            max={2}
+            min={0}
+            step={0.05}
+            value={shooterPose.verticalOffset}
+            onChange={(verticalOffset) =>
+              updateShooterPose(
+                {
+                  isAirborne: verticalOffset > 0 || shooterPose.jumpHeight > 0,
+                  verticalOffset,
+                },
+                "simulator",
+              )
+            }
+          />
+          <ToggleRow
+            active={shooterPose.isAirborne}
+            label="Shooter Airborne"
+            onToggle={() =>
+              updateShooterPose(
+                {
+                  isAirborne: !shooterPose.isAirborne,
+                  jumpHeight: shooterPose.isAirborne
+                    ? 0
+                    : SHOOTER_PEAK_ELEVATION.jumpHeight,
+                  verticalOffset: shooterPose.isAirborne
+                    ? 0
+                    : SHOOTER_PEAK_ELEVATION.verticalOffset,
+                },
+                "simulator",
+              )
+            }
+          />
+        </div>
+
+        <div className="grid gap-4 border-t border-white/10 pt-4">
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-green-100">
+            Defender Contest
+          </p>
+          <RangeControl
+            label="Defender Arm Raise"
+            max={100}
+            min={0}
+            step={1}
+            value={defenderPose.armRaise}
+            onChange={(armRaise) =>
+              updateDefenderPose(primaryDefenderId, { armRaise }, "simulator")
+            }
+          />
+          <RangeControl
+            label="Contest Height"
+            max={12}
+            min={5}
+            step={0.1}
+            value={defenderPose.contestHeight}
+            onChange={(contestHeight) =>
+              updateDefenderPose(
+                primaryDefenderId,
+                { contestHeight },
+                "simulator",
+              )
+            }
+          />
+          <RangeControl
+            label="Defender Lean"
+            max={30}
+            min={-30}
+            step={1}
+            value={defenderPose.leanAngle}
+            onChange={(leanAngle) =>
+              updateDefenderPose(primaryDefenderId, { leanAngle }, "simulator")
+            }
+          />
+          <RangeControl
+            label="Defender Jump Height"
+            max={12}
+            min={0}
+            step={0.1}
+            value={defenderPose.jumpHeight}
+            onChange={(jumpHeight) =>
+              updateDefenderPose(
+                primaryDefenderId,
+                {
+                  isAirborne: jumpHeight > 0 || defenderPose.verticalOffset > 0,
+                  jumpHeight,
+                },
+                "simulator",
+              )
+            }
+          />
+          <RangeControl
+            label="Defender Vertical Offset"
+            max={2}
+            min={0}
+            step={0.05}
+            value={defenderPose.verticalOffset}
+            onChange={(verticalOffset) =>
+              updateDefenderPose(
+                primaryDefenderId,
+                {
+                  isAirborne: verticalOffset > 0 || defenderPose.jumpHeight > 0,
+                  verticalOffset,
+                },
+                "simulator",
+              )
+            }
+          />
+          <ToggleRow
+            active={defenderPose.isAirborne}
+            label="Defender Airborne"
+            onToggle={() =>
+              updateDefenderPose(
+                primaryDefenderId,
+                {
+                  isAirborne: !defenderPose.isAirborne,
+                  jumpHeight: defenderPose.isAirborne
+                    ? 0
+                    : DEFENDER_PEAK_ELEVATION.jumpHeight,
+                  verticalOffset: defenderPose.isAirborne
+                    ? 0
+                    : DEFENDER_PEAK_ELEVATION.verticalOffset,
+                },
+                "simulator",
+              )
+            }
+          />
+        </div>
+
+        <div className="grid gap-4 border-t border-white/10 pt-4">
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-300">
+            Defender Setup
+          </p>
+          <ToggleRow
+            active={activeDefenderCount === 2}
+            label={`${activeDefenderCount} Active Defender${activeDefenderCount > 1 ? "s" : ""}`}
+            onToggle={() =>
+              setDefenderCount(
+                activeDefenderCount === 1 ? 2 : 1,
+                "simulator",
+              )
+            }
+          />
+        </div>
       </div>
     </section>
   );
@@ -795,6 +1097,31 @@ function ToggleRow({
   );
 }
 
+function ActionButton({
+  icon,
+  label,
+  onClick,
+  tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  tone: "green" | "orange" | "neutral";
+}) {
+  // Action buttons trigger short scripted animation sequences instead of
+  // physics simulation, keeping this phase visual and predictable.
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex min-h-12 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-black transition ${actionButtonClasses[tone]}`}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
 function MetricPill({
   icon,
   label,
@@ -862,6 +1189,22 @@ type StagePoint = {
   y: number;
 };
 
+function clearQueuedTimers(timerBucket: { current: number[] }) {
+  // Cancel queued jump phases so repeated button presses never fight each other.
+  timerBucket.current.forEach((timerId) => window.clearTimeout(timerId));
+  timerBucket.current = [];
+}
+
+function queueElevationStep(
+  timerBucket: { current: number[] },
+  delay: number,
+  updatePose: () => void,
+) {
+  // Store timeout ids so reset/unmount can cancel unfinished jump animations.
+  const timerId = window.setTimeout(updatePose, delay);
+  timerBucket.current.push(timerId);
+}
+
 function mapCourtPointToStage(x: number, y: number): StagePoint {
   // Convert court coordinates into a readable side-view stage position.
   return {
@@ -923,4 +1266,13 @@ const toneClasses = {
   neutral: "border-white/10 bg-black/30 text-slate-200",
   orange: "border-orange-300/25 bg-orange-500/10 text-orange-100",
   red: "border-red-300/25 bg-red-500/10 text-red-100",
+};
+
+const actionButtonClasses = {
+  green:
+    "border-green-300/25 bg-green-400/10 text-green-100 hover:bg-green-400/20",
+  neutral:
+    "border-white/10 bg-white/[0.05] text-slate-200 hover:border-white/20 hover:bg-white/[0.08]",
+  orange:
+    "border-orange-300/25 bg-orange-500/10 text-orange-100 hover:bg-orange-500/20",
 };
