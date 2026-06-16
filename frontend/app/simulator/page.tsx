@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default function SimulatorPage() {
-  // Render shared state controls first; the stickman can consume this store later.
+  // Render the Phase 5 prototype that consumes the shared shot store.
   return (
     <AppShell>
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-7">
@@ -19,10 +19,11 @@ export default function SimulatorPage() {
             Phase 5 Shared State
           </p>
           <h1 className="text-3xl font-black tracking-tight text-white sm:text-5xl">
-            2D Simulator Control State
+            2D Stickman Simulator
           </h1>
           <p className="max-w-2xl text-base leading-7 text-slate-300">
-            Position and pose values here are shared with the live Court Sandbox.
+            A synthetic mechanics stage that reads shooter, defender, shot, and
+            prediction state from the live ShotOptix store.
           </p>
         </header>
 
