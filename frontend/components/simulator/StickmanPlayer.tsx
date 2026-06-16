@@ -20,6 +20,8 @@ export type StickmanPlayerProps = {
   rightLegAngle?: number;
   shootingArmAngle?: number;
   guideHandAngle?: number;
+  handHeight?: number;
+  releaseAngle?: number;
   armRaise?: number;
   contestHeight?: number;
   isAirborne: boolean;
@@ -46,12 +48,14 @@ export function StickmanPlayer({
   contestHeight = 0,
   glowFilter,
   guideHandAngle = 24,
+  handHeight = 8.4,
   isAirborne,
   jumpHeight = 0,
   kneeBend,
   label,
   leftLegAngle = 0,
   rightLegAngle = 0,
+  releaseAngle = 48,
   showActionMarker = true,
   shootingArmAngle = 52,
   torsoAngle,
@@ -89,7 +93,13 @@ export function StickmanPlayer({
   const leftKnee = kneePoint(hip, leftFoot, leftLegAngle, -1, kneeBend);
   const rightKnee = kneePoint(hip, rightFoot, rightLegAngle, 1, kneeBend);
   const arms = isShooter
-    ? buildShooterArms(shoulder, shootingArmAngle, guideHandAngle)
+    ? buildShooterArms(
+        shoulder,
+        shootingArmAngle,
+        guideHandAngle,
+        handHeight,
+        releaseAngle,
+      )
     : buildDefenderArms(shoulder, armRaise, contestHeight);
 
   return (
@@ -353,10 +363,28 @@ function buildShooterArms(
   shoulder: Point,
   shootingArmAngle: number,
   guideHandAngle: number,
+  handHeight: number,
+  releaseAngle: number,
 ) {
-  // Shooter arms separate the release arm from the shorter guide hand.
-  const primaryElbow = polarPoint(shoulder, -82 + shootingArmAngle * 0.32, 42);
-  const primaryHand = polarPoint(primaryElbow, -96 + shootingArmAngle * 0.24, 43);
+  // Shooter arms separate the release arm from the shorter guide hand. Release
+  // angle rotates the shooting hand, and hand height adds a vertical reach boost
+  // so both pose sliders have an immediate SVG effect.
+  const heightBoost = (handHeight - 8.4) * 5;
+  const releaseBoost = (releaseAngle - 48) * 0.28;
+  const primaryElbow = polarPoint(
+    shoulder,
+    -82 + shootingArmAngle * 0.32 - releaseBoost * 0.35,
+    42,
+  );
+  const primaryHandBase = polarPoint(
+    primaryElbow,
+    -96 + shootingArmAngle * 0.24 - releaseBoost,
+    43,
+  );
+  const primaryHand = {
+    x: primaryHandBase.x,
+    y: primaryHandBase.y - heightBoost,
+  };
   const secondaryElbow = polarPoint(shoulder, -52 + guideHandAngle * 0.28, 35);
   const secondaryHand = polarPoint(secondaryElbow, -38 + guideHandAngle * 0.18, 29);
 

@@ -11,10 +11,10 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PoseControls } from "@/components/simulator/PoseControls";
 import { StickmanPlayer } from "@/components/simulator/StickmanPlayer";
 import {
   useShotStore,
-  type ActiveDefenderCount,
   type DefenderPoseState,
   type SharedShotQuality,
   type ShooterPoseState,
@@ -60,7 +60,6 @@ export function SimulatorStateControls() {
   const predictionSource = useShotStore((state) => state.predictionSource);
   const setShooterPosition = useShotStore((state) => state.setShooterPosition);
   const setDefenderPosition = useShotStore((state) => state.setDefenderPosition);
-  const setDefenderCount = useShotStore((state) => state.setDefenderCount);
   const updateShooterPose = useShotStore((state) => state.updateShooterPose);
   const updateDefenderPose = useShotStore((state) => state.updateDefenderPose);
   const resetShot = useShotStore((state) => state.resetShot);
@@ -297,17 +296,10 @@ export function SimulatorStateControls() {
       </section>
 
       <aside className="grid gap-4 xl:sticky xl:top-5 xl:max-h-[calc(100vh-2.5rem)] xl:self-start xl:overflow-y-auto xl:pr-1">
-        <PoseControlPanel
-          activeDefenderCount={activeDefenderCount}
-          defenderPose={primaryDefenderPose}
+        <PoseControls
           onDefenderContestJump={runDefenderContestJump}
           onResetElevation={resetElevation}
           onShooterJump={runShooterJump}
-          primaryDefenderId={primaryDefender?.id ?? "d1"}
-          setDefenderCount={setDefenderCount}
-          shooterPose={shooterPose}
-          updateDefenderPose={updateDefenderPose}
-          updateShooterPose={updateShooterPose}
         />
 
         <ShotInfoPanel
@@ -414,11 +406,13 @@ function SimulatorStage({
           color="#fb923c"
           glowFilter="url(#sim-orange-glow)"
           guideHandAngle={shooterPose.guideHandAngle}
+          handHeight={shooterPose.handHeight}
           isAirborne={shooterPose.isAirborne}
           jumpHeight={shooterPose.jumpHeight}
           kneeBend={shooterPose.kneeBend}
           label="Shooter"
           leftLegAngle={shooterPose.leftLegAngle}
+          releaseAngle={shooterPose.releaseAngle}
           rightLegAngle={shooterPose.rightLegAngle}
           shootingArmAngle={shooterPose.shootingArmAngle}
           torsoAngle={shooterPose.torsoAngle}
@@ -614,283 +608,6 @@ function ShotInfoPanel({
   );
 }
 
-function PoseControlPanel({
-  activeDefenderCount,
-  defenderPose,
-  onDefenderContestJump,
-  onResetElevation,
-  onShooterJump,
-  primaryDefenderId,
-  setDefenderCount,
-  shooterPose,
-  updateDefenderPose,
-  updateShooterPose,
-}: {
-  activeDefenderCount: ActiveDefenderCount;
-  defenderPose: DefenderPoseState;
-  onDefenderContestJump: () => void;
-  onResetElevation: () => void;
-  onShooterJump: () => void;
-  primaryDefenderId: string;
-  setDefenderCount: (
-    count: ActiveDefenderCount,
-    source?: "sandbox" | "simulator" | "backend" | "system",
-  ) => void;
-  shooterPose: ShooterPoseState;
-  updateDefenderPose: (
-    defenderId: string,
-    pose: Partial<DefenderPoseState>,
-    source?: "sandbox" | "simulator" | "backend" | "system",
-  ) => void;
-  updateShooterPose: (
-    pose: Partial<ShooterPoseState>,
-    source?: "sandbox" | "simulator" | "backend" | "system",
-  ) => void;
-}) {
-  // Mechanics controls stay first in the side rail so users can tune angles
-  // while the sticky stage remains visible next to them on desktop.
-  return (
-    <section className="rounded-lg border border-white/10 bg-black/30 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
-      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-        Mechanics Control Panel
-      </p>
-      <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        <ActionButton
-          icon={<Target className="size-4" />}
-          label="Shooter Jump"
-          tone="orange"
-          onClick={onShooterJump}
-        />
-        <ActionButton
-          icon={<Shield className="size-4" />}
-          label="Defender Contest Jump"
-          tone="green"
-          onClick={onDefenderContestJump}
-        />
-        <ActionButton
-          icon={<RotateCcw className="size-4" />}
-          label="Reset Elevation"
-          tone="neutral"
-          onClick={onResetElevation}
-        />
-      </div>
-
-      <div className="mt-5 grid gap-5">
-        <div className="grid gap-4 border-t border-white/10 pt-4">
-          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-orange-100">
-            Shooter Angles
-          </p>
-          <RangeControl
-            label="Release Angle"
-            max={75}
-            min={20}
-            step={1}
-            value={shooterPose.releaseAngle}
-            onChange={(releaseAngle) =>
-              updateShooterPose({ releaseAngle }, "simulator")
-            }
-          />
-          <RangeControl
-            label="Shooting Arm"
-            max={95}
-            min={10}
-            step={1}
-            value={shooterPose.shootingArmAngle}
-            onChange={(shootingArmAngle) =>
-              updateShooterPose({ shootingArmAngle }, "simulator")
-            }
-          />
-          <RangeControl
-            label="Guide Hand"
-            max={70}
-            min={0}
-            step={1}
-            value={shooterPose.guideHandAngle}
-            onChange={(guideHandAngle) =>
-              updateShooterPose({ guideHandAngle }, "simulator")
-            }
-          />
-          <RangeControl
-            label="Knee Bend"
-            max={60}
-            min={0}
-            step={1}
-            value={shooterPose.kneeBend}
-            onChange={(kneeBend) =>
-              updateShooterPose({ kneeBend }, "simulator")
-            }
-          />
-        </div>
-
-        <div className="grid gap-4 border-t border-white/10 pt-4">
-          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-orange-100">
-            Shooter Elevation
-          </p>
-          <RangeControl
-            label="Jump Height"
-            max={12}
-            min={0}
-            step={0.1}
-            value={shooterPose.jumpHeight}
-            onChange={(jumpHeight) =>
-              updateShooterPose(
-                {
-                  isAirborne: jumpHeight > 0 || shooterPose.verticalOffset > 0,
-                  jumpHeight,
-                },
-                "simulator",
-              )
-            }
-          />
-          <RangeControl
-            label="Vertical Offset"
-            max={2}
-            min={0}
-            step={0.05}
-            value={shooterPose.verticalOffset}
-            onChange={(verticalOffset) =>
-              updateShooterPose(
-                {
-                  isAirborne: verticalOffset > 0 || shooterPose.jumpHeight > 0,
-                  verticalOffset,
-                },
-                "simulator",
-              )
-            }
-          />
-          <ToggleRow
-            active={shooterPose.isAirborne}
-            label="Shooter Airborne"
-            onToggle={() =>
-              updateShooterPose(
-                {
-                  isAirborne: !shooterPose.isAirborne,
-                  jumpHeight: shooterPose.isAirborne
-                    ? 0
-                    : SHOOTER_PEAK_ELEVATION.jumpHeight,
-                  verticalOffset: shooterPose.isAirborne
-                    ? 0
-                    : SHOOTER_PEAK_ELEVATION.verticalOffset,
-                },
-                "simulator",
-              )
-            }
-          />
-        </div>
-
-        <div className="grid gap-4 border-t border-white/10 pt-4">
-          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-green-100">
-            Defender Contest
-          </p>
-          <RangeControl
-            label="Defender Arm Raise"
-            max={100}
-            min={0}
-            step={1}
-            value={defenderPose.armRaise}
-            onChange={(armRaise) =>
-              updateDefenderPose(primaryDefenderId, { armRaise }, "simulator")
-            }
-          />
-          <RangeControl
-            label="Contest Height"
-            max={12}
-            min={5}
-            step={0.1}
-            value={defenderPose.contestHeight}
-            onChange={(contestHeight) =>
-              updateDefenderPose(
-                primaryDefenderId,
-                { contestHeight },
-                "simulator",
-              )
-            }
-          />
-          <RangeControl
-            label="Defender Lean"
-            max={30}
-            min={-30}
-            step={1}
-            value={defenderPose.leanAngle}
-            onChange={(leanAngle) =>
-              updateDefenderPose(primaryDefenderId, { leanAngle }, "simulator")
-            }
-          />
-          <RangeControl
-            label="Defender Jump Height"
-            max={12}
-            min={0}
-            step={0.1}
-            value={defenderPose.jumpHeight}
-            onChange={(jumpHeight) =>
-              updateDefenderPose(
-                primaryDefenderId,
-                {
-                  isAirborne: jumpHeight > 0 || defenderPose.verticalOffset > 0,
-                  jumpHeight,
-                },
-                "simulator",
-              )
-            }
-          />
-          <RangeControl
-            label="Defender Vertical Offset"
-            max={2}
-            min={0}
-            step={0.05}
-            value={defenderPose.verticalOffset}
-            onChange={(verticalOffset) =>
-              updateDefenderPose(
-                primaryDefenderId,
-                {
-                  isAirborne: verticalOffset > 0 || defenderPose.jumpHeight > 0,
-                  verticalOffset,
-                },
-                "simulator",
-              )
-            }
-          />
-          <ToggleRow
-            active={defenderPose.isAirborne}
-            label="Defender Airborne"
-            onToggle={() =>
-              updateDefenderPose(
-                primaryDefenderId,
-                {
-                  isAirborne: !defenderPose.isAirborne,
-                  jumpHeight: defenderPose.isAirborne
-                    ? 0
-                    : DEFENDER_PEAK_ELEVATION.jumpHeight,
-                  verticalOffset: defenderPose.isAirborne
-                    ? 0
-                    : DEFENDER_PEAK_ELEVATION.verticalOffset,
-                },
-                "simulator",
-              )
-            }
-          />
-        </div>
-
-        <div className="grid gap-4 border-t border-white/10 pt-4">
-          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-300">
-            Defender Setup
-          </p>
-          <ToggleRow
-            active={activeDefenderCount === 2}
-            label={`${activeDefenderCount} Active Defender${activeDefenderCount > 1 ? "s" : ""}`}
-            onToggle={() =>
-              setDefenderCount(
-                activeDefenderCount === 1 ? 2 : 1,
-                "simulator",
-              )
-            }
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function PositionControlPanel({
   primaryDefender,
   resetPoses,
@@ -1068,60 +785,6 @@ function RangeControl({
   );
 }
 
-function ToggleRow({
-  active,
-  label,
-  onToggle,
-}: {
-  active: boolean;
-  label: string;
-  onToggle: () => void;
-}) {
-  // Toggle rows handle boolean simulator settings with clear pressed state.
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onToggle}
-      className={`flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm font-bold transition ${
-        active
-          ? "border-green-300/30 bg-green-400/10 text-green-100"
-          : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/20"
-      }`}
-    >
-      <span>{label}</span>
-      <span className="text-xs uppercase tracking-[0.16em]">
-        {active ? "On" : "Off"}
-      </span>
-    </button>
-  );
-}
-
-function ActionButton({
-  icon,
-  label,
-  onClick,
-  tone,
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-  tone: "green" | "orange" | "neutral";
-}) {
-  // Action buttons trigger short scripted animation sequences instead of
-  // physics simulation, keeping this phase visual and predictable.
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex min-h-12 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-black transition ${actionButtonClasses[tone]}`}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
-  );
-}
-
 function MetricPill({
   icon,
   label,
@@ -1266,13 +929,4 @@ const toneClasses = {
   neutral: "border-white/10 bg-black/30 text-slate-200",
   orange: "border-orange-300/25 bg-orange-500/10 text-orange-100",
   red: "border-red-300/25 bg-red-500/10 text-red-100",
-};
-
-const actionButtonClasses = {
-  green:
-    "border-green-300/25 bg-green-400/10 text-green-100 hover:bg-green-400/20",
-  neutral:
-    "border-white/10 bg-white/[0.05] text-slate-200 hover:border-white/20 hover:bg-white/[0.08]",
-  orange:
-    "border-orange-300/25 bg-orange-500/10 text-orange-100 hover:bg-orange-500/20",
 };
