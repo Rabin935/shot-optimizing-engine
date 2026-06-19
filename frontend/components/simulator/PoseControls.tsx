@@ -138,7 +138,6 @@ export function PoseControls({
   const defenderPoses = useShotStore((state) => state.defenderPoses);
   const shooterPose = useShotStore((state) => state.shooterPose);
   const resetPoses = useShotStore((state) => state.resetPoses);
-  const setDefenderCount = useShotStore((state) => state.setDefenderCount);
   const updateDefenderPose = useShotStore((state) => state.updateDefenderPose);
   const updateShooterPose = useShotStore((state) => state.updateShooterPose);
   const activeDefenders = defenders.slice(0, activeDefenderCount);
@@ -313,16 +312,6 @@ export function PoseControls({
                       ? 0
                       : DEFENDER_PEAK_ELEVATION.verticalOffset,
                   },
-                  "simulator",
-                )
-              }
-            />
-            <ToggleRow
-              active={activeDefenderCount === 2}
-              label={`${activeDefenderCount} Active Defender${activeDefenderCount > 1 ? "s" : ""}`}
-              onToggle={() =>
-                setDefenderCount(
-                  activeDefenderCount === 1 ? 2 : 1,
                   "simulator",
                 )
               }
