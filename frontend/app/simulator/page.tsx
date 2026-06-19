@@ -22,8 +22,8 @@ export default function SimulatorPage() {
             2D Stickman Simulator
           </h1>
           <p className="max-w-2xl text-base leading-7 text-slate-300">
-            A synthetic mechanics stage that reads shooter, defender, shot, and
-            prediction state from the live ShotOptix store.
+            A synthetic mechanics stage that reads shared shot state and sends
+            adjusted shooter and defender context back to Court Sandbox.
           </p>
         </header>
 
