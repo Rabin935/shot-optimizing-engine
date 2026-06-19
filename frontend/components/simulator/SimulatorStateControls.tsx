@@ -2,17 +2,29 @@
 
 import {
   Activity,
+  CheckCircle2,
   Gauge,
   Pause,
   Play,
   RotateCcw,
+  Send,
   Shield,
   Target,
+  Users,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PoseControls } from "@/components/simulator/PoseControls";
 import { StickmanPlayer } from "@/components/simulator/StickmanPlayer";
+import {
+  courtStateToSimulatorContext,
+  getDefenderDistanceLimits,
+  getShotDistanceLimits,
+  simulatorContextsEqual,
+  simulatorContextToCourt,
+  type MappedCourtContext,
+  type SimulatorShotContext,
+} from "@/lib/simulator-court-sync";
 import {
   useShotStore,
   type DefenderPoseState,
@@ -60,6 +72,7 @@ export function SimulatorStateControls() {
   const predictionSource = useShotStore((state) => state.predictionSource);
   const setShooterPosition = useShotStore((state) => state.setShooterPosition);
   const setDefenderPosition = useShotStore((state) => state.setDefenderPosition);
+  const setDefenderCount = useShotStore((state) => state.setDefenderCount);
   const updateShooterPose = useShotStore((state) => state.updateShooterPose);
   const updateDefenderPose = useShotStore((state) => state.updateDefenderPose);
   const resetShot = useShotStore((state) => state.resetShot);
@@ -68,6 +81,20 @@ export function SimulatorStateControls() {
   const [isPlaying, setIsPlaying] = useState(false);
   const shooterJumpTimers = useRef<number[]>([]);
   const defenderJumpTimers = useRef<number[]>([]);
+  const primaryDefender = defenders[0];
+  const sharedSimulatorContext = useMemo(
+    () =>
+      courtStateToSimulatorContext(
+        shooter,
+        primaryDefender ?? shooter,
+        activeDefenderCount,
+      ),
+    [activeDefenderCount, primaryDefender, shooter],
+  );
+  const [positionDraft, setPositionDraft] = useState<SimulatorShotContext>(
+    () => sharedSimulatorContext,
+  );
+  const previousSharedContext = useRef(sharedSimulatorContext);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -90,22 +117,69 @@ export function SimulatorStateControls() {
     };
   }, []);
 
+  useEffect(() => {
+    // Pull fresh sandbox changes into the simulator only when the user has not
+    // started editing a local draft. This protects unsent slider changes.
+    setPositionDraft((current) =>
+      simulatorContextsEqual(current, previousSharedContext.current)
+        ? sharedSimulatorContext
+        : current,
+    );
+    previousSharedContext.current = sharedSimulatorContext;
+  }, [sharedSimulatorContext]);
+
   const activeDefenders = defenders.slice(0, activeDefenderCount);
-  const primaryDefender = activeDefenders[0];
+  const activePrimaryDefender = activeDefenders[0];
   const primaryDefenderPose =
-    defenderPoses[primaryDefender?.id ?? "d1"] ?? FALLBACK_DEFENDER_POSE;
+    defenderPoses[activePrimaryDefender?.id ?? "d1"] ??
+    FALLBACK_DEFENDER_POSE;
+  const mappedDraft = useMemo(
+    () => simulatorContextToCourt(positionDraft),
+    [positionDraft],
+  );
+  const positionsAreSynced = simulatorContextsEqual(
+    positionDraft,
+    sharedSimulatorContext,
+  );
   const shooterStage = useMemo(
-    // Map court feet from the shared store into the synthetic side-view stage.
-    () => mapCourtPointToStage(shooter.x, shooter.y),
-    [shooter.x, shooter.y],
+    // Preview the draft before it is committed to the shared court store.
+    () => mapCourtPointToStage(mappedDraft.shooter.x, mappedDraft.shooter.y),
+    [mappedDraft.shooter.x, mappedDraft.shooter.y],
   );
   const defenderStage = useMemo(
-    () =>
-      primaryDefender
-        ? mapCourtPointToStage(primaryDefender.x, primaryDefender.y)
-        : { x: 530, y: FLOOR_Y },
-    [primaryDefender],
+    () => mapCourtPointToStage(mappedDraft.defender.x, mappedDraft.defender.y),
+    [mappedDraft.defender.x, mappedDraft.defender.y],
   );
+  const sendPositionDraftToSandbox = useCallback(() => {
+    // Commit all mapped values together from the user's perspective. Each store
+    // action is marked as simulator-originated for traceability.
+    setShooterPosition(mappedDraft.shooter, "simulator");
+    setDefenderPosition(
+      primaryDefender?.id ?? "d1",
+      mappedDraft.defender,
+      "simulator",
+    );
+    setDefenderCount(mappedDraft.defenderCount, "simulator");
+  }, [
+    mappedDraft,
+    primaryDefender?.id,
+    setDefenderCount,
+    setDefenderPosition,
+    setShooterPosition,
+  ]);
+  const resetSharedShot = useCallback(() => {
+    // Zustand writes synchronously, so reload the reset coordinates into the
+    // simulator draft immediately after resetting the shared shot.
+    resetShot("simulator");
+    const resetState = useShotStore.getState();
+    setPositionDraft(
+      courtStateToSimulatorContext(
+        resetState.shooter,
+        resetState.defenders[0] ?? resetState.shooter,
+        resetState.activeDefenderCount,
+      ),
+    );
+  }, [resetShot]);
   const runShooterJump = useCallback(() => {
     // A jump shot is staged as crouch/takeoff, peak release, and landing.
     // It writes to the same Zustand pose state that the sliders control.
@@ -163,7 +237,7 @@ export function SimulatorStateControls() {
     // and contest height emphasized at the hang point.
     clearQueuedTimers(defenderJumpTimers);
     updateDefenderPose(
-      primaryDefender?.id ?? "d1",
+      activePrimaryDefender?.id ?? "d1",
       {
         armRaise: 78,
         isAirborne: true,
@@ -175,7 +249,7 @@ export function SimulatorStateControls() {
     );
     queueElevationStep(defenderJumpTimers, 220, () => {
       updateDefenderPose(
-        primaryDefender?.id ?? "d1",
+        activePrimaryDefender?.id ?? "d1",
         {
           armRaise: 96,
           contestHeight: 10.8,
@@ -189,7 +263,7 @@ export function SimulatorStateControls() {
     });
     queueElevationStep(defenderJumpTimers, 740, () => {
       updateDefenderPose(
-        primaryDefender?.id ?? "d1",
+        activePrimaryDefender?.id ?? "d1",
         {
           armRaise: 80,
           isAirborne: true,
@@ -202,7 +276,7 @@ export function SimulatorStateControls() {
     });
     queueElevationStep(defenderJumpTimers, 1060, () => {
       updateDefenderPose(
-        primaryDefender?.id ?? "d1",
+        activePrimaryDefender?.id ?? "d1",
         {
           isAirborne: false,
           jumpHeight: 0,
@@ -211,7 +285,7 @@ export function SimulatorStateControls() {
         "simulator",
       );
     });
-  }, [primaryDefender?.id, updateDefenderPose]);
+  }, [activePrimaryDefender?.id, updateDefenderPose]);
 
   const resetElevation = useCallback(() => {
     // Reset elevation only lands the players; it leaves user-tuned angles intact.
@@ -222,16 +296,16 @@ export function SimulatorStateControls() {
       "simulator",
     );
     updateDefenderPose(
-      primaryDefender?.id ?? "d1",
+      activePrimaryDefender?.id ?? "d1",
       { isAirborne: false, jumpHeight: 0, verticalOffset: 0 },
       "simulator",
     );
-  }, [primaryDefender?.id, updateDefenderPose, updateShooterPose]);
+  }, [activePrimaryDefender?.id, updateDefenderPose, updateShooterPose]);
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
       <section className="min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.045] shadow-[0_28px_90px_rgba(0,0,0,0.34)] backdrop-blur-xl xl:sticky xl:top-5 xl:self-start">
-        <div className="flex flex-col gap-3 border-b border-white/10 bg-black/25 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-b border-white/10 bg-black/25 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <span className="grid size-11 shrink-0 place-items-center rounded-lg border border-orange-300/25 bg-orange-500/10 text-orange-100">
               <Activity className="size-5" />
@@ -245,6 +319,7 @@ export function SimulatorStateControls() {
               </p>
             </div>
           </div>
+          <SyncBadge isSynced={positionsAreSynced} />
           <TimelineControls
             isPlaying={isPlaying}
             timeline={timeline}
@@ -316,12 +391,13 @@ export function SimulatorStateControls() {
         />
 
         <PositionControlPanel
-          primaryDefender={primaryDefender}
+          draft={positionDraft}
+          isSynced={positionsAreSynced}
+          mappedCourtContext={mappedDraft}
+          onDraftChange={setPositionDraft}
+          onResetShot={resetSharedShot}
+          onSendToSandbox={sendPositionDraftToSandbox}
           resetPoses={resetPoses}
-          resetShot={resetShot}
-          setDefenderPosition={setDefenderPosition}
-          setShooterPosition={setShooterPosition}
-          shooter={shooter}
         />
       </aside>
     </div>
@@ -609,36 +685,51 @@ function ShotInfoPanel({
 }
 
 function PositionControlPanel({
-  primaryDefender,
+  draft,
+  isSynced,
+  mappedCourtContext,
+  onDraftChange,
+  onResetShot,
+  onSendToSandbox,
   resetPoses,
-  resetShot,
-  setDefenderPosition,
-  setShooterPosition,
-  shooter,
 }: {
-  primaryDefender: { id: string; x: number; y: number } | undefined;
+  draft: SimulatorShotContext;
+  isSynced: boolean;
+  mappedCourtContext: MappedCourtContext;
+  onDraftChange: Dispatch<SetStateAction<SimulatorShotContext>>;
+  onResetShot: () => void;
+  onSendToSandbox: () => void;
   resetPoses: (source?: "sandbox" | "simulator" | "backend" | "system") => void;
-  resetShot: (source?: "sandbox" | "simulator" | "backend" | "system") => void;
-  setDefenderPosition: (
-    defenderId: string,
-    position: { x: number; y: number },
-    source?: "sandbox" | "simulator" | "backend" | "system",
-  ) => void;
-  setShooterPosition: (
-    position: { x: number; y: number },
-    source?: "sandbox" | "simulator" | "backend" | "system",
-  ) => void;
-  shooter: { x: number; y: number };
 }) {
-  // Position controls prove simulator edits can flow back into the court sandbox.
+  const shotDistanceLimits = getShotDistanceLimits(draft.shooterX);
+  const defenderDistanceLimits = getDefenderDistanceLimits(
+    mappedCourtContext.shooter,
+    draft.defenderX,
+  );
+
+  const updateDraft = (patch: Partial<SimulatorShotContext>) => {
+    // Normalize dependent distance limits whenever a horizontal slider changes.
+    onDraftChange((current) =>
+      normalizeSimulatorDraft({
+        ...current,
+        ...patch,
+      }),
+    );
+  };
+
   return (
     <section className="rounded-lg border border-white/10 bg-black/30 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-          Shared Position Controls
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+            Court Sync Controls
+          </p>
+          <p className="mt-1 text-sm font-black text-white">
+            Simulator shot context
+          </p>
+        </div>
         <div className="flex gap-2">
-          <IconButton label="Reset Shot" onClick={() => resetShot("simulator")}>
+          <IconButton label="Reset Shot" onClick={onResetShot}>
             <RotateCcw className="size-4" />
           </IconButton>
           <IconButton label="Reset Poses" onClick={() => resetPoses("simulator")}>
@@ -648,55 +739,113 @@ function PositionControlPanel({
       </div>
       <div className="mt-4 grid gap-4">
         <RangeControl
-          label="Shooter X"
+          label="Shooter horizontal position"
           max={50}
           min={0}
           step={0.1}
-          value={shooter.x}
-          onChange={(x) => setShooterPosition({ ...shooter, x }, "simulator")}
+          unit="ft"
+          value={draft.shooterX}
+          onChange={(shooterX) => updateDraft({ shooterX })}
         />
         <RangeControl
-          label="Shooter Y"
-          max={47}
+          label="Shot distance from basket"
+          max={shotDistanceLimits.max}
+          min={shotDistanceLimits.min}
+          step={0.1}
+          unit="ft"
+          value={draft.shotDistance}
+          onChange={(shotDistance) => updateDraft({ shotDistance })}
+        />
+        <RangeControl
+          label="Defender horizontal position"
+          max={50}
           min={0}
           step={0.1}
-          value={shooter.y}
-          onChange={(y) => setShooterPosition({ ...shooter, y }, "simulator")}
+          unit="ft"
+          value={draft.defenderX}
+          onChange={(defenderX) => updateDraft({ defenderX })}
         />
-        {primaryDefender ? (
-          <>
-            <RangeControl
-              label="Defender X"
-              max={50}
-              min={0}
-              step={0.1}
-              value={primaryDefender.x}
-              onChange={(x) =>
-                setDefenderPosition(
-                  primaryDefender.id,
-                  { x, y: primaryDefender.y },
-                  "simulator",
-                )
-              }
-            />
-            <RangeControl
-              label="Defender Y"
-              max={47}
-              min={0}
-              step={0.1}
-              value={primaryDefender.y}
-              onChange={(y) =>
-                setDefenderPosition(
-                  primaryDefender.id,
-                  { x: primaryDefender.x, y },
-                  "simulator",
-                )
-              }
-            />
-          </>
-        ) : null}
+        <RangeControl
+          label="Defender distance from shooter"
+          max={defenderDistanceLimits.max}
+          min={defenderDistanceLimits.min}
+          step={0.1}
+          unit="ft"
+          value={draft.defenderDistance}
+          onChange={(defenderDistance) => updateDraft({ defenderDistance })}
+        />
+
+        <div className="grid gap-2">
+          <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+            Active defenders
+          </span>
+          <div className="grid grid-cols-2 gap-2">
+            {([1, 2] as const).map((count) => (
+              <button
+                key={count}
+                type="button"
+                aria-pressed={draft.defenderCount === count}
+                onClick={() => updateDraft({ defenderCount: count })}
+                className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-black transition ${
+                  draft.defenderCount === count
+                    ? "border-green-300/45 bg-green-400/15 text-green-100"
+                    : "border-white/10 bg-white/[0.045] text-slate-400 hover:text-white"
+                }`}
+              >
+                <Users className="size-4" />
+                {count}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-white/10 bg-white/[0.045] p-3 text-xs leading-5 text-slate-400">
+          <p>
+            Court preview: shooter ({mappedCourtContext.shooter.x.toFixed(1)},{" "}
+            {mappedCourtContext.shooter.y.toFixed(1)}) ft, defender (
+            {mappedCourtContext.defender.x.toFixed(1)},{" "}
+            {mappedCourtContext.defender.y.toFixed(1)}) ft.
+          </p>
+          <p className="mt-1">
+            Horizontal values map to court X. Distances solve court Y with the
+            defender placed toward the basket.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          disabled={isSynced}
+          onClick={onSendToSandbox}
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-orange-300/35 bg-orange-500/15 px-4 text-sm font-black text-orange-100 transition hover:border-orange-300/60 hover:bg-orange-500/25 disabled:cursor-not-allowed disabled:border-green-300/25 disabled:bg-green-400/10 disabled:text-green-100"
+        >
+          {isSynced ? (
+            <CheckCircle2 className="size-4" />
+          ) : (
+            <Send className="size-4" />
+          )}
+          {isSynced ? "Synced with Court Sandbox" : "Send to Court Sandbox"}
+        </button>
       </div>
     </section>
+  );
+}
+
+function SyncBadge({ isSynced }: { isSynced: boolean }) {
+  return (
+    <span
+      className={`inline-flex w-fit shrink-0 items-center gap-2 rounded-md border px-2.5 py-1 text-xs font-black uppercase tracking-[0.12em] ${
+        isSynced
+          ? "border-green-300/30 bg-green-400/10 text-green-100"
+          : "border-orange-300/30 bg-orange-500/10 text-orange-100"
+      }`}
+    >
+      {isSynced ? (
+        <CheckCircle2 className="size-3.5" />
+      ) : (
+        <Send className="size-3.5" />
+      )}
+      {isSynced ? "Synced with Court Sandbox" : "Unsaved court changes"}
+    </span>
   );
 }
 
@@ -756,6 +905,7 @@ function RangeControl({
   min,
   onChange,
   step,
+  unit,
   value,
 }: {
   label: string;
@@ -763,6 +913,7 @@ function RangeControl({
   min: number;
   onChange: (value: number) => void;
   step: number;
+  unit?: string;
   value: number;
 }) {
   // Range controls update shared store values without local duplicated state.
@@ -770,7 +921,10 @@ function RangeControl({
     <label className="grid gap-2">
       <span className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
         <span>{label}</span>
-        <span className="text-slate-200">{value.toFixed(1)}</span>
+        <span className="text-slate-200">
+          {value.toFixed(1)}
+          {unit ? ` ${unit}` : ""}
+        </span>
       </span>
       <input
         type="range"
@@ -851,6 +1005,35 @@ type StagePoint = {
   x: number;
   y: number;
 };
+
+function normalizeSimulatorDraft(
+  context: SimulatorShotContext,
+): SimulatorShotContext {
+  // Horizontal edits can make an old radial distance impossible. Clamp the
+  // dependent distances so every draft always maps to a valid court point.
+  const shotLimits = getShotDistanceLimits(context.shooterX);
+  const shotDistance = clampValue(
+    context.shotDistance,
+    shotLimits.min,
+    shotLimits.max,
+  );
+  const draftWithValidShot = { ...context, shotDistance };
+  const shooter = simulatorContextToCourt(draftWithValidShot).shooter;
+  const defenderLimits = getDefenderDistanceLimits(shooter, context.defenderX);
+
+  return {
+    ...draftWithValidShot,
+    defenderDistance: clampValue(
+      context.defenderDistance,
+      defenderLimits.min,
+      defenderLimits.max,
+    ),
+  };
+}
+
+function clampValue(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
 
 function clearQueuedTimers(timerBucket: { current: number[] }) {
   // Cancel queued jump phases so repeated button presses never fight each other.
