@@ -4,8 +4,6 @@ import {
   Activity,
   CheckCircle2,
   Gauge,
-  Pause,
-  Play,
   RotateCcw,
   Send,
   Shield,
@@ -15,6 +13,11 @@ import {
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PoseControls } from "@/components/simulator/PoseControls";
+import {
+  ShotArc,
+  ShotArcControls,
+  type StagePoint,
+} from "@/components/simulator/ShotArc";
 import { StickmanPlayer } from "@/components/simulator/StickmanPlayer";
 import {
   courtStateToSimulatorContext,
@@ -79,6 +82,7 @@ export function SimulatorStateControls() {
   const resetPoses = useShotStore((state) => state.resetPoses);
   const [timeline, setTimeline] = useState(62);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isSlowMotion, setIsSlowMotion] = useState(false);
   const shooterJumpTimers = useRef<number[]>([]);
   const defenderJumpTimers = useRef<number[]>([]);
   const primaryDefender = defenders[0];
@@ -105,10 +109,10 @@ export function SimulatorStateControls() {
     // preview the shot release without adding real physics or backend coupling.
     const intervalId = window.setInterval(() => {
       setTimeline((current) => (current >= 100 ? 0 : current + 1));
-    }, 45);
+    }, isSlowMotion ? 120 : 45);
 
     return () => window.clearInterval(intervalId);
-  }, [isPlaying]);
+  }, [isPlaying, isSlowMotion]);
 
   useEffect(() => {
     return () => {
@@ -320,15 +324,18 @@ export function SimulatorStateControls() {
             </div>
           </div>
           <SyncBadge isSynced={positionsAreSynced} />
-          <TimelineControls
+          <ShotArcControls
             isPlaying={isPlaying}
+            isSlowMotion={isSlowMotion}
             timeline={timeline}
+            onPause={() => setIsPlaying(false)}
+            onPlay={() => setIsPlaying(true)}
             onReset={() => {
               setTimeline(0);
               setIsPlaying(false);
             }}
             onTimelineChange={setTimeline}
-            onTogglePlay={() => setIsPlaying((current) => !current)}
+            onToggleSlowMotion={() => setIsSlowMotion((current) => !current)}
           />
         </div>
 
@@ -336,8 +343,11 @@ export function SimulatorStateControls() {
           defenderPose={primaryDefenderPose}
           defenderStage={defenderStage}
           makeProbability={makeProbability}
+          epps={epps}
+          recommendation={recommendation}
           shooterPose={shooterPose}
           shooterStage={shooterStage}
+          shotDistance={shotDistance}
           shotQuality={shotQuality}
           timeline={timeline}
         />
@@ -407,24 +417,27 @@ export function SimulatorStateControls() {
 function SimulatorStage({
   defenderPose,
   defenderStage,
+  epps,
   makeProbability,
+  recommendation,
   shooterPose,
   shooterStage,
+  shotDistance,
   shotQuality,
   timeline,
 }: {
   defenderPose: DefenderPoseState;
   defenderStage: StagePoint;
+  epps: number;
   makeProbability: number;
+  recommendation: string;
   shooterPose: ShooterPoseState;
   shooterStage: StagePoint;
+  shotDistance: number;
   shotQuality: SharedShotQuality;
   timeline: number;
 }) {
   // Stage is an SVG prototype, not a physics engine; it visualizes shared state.
-  const ball = getBallPosition(shooterStage, timeline);
-  const shotPath = buildShotPath(shooterStage);
-
   return (
     <div className="relative bg-[#10160f]">
       <svg
@@ -460,22 +473,17 @@ function SimulatorStage({
         <CourtBackground />
         <Basket />
 
-        <path
-          d={shotPath}
-          fill="none"
-          stroke={qualityStroke[shotQuality]}
-          strokeDasharray="10 10"
-          strokeLinecap="round"
-          strokeWidth="4"
-          filter="url(#sim-orange-glow)"
-          opacity="0.78"
-        />
-        <path
-          d={`M ${shooterStage.x + 38} ${shooterStage.y - 122} L ${RIM.x} ${RIM.y}`}
-          stroke="rgba(255,255,255,0.18)"
-          strokeDasharray="4 9"
-          strokeLinecap="round"
-          strokeWidth="2"
+        <ShotArc
+          epps={epps}
+          makeProbability={makeProbability}
+          recommendation={recommendation}
+          releaseAngle={shooterPose.releaseAngle}
+          rim={RIM}
+          shooterPose={shooterPose}
+          shooterStage={shooterStage}
+          shotDistance={shotDistance}
+          shotQuality={shotQuality}
+          timeline={timeline}
         />
 
         <StickmanPlayer
@@ -515,39 +523,6 @@ function SimulatorStage({
           y={defenderStage.y}
         />
 
-        <circle
-          cx={ball.x}
-          cy={ball.y}
-          r="15"
-          fill="#ff6a00"
-          stroke="#fed7aa"
-          strokeWidth="3"
-          filter="url(#sim-orange-glow)"
-        />
-        <path
-          d={`M ${ball.x - 11} ${ball.y}h22M${ball.x} ${ball.y - 11}v22M${ball.x - 8} ${ball.y - 8}c9 7 12 15 11 21M${ball.x + 8} ${ball.y - 8}c-9 7-12 15-11 21`}
-          stroke="#431407"
-          strokeLinecap="round"
-          strokeWidth="2"
-        />
-
-        <g>
-          <rect
-            x="28"
-            y="28"
-            width="220"
-            height="70"
-            rx="10"
-            fill="rgba(0,0,0,0.56)"
-            stroke="rgba(255,255,255,0.14)"
-          />
-          <text x="48" y="57" fill="#fed7aa" fontSize="15" fontWeight="900">
-            Synthetic Phase 5 Preview
-          </text>
-          <text x="48" y="82" fill="rgba(226,232,240,0.78)" fontSize="13">
-            P(make): {(makeProbability * 100).toFixed(1)}%
-          </text>
-        </g>
       </svg>
     </div>
   );
@@ -849,56 +824,6 @@ function SyncBadge({ isSynced }: { isSynced: boolean }) {
   );
 }
 
-function TimelineControls({
-  isPlaying,
-  onReset,
-  onTimelineChange,
-  onTogglePlay,
-  timeline,
-}: {
-  isPlaying: boolean;
-  onReset: () => void;
-  onTimelineChange: (value: number) => void;
-  onTogglePlay: () => void;
-  timeline: number;
-}) {
-  // Timeline is a manual prototype control that moves the ball along the arc.
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border border-white/10 bg-black/30 p-3 sm:min-w-80">
-      <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={onTogglePlay}
-          className="grid size-10 place-items-center rounded-lg border border-green-300/25 bg-green-400/10 text-green-100 transition hover:bg-green-400/20"
-          aria-label={isPlaying ? "Pause timeline" : "Play timeline"}
-        >
-          {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
-        </button>
-        <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-          Release Timeline {timeline}%
-        </span>
-        <button
-          type="button"
-          onClick={onReset}
-          className="grid size-10 place-items-center rounded-lg border border-orange-300/25 bg-orange-500/10 text-orange-100 transition hover:bg-orange-500/20"
-          aria-label="Reset timeline"
-        >
-          <RotateCcw className="size-4" />
-        </button>
-      </div>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        step={1}
-        value={timeline}
-        onChange={(event) => onTimelineChange(Number(event.target.value))}
-        className="h-2 w-full accent-green-300"
-      />
-    </div>
-  );
-}
-
 function RangeControl({
   label,
   max,
@@ -1001,11 +926,6 @@ function IconButton({
   );
 }
 
-type StagePoint = {
-  x: number;
-  y: number;
-};
-
 function normalizeSimulatorDraft(
   context: SimulatorShotContext,
 ): SimulatorShotContext {
@@ -1058,46 +978,6 @@ function mapCourtPointToStage(x: number, y: number): StagePoint {
     y: FLOOR_Y - Math.min(y / 47, 1) * 58,
   };
 }
-
-function buildShotPath(shooterStage: StagePoint) {
-  // Simple quadratic arc from shooter hand area to the rim.
-  const startX = shooterStage.x + 42;
-  const startY = shooterStage.y - 126;
-  const controlX = (startX + RIM.x) / 2;
-  const controlY = Math.min(startY, RIM.y) - 138;
-
-  return `M ${startX} ${startY} Q ${controlX} ${controlY} ${RIM.x} ${RIM.y}`;
-}
-
-function getBallPosition(shooterStage: StagePoint, timeline: number) {
-  // Approximate the ball path with a quadratic Bezier point calculation.
-  const t = timeline / 100;
-  const start = { x: shooterStage.x + 42, y: shooterStage.y - 126 };
-  const control = {
-    x: (start.x + RIM.x) / 2,
-    y: Math.min(start.y, RIM.y) - 138,
-  };
-  const oneMinusT = 1 - t;
-
-  return {
-    x:
-      oneMinusT * oneMinusT * start.x +
-      2 * oneMinusT * t * control.x +
-      t * t * RIM.x,
-    y:
-      oneMinusT * oneMinusT * start.y +
-      2 * oneMinusT * t * control.y +
-      t * t * RIM.y,
-  };
-}
-
-const qualityStroke: Record<SharedShotQuality, string> = {
-  Average: "#facc15",
-  Bad: "#f87171",
-  Excellent: "#4ade80",
-  Good: "#34d399",
-  Poor: "#fb923c",
-};
 
 const qualityBadge: Record<SharedShotQuality, string> = {
   Average: "border-yellow-300/30 bg-yellow-400/10 text-yellow-100",
