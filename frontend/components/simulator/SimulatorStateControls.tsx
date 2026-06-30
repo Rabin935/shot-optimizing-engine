@@ -13,6 +13,7 @@ import {
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PoseControls } from "@/components/simulator/PoseControls";
+import { PoseAnalytics } from "@/components/simulator/PoseAnalytics";
 import {
   ShotArc,
   ShotArcControls,
@@ -386,6 +387,8 @@ export function SimulatorStateControls() {
           onResetElevation={resetElevation}
           onShooterJump={runShooterJump}
         />
+
+        <PoseAnalytics />
 
         <ShotInfoPanel
           confidence={confidence}
