@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/AppShell";
-import { ComingSoon } from "@/components/layout/ComingSoon";
+import { AdvancedEppsOptimizer } from "@/components/optimizer/AdvancedEppsOptimizer";
 
 export const metadata: Metadata = {
   // Route metadata for the future shot optimizer workspace.
@@ -10,20 +10,10 @@ export const metadata: Metadata = {
 };
 
 export default function OptimizerPage() {
-  // Render the shared roadmap placeholder until optimization tools are implemented.
+  // Render the Phase 5 optimizer workspace driven by the shared shot store.
   return (
     <AppShell>
-      <ComingSoon
-        title="Optimizer"
-        description="A decision workspace for comparing shot choices and identifying higher-value alternatives."
-        phase="Phase 5 Preview"
-        features={[
-          "Best-shot suggestions",
-          "Spacing recommendations",
-          "Shot value comparison",
-          "Scenario ranking",
-        ]}
-      />
+      <AdvancedEppsOptimizer />
     </AppShell>
   );
 }
