@@ -44,6 +44,10 @@ The workflow uses cleaned shot log data from:
 data/processed/cleaned_shot_logs.csv
 ```
 
+The cleaner now combines the original `data/raw/shot_logs.csv` file with the
+added NBA shot-location season files in
+`data/raw/NBA shot dataset (2000 - 2024)/`.
+
 The target column is:
 
 ```text
@@ -63,7 +67,21 @@ these columns from API request data:
 - `shot_distance`
 - `shot_angle`
 - `defender_distance`
+- `loc_x`
+- `loc_y`
+- `abs_loc_x`
+- `game_clock_seconds`
+- shot action flags such as `is_dunk`, `is_layup`, `is_pullup`, and
+  `is_driving`
+- position flags such as `position_guard`, `position_forward`, and
+  `position_center`
 - `shot_value`
+- `period`
+- `shot_clock`
+- `dribbles`
+- `touch_time`
+- derived context features such as `late_clock`, `quick_touch`, `long_three`,
+  and `distance_pressure_interaction`
 - `zone_paint`
 - `zone_mid_range`
 - `zone_three_point`
@@ -167,7 +185,11 @@ Example request:
   "shot_zone": "Three Point",
   "defender_distance": 3.2,
   "pressure_level": "Tight",
-  "shot_value": 3
+  "shot_value": 3,
+  "period": 4,
+  "shot_clock": 12,
+  "dribbles": 1,
+  "touch_time": 2.5
 }
 ```
 
@@ -198,14 +220,19 @@ Example response:
   "phase": "Step 6 - Save Trained ShotOptix XGBoost Model",
   "target_column": "shot_made",
   "features_used": [
+    "period",
+    "shot_clock",
+    "dribbles",
+    "touch_time",
     "shot_distance",
-    "shot_angle",
-    "defender_distance",
-    "shot_value"
+    "loc_x",
+    "loc_y",
+    "is_dunk",
+    "is_pullup"
   ],
   "metrics": {
-    "accuracy": 0.6127,
-    "roc_auc": 0.6307
+    "accuracy": 0.6295,
+    "roc_auc": 0.6539
   },
   "training_dataset": "data/processed/shotoptix_ml_training.csv",
   "prediction_fallback": "rule_based_fallback available",

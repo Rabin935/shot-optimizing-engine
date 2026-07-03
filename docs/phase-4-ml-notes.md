@@ -44,6 +44,13 @@ The raw source data lives in:
 data/raw/shot_logs.csv
 ```
 
+The current expanded training run also uses the added NBA shot-location season
+files from:
+
+```text
+data/raw/NBA shot dataset (2000 - 2024)/
+```
+
 ## 5. Feature Engineering
 
 Feature engineering means converting raw shot information into columns the model
@@ -55,6 +62,26 @@ Numeric values stay numeric:
 - `shot_angle`
 - `defender_distance`
 - `shot_value`
+- `period`
+- `shot_clock`
+- `dribbles`
+- `touch_time`
+- `loc_x`
+- `loc_y`
+- `game_clock_seconds`
+
+The current model also adds derived context features:
+
+- `distance_pressure_interaction`
+- `late_clock`
+- `early_clock`
+- `quick_touch`
+- `high_dribble`
+- `long_three`
+- `deep_two`
+- action flags such as `is_dunk`, `is_layup`, `is_pullup`, and `is_driving`
+- position flags such as `position_guard`, `position_forward`, and
+  `position_center`
 
 Text values are converted into one-hot columns:
 
@@ -188,8 +215,8 @@ Example:
   "model_type": "XGBoost XGBClassifier",
   "phase": "Step 6 - Save Trained ShotOptix XGBoost Model",
   "target_column": "shot_made",
-  "features_used": ["shot_distance", "shot_angle"],
-  "metrics": {"roc_auc": 0.6307},
+  "features_used": ["period", "shot_clock", "dribbles", "touch_time"],
+  "metrics": {"accuracy": 0.6295, "roc_auc": 0.6539},
   "training_dataset": "data/processed/shotoptix_ml_training.csv",
   "prediction_fallback": "rule_based_fallback available",
   "notes": "Feature order must match app.ml.feature_builder.MODEL_FEATURES."

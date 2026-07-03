@@ -58,14 +58,19 @@ shot-optimization-engine/
 ## Dataset And Features
 
 The model workflow uses cleaned shot log data from
-`data/processed/cleaned_shot_logs.csv`, produced from the raw shot data in
-`data/raw/shot_logs.csv`. The target column is `shot_made`, which means the
-model learns whether a shot was made (`1`) or missed (`0`).
+`data/processed/cleaned_shot_logs.csv`, produced from the original raw shot log
+and the added NBA shot-location season files. The target column is `shot_made`,
+which means the model learns whether a shot was made (`1`) or missed (`0`).
 
 Feature engineering converts the API shot context into numeric model inputs in
 the exact order stored in `backend/app/ml/feature_builder.py`:
 
-- Distance, angle, defender distance, and shot value stay numeric.
+- Period, shot clock, dribbles, touch time, distance, angle, defender distance,
+  and shot value stay numeric.
+- Exact shot location, absolute side angle, game clock, shot action flags, and
+  position-group flags are added when available from the richer shot dataset.
+- Derived context features capture interactions such as late-clock attempts,
+  quick-touch shots, long threes, deep twos, and distance under pressure.
 - Shot zone becomes one-hot columns: `zone_paint`, `zone_mid_range`, and
   `zone_three_point`.
 - Pressure level becomes one-hot columns such as `pressure_tight` and
@@ -115,8 +120,8 @@ can be loaded:
   "model_type": "XGBoost XGBClassifier",
   "phase": "Step 6 - Save Trained ShotOptix XGBoost Model",
   "target_column": "shot_made",
-  "features_used": ["shot_distance", "shot_angle"],
-  "metrics": {"roc_auc": 0.6307},
+  "features_used": ["period", "shot_clock", "dribbles", "touch_time"],
+  "metrics": {"accuracy": 0.6295, "roc_auc": 0.6539},
   "training_dataset": "data/processed/shotoptix_ml_training.csv",
   "prediction_fallback": "rule_based_fallback available",
   "notes": "Feature order must match app.ml.feature_builder.MODEL_FEATURES."

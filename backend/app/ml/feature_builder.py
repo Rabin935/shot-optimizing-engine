@@ -1,10 +1,37 @@
 import pandas as pd
 
 MODEL_FEATURES = [
+    "period",
+    "shot_clock",
+    "dribbles",
+    "touch_time",
     "shot_distance",
     "shot_angle",
     "defender_distance",
+    "loc_x",
+    "loc_y",
+    "abs_loc_x",
+    "game_clock_seconds",
+    "is_home",
     "shot_value",
+    "distance_pressure_interaction",
+    "late_clock",
+    "early_clock",
+    "quick_touch",
+    "high_dribble",
+    "long_three",
+    "deep_two",
+    "is_layup",
+    "is_dunk",
+    "is_jump_shot",
+    "is_pullup",
+    "is_driving",
+    "is_fadeaway",
+    "is_hook",
+    "is_tip",
+    "position_guard",
+    "position_forward",
+    "position_center",
     "zone_paint",
     "zone_mid_range",
     "zone_three_point",
@@ -23,14 +50,25 @@ PRESSURE_FEATURES = [
 ]
 
 NUMERIC_DEFAULTS = {
+    "period": 4,
+    "shot_clock": 12.0,
+    "dribbles": 1.0,
+    "touch_time": 2.5,
     "shot_distance": 0.0,
     "shot_angle": 0.0,
     "defender_distance": 4.0,
+    "loc_x": 0.0,
+    "loc_y": 0.0,
+    "game_clock_seconds": 12.0,
+    "is_home": 0,
     "shot_value": 2,
 }
 
 DEFAULT_SHOT_ZONE = "Mid-Range"
 DEFAULT_PRESSURE_LEVEL = "Tight"
+DEFAULT_ACTION_TYPE = ""
+DEFAULT_SHOT_TYPE = ""
+DEFAULT_POSITION_GROUP = ""
 
 
 def normalize_text(value: object) -> str:
@@ -110,6 +148,48 @@ def numeric_feature(df: pd.DataFrame, column: str) -> pd.Series:
     return pd.to_numeric(values, errors="coerce").fillna(default)
 
 
+def add_derived_features(features: pd.DataFrame) -> None:
+    # Derived inputs expose basketball interactions that tree splits can reuse.
+    safe_defender_distance = features["defender_distance"].clip(lower=0.5)
+    features["distance_pressure_interaction"] = (
+        features["shot_distance"] / safe_defender_distance
+    )
+    features["late_clock"] = (features["shot_clock"] <= 4).astype(int)
+    features["early_clock"] = (features["shot_clock"] >= 18).astype(int)
+    features["quick_touch"] = (
+        (features["touch_time"] <= 2.0) & (features["dribbles"] <= 1)
+    ).astype(int)
+    features["high_dribble"] = (features["dribbles"] >= 6).astype(int)
+    features["long_three"] = (
+        (features["shot_value"] == 3) & (features["shot_distance"] >= 26)
+    ).astype(int)
+    features["deep_two"] = (
+        (features["shot_value"] == 2) & (features["shot_distance"] >= 16)
+    ).astype(int)
+    features["abs_loc_x"] = features["loc_x"].abs()
+
+
+def add_action_features(features: pd.DataFrame, action_type: pd.Series) -> None:
+    action = action_type.apply(normalize_text)
+    features["is_layup"] = action.str.contains("layup").astype(int)
+    features["is_dunk"] = action.str.contains("dunk").astype(int)
+    features["is_jump_shot"] = action.str.contains("jump").astype(int)
+    features["is_pullup"] = (
+        action.str.contains("pullup") | action.str.contains("pull up")
+    ).astype(int)
+    features["is_driving"] = action.str.contains("driving").astype(int)
+    features["is_fadeaway"] = action.str.contains("fadeaway").astype(int)
+    features["is_hook"] = action.str.contains("hook").astype(int)
+    features["is_tip"] = action.str.contains("tip").astype(int)
+
+
+def add_position_features(features: pd.DataFrame, position_group: pd.Series) -> None:
+    position = position_group.apply(normalize_text)
+    features["position_guard"] = position.str.contains("g").astype(int)
+    features["position_forward"] = position.str.contains("f").astype(int)
+    features["position_center"] = position.str.contains("c").astype(int)
+
+
 def categorical_feature(df: pd.DataFrame, column: str, default: str) -> pd.Series:
     # Missing categorical columns use the requested safe default category.
     if column in df.columns:
@@ -122,10 +202,31 @@ def build_features_from_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     # Start with numeric model inputs from the normalized training dataframe.
     features = pd.DataFrame(index=df.index)
 
-    features["shot_distance"] = numeric_feature(df, "shot_distance")
-    features["shot_angle"] = numeric_feature(df, "shot_angle")
-    features["defender_distance"] = numeric_feature(df, "defender_distance")
-    features["shot_value"] = numeric_feature(df, "shot_value")
+    for column in [
+        "period",
+        "shot_clock",
+        "dribbles",
+        "touch_time",
+        "shot_distance",
+        "shot_angle",
+        "defender_distance",
+        "loc_x",
+        "loc_y",
+        "game_clock_seconds",
+        "is_home",
+        "shot_value",
+    ]:
+        features[column] = numeric_feature(df, column)
+
+    add_derived_features(features)
+    action_type = categorical_feature(df, "action_type", DEFAULT_ACTION_TYPE)
+    position_group = categorical_feature(
+        df,
+        "position_group",
+        DEFAULT_POSITION_GROUP,
+    )
+    add_action_features(features, action_type)
+    add_position_features(features, position_group)
 
     # Encode the same categorical columns during training and API inference.
     shot_zone = categorical_feature(df, "shot_zone", DEFAULT_SHOT_ZONE)
@@ -164,9 +265,36 @@ def build_features_from_request(request) -> pd.DataFrame:
             "defender_distance",
             NUMERIC_DEFAULTS["defender_distance"],
         ),
+        "loc_x": getattr(request, "loc_x", NUMERIC_DEFAULTS["loc_x"]),
+        "loc_y": getattr(request, "loc_y", NUMERIC_DEFAULTS["loc_y"]),
+        "game_clock_seconds": getattr(
+            request,
+            "game_clock_seconds",
+            NUMERIC_DEFAULTS["game_clock_seconds"],
+        ),
+        "is_home": getattr(request, "is_home", NUMERIC_DEFAULTS["is_home"]),
+        "period": getattr(request, "period", NUMERIC_DEFAULTS["period"]),
+        "shot_clock": getattr(
+            request,
+            "shot_clock",
+            NUMERIC_DEFAULTS["shot_clock"],
+        ),
+        "dribbles": getattr(request, "dribbles", NUMERIC_DEFAULTS["dribbles"]),
+        "touch_time": getattr(
+            request,
+            "touch_time",
+            NUMERIC_DEFAULTS["touch_time"],
+        ),
         "shot_value": getattr(request, "shot_value", NUMERIC_DEFAULTS["shot_value"]),
         "shot_zone": getattr(request, "shot_zone", DEFAULT_SHOT_ZONE),
         "pressure_level": getattr(request, "pressure_level", DEFAULT_PRESSURE_LEVEL),
+        "action_type": getattr(request, "action_type", DEFAULT_ACTION_TYPE),
+        "shot_type": getattr(request, "shot_type", DEFAULT_SHOT_TYPE),
+        "position_group": getattr(
+            request,
+            "position_group",
+            DEFAULT_POSITION_GROUP,
+        ),
     }
 
     df = pd.DataFrame([row])

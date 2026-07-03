@@ -9,6 +9,10 @@ export type ShotPredictionRequest = {
   defender_distance: number;
   pressure_level: string;
   shot_value: 2 | 3;
+  period?: number;
+  shot_clock?: number;
+  dribbles?: number;
+  touch_time?: number;
 };
 
 export type ShotPredictionResponse = {

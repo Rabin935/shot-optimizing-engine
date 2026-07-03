@@ -16,9 +16,20 @@ PREFERRED_INPUT_DATASETS = [
 OUTPUT_DATA_PATH = ROOT_DIR / "data" / "processed" / "shotoptix_ml_training.csv"
 
 MODEL_COLUMNS = [
+    "period",
+    "shot_clock",
+    "dribbles",
+    "touch_time",
     "shot_distance",
     "shot_angle",
     "defender_distance",
+    "loc_x",
+    "loc_y",
+    "game_clock_seconds",
+    "is_home",
+    "action_type",
+    "shot_type",
+    "position_group",
     "shot_zone",
     "pressure_level",
     "shot_value",
@@ -26,9 +37,20 @@ MODEL_COLUMNS = [
 ]
 
 COLUMN_ALIASES = {
+    "period": ["period", "PERIOD"],
+    "shot_clock": ["shot_clock", "SHOT_CLOCK"],
+    "dribbles": ["dribbles", "DRIBBLES"],
+    "touch_time": ["touch_time", "TOUCH_TIME"],
     "shot_distance": ["shot_distance", "SHOT_DIST"],
     "shot_angle": ["shot_angle", "SHOT_ANGLE"],
     "defender_distance": ["defender_distance", "CLOSE_DEF_DIST"],
+    "loc_x": ["loc_x", "LOC_X", "shotX"],
+    "loc_y": ["loc_y", "LOC_Y", "shotY"],
+    "game_clock_seconds": ["game_clock_seconds", "time_remaining"],
+    "is_home": ["is_home"],
+    "action_type": ["action_type", "ACTION_TYPE"],
+    "shot_type": ["shot_type", "SHOT_TYPE", "shot_type"],
+    "position_group": ["position_group", "POSITION_GROUP"],
     "shot_zone": [
         "shot_zone",
         "SHOT_ZONE",
@@ -201,9 +223,20 @@ def normalize_dataset(df: pd.DataFrame) -> pd.DataFrame:
 
     # Standardize raw column names before converting values.
     for column in [
+        "period",
+        "shot_clock",
+        "dribbles",
+        "touch_time",
         "shot_distance",
         "shot_angle",
         "defender_distance",
+        "loc_x",
+        "loc_y",
+        "game_clock_seconds",
+        "is_home",
+        "action_type",
+        "shot_type",
+        "position_group",
         "shot_zone",
         "pressure_level",
         "shot_value",
@@ -211,9 +244,36 @@ def normalize_dataset(df: pd.DataFrame) -> pd.DataFrame:
         standardize_column(normalized, column)
 
     # Convert numeric inputs to numbers so invalid strings become missing values.
-    for column in ["shot_distance", "shot_angle", "defender_distance", "shot_value"]:
+    for column in [
+        "period",
+        "shot_clock",
+        "dribbles",
+        "touch_time",
+        "shot_distance",
+        "shot_angle",
+        "defender_distance",
+        "loc_x",
+        "loc_y",
+        "game_clock_seconds",
+        "is_home",
+        "shot_value",
+    ]:
         if column in normalized.columns:
             normalized[column] = pd.to_numeric(normalized[column], errors="coerce")
+
+    for column, default in [
+        ("loc_x", 0.0),
+        ("loc_y", 0.0),
+        ("game_clock_seconds", 12.0),
+        ("is_home", 0),
+        ("action_type", ""),
+        ("shot_type", ""),
+        ("position_group", ""),
+    ]:
+        if column not in normalized.columns:
+            normalized[column] = default
+        else:
+            normalized[column] = normalized[column].fillna(default)
 
     # Shot angle is optional in some datasets, so default it to zero.
     if "shot_angle" not in normalized.columns:
@@ -284,7 +344,7 @@ def normalize_dataset(df: pd.DataFrame) -> pd.DataFrame:
 def main() -> None:
     # Load, normalize, save, and print a compact dataset summary.
     dataset_path = find_input_dataset()
-    df = pd.read_csv(dataset_path)
+    df = pd.read_csv(dataset_path, low_memory=False)
     normalized = normalize_dataset(df)
 
     OUTPUT_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
