@@ -10,8 +10,10 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
+import { PROFESSIONAL_POSE_PRESETS } from "@/lib/simulator-presets";
 import {
   useShotStore,
+  type ShooterPoseState,
   type SharedPressureLevel,
   type SharedShotQuality,
 } from "@/store/useShotStore";
@@ -42,6 +44,7 @@ export function AdvancedEppsOptimizer() {
   const makeProbability = useShotStore((state) => state.makeProbability);
   const epps = useShotStore((state) => state.epps);
   const pressureLevel = useShotStore((state) => state.pressureLevel);
+  const loadOptimizerShot = useShotStore((state) => state.loadOptimizerShot);
   const currentShot = useMemo(
     () =>
       normalizeCurrentShot({
@@ -67,6 +70,22 @@ export function AdvancedEppsOptimizer() {
     option.epps > best.epps ? option : best,
   );
   const eppsGain = bestAlternative.epps - currentShot.epps;
+  const loadBestShotIntoSimulator = () => {
+    // Optimizer handoff writes the recommended shot into the shared store, so
+    // the simulator opens on the best form and starts playing immediately.
+    loadOptimizerShot(
+      {
+        epps: bestAlternative.epps,
+        makeProbability: bestAlternative.makeProbability,
+        pressureLevel: normalizeSharedPressure(bestAlternative.pressureLevel),
+        shotQuality: bestAlternative.shotQuality,
+        shotValue: bestAlternative.shotValue,
+        shooterPose: getOptimizerPose(bestAlternative),
+        title: bestAlternative.title,
+      },
+      "optimizer",
+    );
+  };
 
   return (
     <section className="grid gap-6">
@@ -129,7 +148,8 @@ export function AdvancedEppsOptimizer() {
       </section>
 
       <section className="rounded-lg border border-orange-300/20 bg-orange-500/10 p-4">
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex gap-3">
           <Info className="mt-1 size-5 shrink-0 text-orange-200" />
           <div>
             <p className="text-sm font-black text-orange-100">
@@ -142,6 +162,15 @@ export function AdvancedEppsOptimizer() {
                 : "The current look is competitive with the generated alternatives."}
             </p>
           </div>
+          </div>
+          <button
+            type="button"
+            onClick={loadBestShotIntoSimulator}
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-green-300/35 bg-green-400/15 px-4 text-sm font-black text-green-100 transition hover:bg-green-400/25"
+          >
+            <ArrowUpRight className="size-4" />
+            Load In Simulator
+          </button>
         </div>
       </section>
     </section>
@@ -457,6 +486,41 @@ function getShotQuality(epps: number): SharedShotQuality {
   }
 
   return "Bad";
+}
+
+function normalizeSharedPressure(
+  pressure: OptimizerPressure,
+): SharedPressureLevel {
+  if (pressure === "Moderate") {
+    return "Open";
+  }
+
+  return pressure;
+}
+
+function getOptimizerPose(option: ShotOption): Partial<ShooterPoseState> {
+  const title = option.title.toLowerCase();
+
+  if (title.includes("step")) {
+    return getPresetPose("Step Back");
+  }
+
+  if (title.includes("paint")) {
+    return getPresetPose("Layup");
+  }
+
+  if (title.includes("corner") || title.includes("reset")) {
+    return getPresetPose("Catch and Shoot");
+  }
+
+  return getPresetPose("Balanced Jumper");
+}
+
+function getPresetPose(name: string): Partial<ShooterPoseState> {
+  return (
+    PROFESSIONAL_POSE_PRESETS.find((preset) => preset.name === name)
+      ?.shooterPose ?? {}
+  );
 }
 
 function clamp(value: number, min: number, max: number) {

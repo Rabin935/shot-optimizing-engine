@@ -4,6 +4,11 @@ import { ChevronDown, RotateCcw, Shield, Target } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import {
+  PROFESSIONAL_POSE_PRESETS,
+  createCustomPosePreset,
+  type PosePreset,
+} from "@/lib/simulator-presets";
+import {
   useShotStore,
   type DefenderPoseState,
   type ShooterPoseState,
@@ -48,84 +53,6 @@ const DEFENDER_SLIDERS: SliderConfig<DefenderPoseState>[] = [
   { key: "jumpHeight", label: "Jump Height", max: 12, min: 0, step: 0.1 },
 ];
 
-const SHOOTER_PRESETS: Record<string, Partial<ShooterPoseState>> = {
-  "Balanced Jumper": {
-    guideHandAngle: 28,
-    handHeight: 8.8,
-    isAirborne: true,
-    jumpHeight: 7.4,
-    kneeBend: 16,
-    leftLegAngle: 10,
-    releaseAngle: 49,
-    rightLegAngle: -10,
-    shootingArmAngle: 64,
-    torsoAngle: 2,
-    verticalOffset: 0.9,
-  },
-  Fadeaway: {
-    guideHandAngle: 32,
-    handHeight: 9.2,
-    isAirborne: true,
-    jumpHeight: 8.2,
-    kneeBend: 12,
-    leftLegAngle: 18,
-    releaseAngle: 54,
-    rightLegAngle: 4,
-    shootingArmAngle: 72,
-    torsoAngle: -14,
-    verticalOffset: 1.1,
-  },
-  "Quick Release": {
-    guideHandAngle: 18,
-    handHeight: 8,
-    isAirborne: true,
-    jumpHeight: 4.8,
-    kneeBend: 10,
-    leftLegAngle: 6,
-    releaseAngle: 45,
-    rightLegAngle: -6,
-    shootingArmAngle: 82,
-    torsoAngle: 6,
-    verticalOffset: 0.55,
-  },
-};
-
-const DEFENDER_PRESETS: Record<string, Partial<DefenderPoseState>> = {
-  "Strong Contest": {
-    armRaise: 96,
-    contestHeight: 10.8,
-    isAirborne: true,
-    jumpHeight: 8.4,
-    kneeBend: 8,
-    leanAngle: -6,
-    stanceWidth: 3.3,
-    torsoAngle: -4,
-    verticalOffset: 1.1,
-  },
-  "Late Contest": {
-    armRaise: 72,
-    contestHeight: 8.4,
-    isAirborne: true,
-    jumpHeight: 4,
-    kneeBend: 18,
-    leanAngle: 12,
-    stanceWidth: 2.6,
-    torsoAngle: 10,
-    verticalOffset: 0.45,
-  },
-  "Hands Down": {
-    armRaise: 8,
-    contestHeight: 5.8,
-    isAirborne: false,
-    jumpHeight: 0,
-    kneeBend: 14,
-    leanAngle: 0,
-    stanceWidth: 2,
-    torsoAngle: 0,
-    verticalOffset: 0,
-  },
-};
-
 export function PoseControls({
   onDefenderContestJump,
   onResetElevation,
@@ -133,7 +60,10 @@ export function PoseControls({
 }: PoseControlsProps) {
   const [isShooterOpen, setIsShooterOpen] = useState(true);
   const [isDefenderOpen, setIsDefenderOpen] = useState(true);
+  const [customPresetName, setCustomPresetName] = useState("My Shot Form");
   const activeDefenderCount = useShotStore((state) => state.activeDefenderCount);
+  const addCustomPosePreset = useShotStore((state) => state.addCustomPosePreset);
+  const customPosePresets = useShotStore((state) => state.customPosePresets);
   const defenders = useShotStore((state) => state.defenders);
   const defenderPoses = useShotStore((state) => state.defenderPoses);
   const shooterPose = useShotStore((state) => state.shooterPose);
@@ -172,6 +102,27 @@ export function PoseControls({
             jumpHeight: value,
           }
         : { [key]: value },
+      "simulator",
+    );
+  }
+
+  function applyPosePreset(preset: PosePreset) {
+    // Presets patch the shared shooter and defender pose stores together, so
+    // the stage, analytics, comparison, and export panels see one synchronized form.
+    updateShooterPose(preset.shooterPose, "simulator");
+
+    if (preset.defenderPose) {
+      updateDefenderPose(primaryDefenderId, preset.defenderPose, "simulator");
+    }
+  }
+
+  function saveCustomPreset() {
+    addCustomPosePreset(
+      createCustomPosePreset({
+        defenderPose,
+        name: customPresetName.trim() || "Custom Shot Form",
+        shooterPose,
+      }),
       "simulator",
     );
   }
@@ -218,24 +169,13 @@ export function PoseControls({
         />
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        {Object.entries(SHOOTER_PRESETS).map(([label, pose]) => (
-          <PresetButton
-            key={label}
-            label={label}
-            tone="orange"
-            onClick={() => updateShooterPose(pose, "simulator")}
-          />
-        ))}
-        {Object.entries(DEFENDER_PRESETS).map(([label, pose]) => (
-          <PresetButton
-            key={label}
-            label={label}
-            tone="green"
-            onClick={() => updateDefenderPose(primaryDefenderId, pose, "simulator")}
-          />
-        ))}
-      </div>
+      <PoseLibrary
+        customPresetName={customPresetName}
+        customPresets={customPosePresets}
+        onApplyPreset={applyPosePreset}
+        onCustomPresetNameChange={setCustomPresetName}
+        onSaveCustomPreset={saveCustomPreset}
+      />
 
       <div className="mt-5 grid gap-3">
         <CollapsibleSection
@@ -442,22 +382,106 @@ function ActionButton({
   );
 }
 
+function PoseLibrary({
+  customPresetName,
+  customPresets,
+  onApplyPreset,
+  onCustomPresetNameChange,
+  onSaveCustomPreset,
+}: {
+  customPresetName: string;
+  customPresets: PosePreset[];
+  onApplyPreset: (preset: PosePreset) => void;
+  onCustomPresetNameChange: (name: string) => void;
+  onSaveCustomPreset: () => void;
+}) {
+  // The library exposes professional forms and user-saved snapshots through
+  // the same preset contract, keeping selection logic reusable.
+  return (
+    <div className="mt-4 grid gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+            Pose Library
+          </p>
+          <p className="mt-1 text-sm font-black text-white">
+            Professional shooting forms
+          </p>
+        </div>
+        <span className="rounded-md border border-orange-300/25 bg-orange-500/10 px-2 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-orange-100">
+          {PROFESSIONAL_POSE_PRESETS.length} forms
+        </span>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {PROFESSIONAL_POSE_PRESETS.map((preset) => (
+          <PresetButton
+            key={preset.id}
+            description={preset.description}
+            label={preset.name}
+            tone={preset.defenderPose ? "green" : "orange"}
+            onClick={() => onApplyPreset(preset)}
+          />
+        ))}
+      </div>
+
+      <div className="grid gap-2 border-t border-white/10 pt-3">
+        <label className="grid gap-2">
+          <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+            Save custom preset
+          </span>
+          <input
+            type="text"
+            value={customPresetName}
+            onChange={(event) => onCustomPresetNameChange(event.target.value)}
+            className="min-h-10 rounded-lg border border-white/10 bg-black/35 px-3 text-sm font-bold text-white outline-none transition placeholder:text-slate-600 focus:border-orange-300/45"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={onSaveCustomPreset}
+          className="min-h-10 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-black text-slate-200 transition hover:border-orange-300/35 hover:text-orange-100"
+        >
+          Save Current Pose
+        </button>
+      </div>
+
+      {customPresets.length ? (
+        <div className="grid gap-2 border-t border-white/10 pt-3 sm:grid-cols-2">
+          {customPresets.map((preset) => (
+            <PresetButton
+              key={preset.id}
+              description={preset.description}
+              label={preset.name}
+              tone="custom"
+              onClick={() => onApplyPreset(preset)}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function PresetButton({
+  description,
   label,
   onClick,
   tone,
 }: {
+  description?: string;
   label: string;
   onClick: () => void;
-  tone: "green" | "orange";
+  tone: "custom" | "green" | "orange";
 }) {
   // Presets are partial pose patches, letting users jump to common body shapes
   // without overwriting unrelated court position state.
   return (
     <button
       type="button"
+      title={description}
       onClick={onClick}
-      className={`min-h-10 rounded-lg border px-3 py-2 text-xs font-black transition ${presetButtonClasses[tone]}`}
+      className={`min-h-10 rounded-lg border px-3 py-2 text-left text-xs font-black transition ${presetButtonClasses[tone]}`}
     >
       {label}
     </button>
@@ -474,6 +498,8 @@ const actionButtonClasses = {
 };
 
 const presetButtonClasses = {
+  custom:
+    "border-sky-300/20 bg-sky-400/[0.08] text-sky-100 hover:bg-sky-400/15",
   green:
     "border-green-300/20 bg-green-400/[0.08] text-green-100 hover:bg-green-400/15",
   orange:

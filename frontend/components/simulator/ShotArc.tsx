@@ -1,19 +1,27 @@
 "use client";
 
-import { Pause, Play, RotateCcw, Snail } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play, RotateCcw, Snail } from "lucide-react";
+import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 import type { SharedShotQuality, ShooterPoseState } from "@/store/useShotStore";
+import { SHOOTING_ANIMATION_KEYFRAMES } from "@/lib/simulator-animation";
+import {
+  buildShotPath,
+  getBallVisualState,
+  getFlightDuration,
+  getReleasePoint,
+  type ShotOutcomeKind,
+} from "@/lib/simulator-physics";
 
-export type StagePoint = {
-  x: number;
-  y: number;
-};
+export type { StagePoint } from "@/lib/simulator-physics";
+import type { StagePoint } from "@/lib/simulator-physics";
 
 type RimPoint = StagePoint;
 
 type ShotArcProps = {
   epps: number;
   makeProbability: number;
+  outcome: ShotOutcomeKind;
   recommendation: string;
   releaseAngle: number;
   rim: RimPoint;
@@ -25,27 +33,25 @@ type ShotArcProps = {
 };
 
 type ShotArcControlsProps = {
+  activeStage: string;
+  frameCount: number;
+  frameIndex: number;
   isPlaying: boolean;
   isSlowMotion: boolean;
+  onNextFrame: () => void;
   onPause: () => void;
   onPlay: () => void;
+  onPreviousFrame: () => void;
   onReset: () => void;
   onTimelineChange: (value: number) => void;
   onToggleSlowMotion: () => void;
   timeline: number;
 };
 
-const TIMELINE_STEPS = [
-  { label: "Set", max: 19, min: 0 },
-  { label: "Jump", max: 39, min: 20 },
-  { label: "Release", max: 55, min: 40 },
-  { label: "Flight", max: 89, min: 56 },
-  { label: "Result", max: 100, min: 90 },
-];
-
 export function ShotArc({
   epps,
   makeProbability,
+  outcome,
   recommendation,
   releaseAngle,
   rim,
@@ -57,20 +63,22 @@ export function ShotArc({
 }: ShotArcProps) {
   // ShotArc intentionally uses a readable Bezier approximation. It explains
   // release shape without pretending to be a full ballistics simulation.
-  const releasePoint = getReleasePoint(shooterStage, shooterPose);
+  const releasePoint = getReleasePoint({ shooterPose, shooterStage });
   const arcPath = buildShotPath({
     releaseAngle,
     releasePoint,
     rim,
     shotDistance,
   });
-  const ball = getBallPosition({
+  const visual = getBallVisualState({
+    outcome,
+    progress: timeline,
     releaseAngle,
     releasePoint,
     rim,
     shotDistance,
-    timeline,
   });
+  const flightDuration = getFlightDuration(shotDistance);
 
   return (
     <g>
@@ -92,10 +100,12 @@ export function ShotArc({
         strokeWidth="2"
       />
 
-      <Basketball ball={ball} />
+      <RimOutcomeEffects rim={rim} visual={visual} />
+      <Basketball ball={visual.ball} flightDuration={flightDuration} />
 
       <ShotResultCallout
         epps={epps}
+        outcomeLabel={visual.label}
         makeProbability={makeProbability}
         recommendation={recommendation}
         shotQuality={shotQuality}
@@ -105,20 +115,26 @@ export function ShotArc({
 }
 
 export function ShotArcControls({
+  activeStage,
+  frameCount,
+  frameIndex,
   isPlaying,
   isSlowMotion,
+  onNextFrame,
   onPause,
   onPlay,
+  onPreviousFrame,
   onReset,
   onTimelineChange,
   onToggleSlowMotion,
   timeline,
 }: ShotArcControlsProps) {
-  const activeStep = getTimelineStep(timeline);
-
   return (
     <div className="grid gap-3 rounded-lg border border-white/10 bg-black/30 p-3 sm:min-w-[25rem]">
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-6 gap-2">
+        <ControlButton label="Previous Frame" onClick={onPreviousFrame}>
+          <ChevronLeft className="size-4" />
+        </ControlButton>
         <ControlButton active={isPlaying} label="Play" onClick={onPlay}>
           <Play className="size-4" />
         </ControlButton>
@@ -127,6 +143,9 @@ export function ShotArcControls({
         </ControlButton>
         <ControlButton label="Reset" onClick={onReset}>
           <RotateCcw className="size-4" />
+        </ControlButton>
+        <ControlButton label="Next Frame" onClick={onNextFrame}>
+          <ChevronRight className="size-4" />
         </ControlButton>
         <ControlButton
           active={isSlowMotion}
@@ -139,8 +158,10 @@ export function ShotArcControls({
 
       <label className="grid gap-2">
         <span className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-          <span>{activeStep} Timeline</span>
-          <span>{timeline}%</span>
+          <span>{activeStage}</span>
+          <span>
+            Frame {frameIndex + 1}/{frameCount} / {timeline}%
+          </span>
         </span>
         <input
           type="range"
@@ -153,21 +174,26 @@ export function ShotArcControls({
         />
       </label>
 
-      <div className="grid grid-cols-5 gap-1.5">
-        {TIMELINE_STEPS.map((step) => {
-          const isActive = timeline >= step.min && timeline <= step.max;
+      <div className="grid grid-cols-7 gap-1.5">
+        {SHOOTING_ANIMATION_KEYFRAMES.map((frame, index) => {
+          const next = SHOOTING_ANIMATION_KEYFRAMES[index + 1];
+          const isActive =
+            timeline >= frame.progress &&
+            timeline <= (next?.progress ?? frame.progress);
 
           return (
-            <div
-              key={step.label}
+            <button
+              key={frame.id}
+              type="button"
+              onClick={() => onTimelineChange(frame.progress)}
               className={`rounded-md border px-2 py-1.5 text-center text-[11px] font-black uppercase tracking-[0.08em] ${
                 isActive
                   ? "border-orange-300/45 bg-orange-500/20 text-orange-100"
                   : "border-white/10 bg-white/[0.04] text-slate-500"
               }`}
             >
-              {step.label}
-            </div>
+              {frame.label.split(" ")[0]}
+            </button>
           );
         })}
       </div>
@@ -203,11 +229,26 @@ function ControlButton({
   );
 }
 
-function Basketball({ ball }: { ball: StagePoint }) {
+function Basketball({
+  ball,
+  flightDuration,
+}: {
+  ball: StagePoint;
+  flightDuration: number;
+}) {
   // The basketball follows the same Bezier point used by the arc path, keeping
   // the visible motion aligned with the drawn explanation curve.
   return (
-    <g>
+    <motion.g
+      initial={false}
+      animate={{ rotate: [0, 28, 0], scale: [1, 1.04, 1] }}
+      style={{ originX: `${ball.x}px`, originY: `${ball.y}px` }}
+      transition={{
+        duration: flightDuration / 1000,
+        ease: "easeInOut",
+        repeat: Infinity,
+      }}
+    >
       <circle
         cx={ball.x}
         cy={ball.y}
@@ -223,6 +264,71 @@ function Basketball({ ball }: { ball: StagePoint }) {
         strokeLinecap="round"
         strokeWidth="2"
       />
+    </motion.g>
+  );
+}
+
+function RimOutcomeEffects({
+  rim,
+  visual,
+}: {
+  rim: StagePoint;
+  visual: ReturnType<typeof getBallVisualState>;
+}) {
+  // These small effects sell the outcome visually without simulating true
+  // contact physics: net snap for makes, rim pulse, and backboard flash.
+  return (
+    <g>
+      {visual.rimPulse ? (
+        <motion.ellipse
+          cx={rim.x}
+          cy={rim.y}
+          rx="38"
+          ry="13"
+          fill="none"
+          stroke="#fdba74"
+          strokeWidth="4"
+          initial={false}
+          animate={{ opacity: [0.85, 0.18], scale: [1, 1.18] }}
+          transition={{ duration: 0.42, repeat: Infinity }}
+        />
+      ) : null}
+      {visual.swish ? (
+        <motion.path
+          d={`M ${rim.x - 21} ${rim.y + 9}c12 35 34 35 47 0`}
+          fill="none"
+          stroke="#e0f2fe"
+          strokeLinecap="round"
+          strokeWidth="4"
+          initial={false}
+          animate={{ opacity: [0.35, 1, 0.35], y: [0, 8, 0] }}
+          transition={{ duration: 0.6, repeat: Infinity }}
+        />
+      ) : null}
+      {visual.backboardFlash ? (
+        <motion.rect
+          x={rim.x + 10}
+          y={rim.y - 70}
+          width="52"
+          height="52"
+          rx="4"
+          fill="rgba(255,255,255,0.16)"
+          stroke="#bae6fd"
+          strokeWidth="3"
+          initial={false}
+          animate={{ opacity: [0.15, 0.7, 0.15] }}
+          transition={{ duration: 0.48, repeat: Infinity }}
+        />
+      ) : null}
+      <text
+        x={rim.x - 72}
+        y={rim.y + 70}
+        fill="#fed7aa"
+        fontSize="13"
+        fontWeight="900"
+      >
+        {visual.label}
+      </text>
     </g>
   );
 }
@@ -230,11 +336,13 @@ function Basketball({ ball }: { ball: StagePoint }) {
 function ShotResultCallout({
   epps,
   makeProbability,
+  outcomeLabel,
   recommendation,
   shotQuality,
 }: {
   epps: number;
   makeProbability: number;
+  outcomeLabel: string;
   recommendation: string;
   shotQuality: SharedShotQuality;
 }) {
@@ -258,7 +366,7 @@ function ShotResultCallout({
         P(make): {(makeProbability * 100).toFixed(1)}% / EPPS {epps.toFixed(2)}
       </text>
       <text x="48" y="105" fill={qualityStroke[shotQuality]} fontSize="13" fontWeight="900">
-        Quality: {shotQuality}
+        Quality: {shotQuality} / {outcomeLabel}
       </text>
       <text x="48" y="126" fill="rgba(226,232,240,0.72)" fontSize="12">
         {recommendation.length > 36
@@ -266,115 +374,6 @@ function ShotResultCallout({
           : recommendation}
       </text>
     </g>
-  );
-}
-
-function getReleasePoint(
-  shooterStage: StagePoint,
-  shooterPose: ShooterPoseState,
-): StagePoint {
-  // This mirrors the stickman arm intent closely enough that the arc begins at
-  // the visible release hand while still staying simple and explainable.
-  const lift =
-    Math.max(
-      0,
-      shooterPose.verticalOffset * 22 +
-        (shooterPose.isAirborne
-          ? shooterPose.jumpHeight * 4 + 12
-          : shooterPose.jumpHeight * 2),
-    ) || 0;
-  const releaseReach = (shooterPose.releaseAngle - 48) * 0.42;
-  const handHeightBoost = (shooterPose.handHeight - 8.4) * 5;
-
-  return {
-    x: shooterStage.x + 42 + releaseReach,
-    y: shooterStage.y - 126 - lift - handHeightBoost,
-  };
-}
-
-function buildShotPath({
-  releaseAngle,
-  releasePoint,
-  rim,
-  shotDistance,
-}: {
-  releaseAngle: number;
-  releasePoint: StagePoint;
-  rim: RimPoint;
-  shotDistance: number;
-}) {
-  const control = getArcControlPoint({
-    releaseAngle,
-    releasePoint,
-    rim,
-    shotDistance,
-  });
-
-  return `M ${releasePoint.x} ${releasePoint.y} Q ${control.x} ${control.y} ${rim.x} ${rim.y}`;
-}
-
-function getBallPosition({
-  releaseAngle,
-  releasePoint,
-  rim,
-  shotDistance,
-  timeline,
-}: {
-  releaseAngle: number;
-  releasePoint: StagePoint;
-  rim: RimPoint;
-  shotDistance: number;
-  timeline: number;
-}) {
-  // Quadratic Bezier interpolation gives a smooth professional-looking arc
-  // without introducing physics constants this phase does not need yet.
-  const t = timeline / 100;
-  const control = getArcControlPoint({
-    releaseAngle,
-    releasePoint,
-    rim,
-    shotDistance,
-  });
-  const oneMinusT = 1 - t;
-
-  return {
-    x:
-      oneMinusT * oneMinusT * releasePoint.x +
-      2 * oneMinusT * t * control.x +
-      t * t * rim.x,
-    y:
-      oneMinusT * oneMinusT * releasePoint.y +
-      2 * oneMinusT * t * control.y +
-      t * t * rim.y,
-  };
-}
-
-function getArcControlPoint({
-  releaseAngle,
-  releasePoint,
-  rim,
-  shotDistance,
-}: {
-  releaseAngle: number;
-  releasePoint: StagePoint;
-  rim: RimPoint;
-  shotDistance: number;
-}) {
-  // Higher release angle and longer shot distance lift the control point,
-  // making the same simple curve communicate both arc height and shot length.
-  const distanceLift = Math.min(Math.max(shotDistance, 8), 32) * 3.8;
-  const angleLift = (releaseAngle - 20) * 2.1;
-
-  return {
-    x: (releasePoint.x + rim.x) / 2,
-    y: Math.min(releasePoint.y, rim.y) - 48 - distanceLift - angleLift,
-  };
-}
-
-function getTimelineStep(timeline: number) {
-  return (
-    TIMELINE_STEPS.find((step) => timeline >= step.min && timeline <= step.max)
-      ?.label ?? "Set"
   );
 }
 

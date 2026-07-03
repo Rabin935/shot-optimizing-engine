@@ -2,6 +2,14 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import type { MechanicsScore } from "@/lib/simulator-analysis";
+import type { ShootingAnimationStage } from "@/lib/simulator-animation";
+import {
+  SHOOTING_ANIMATION_KEYFRAMES,
+  getTimelineFrame,
+} from "@/lib/simulator-animation";
+import type { PosePreset } from "@/lib/simulator-presets";
+import type { ShotOutcomeKind } from "@/lib/simulator-physics";
 
 export type ShotPoint = {
   x: number;
@@ -23,6 +31,14 @@ export type PredictionSource =
   | "ml_model"
   | "rule_based_fallback"
   | "prediction_engine";
+
+export type StoreUpdateSource =
+  | "backend"
+  | "optimizer"
+  | "replay"
+  | "sandbox"
+  | "simulator"
+  | "system";
 
 export type ShotMetricsState = {
   shotDistance: number;
@@ -65,32 +81,66 @@ export type DefenderPoseState = {
   isAirborne: boolean;
 };
 
+export type OptimizedShotState = {
+  appliedAt: string;
+  epps: number;
+  makeProbability: number;
+  pressureLevel: SharedPressureLevel;
+  shotQuality: SharedShotQuality;
+  shotValue: 2 | 3;
+  title: string;
+};
+
+export type ShotReplayEntry = {
+  activeDefenderCount: ActiveDefenderCount;
+  createdAt: string;
+  defenderPoses: Record<string, DefenderPoseState>;
+  defenders: ShotDefenderPosition[];
+  id: string;
+  label: string;
+  mechanicsScore: MechanicsScore;
+  metrics: ShotMetricsState;
+  shooter: ShotPoint;
+  shooterPose: ShooterPoseState;
+  shotOutcome: ShotOutcomeKind;
+  timelineProgress: number;
+};
+
 type ShotStoreState = {
   shooter: ShotPoint;
   defenders: ShotDefenderPosition[];
   activeDefenderCount: ActiveDefenderCount;
   shooterPose: ShooterPoseState;
   defenderPoses: Record<string, DefenderPoseState>;
-  lastUpdatedBy: "sandbox" | "simulator" | "backend" | "system";
+  animationPlaying: boolean;
+  animationProgress: number;
+  animationStage: ShootingAnimationStage;
+  comparisonMode: boolean;
+  customPosePresets: PosePreset[];
+  optimizedShot: OptimizedShotState | null;
+  replayHistory: ShotReplayEntry[];
+  shotOutcome: ShotOutcomeKind;
+  slowMotion: boolean;
+  lastUpdatedBy: StoreUpdateSource;
 } & ShotMetricsState;
 
 type ShotStoreActions = {
   setShooterPosition: (
     position: ShotPoint,
-    source?: ShotStoreState["lastUpdatedBy"],
+    source?: StoreUpdateSource,
   ) => void;
   setDefenderPosition: (
     defenderId: string,
     position: ShotPoint,
-    source?: ShotStoreState["lastUpdatedBy"],
+    source?: StoreUpdateSource,
   ) => void;
   setDefenderCount: (
     count: ActiveDefenderCount,
-    source?: ShotStoreState["lastUpdatedBy"],
+    source?: StoreUpdateSource,
   ) => void;
   updateShotMetrics: (
     metrics: Partial<ShotMetricsState>,
-    source?: ShotStoreState["lastUpdatedBy"],
+    source?: StoreUpdateSource,
   ) => void;
   updatePredictionResult: (
     prediction: Partial<
@@ -104,19 +154,45 @@ type ShotStoreActions = {
         | "predictionSource"
       >
     >,
-    source?: ShotStoreState["lastUpdatedBy"],
+    source?: StoreUpdateSource,
   ) => void;
   updateShooterPose: (
     pose: Partial<ShooterPoseState>,
-    source?: ShotStoreState["lastUpdatedBy"],
+    source?: StoreUpdateSource,
   ) => void;
   updateDefenderPose: (
     defenderId: string,
     pose: Partial<DefenderPoseState>,
-    source?: ShotStoreState["lastUpdatedBy"],
+    source?: StoreUpdateSource,
   ) => void;
-  resetShot: (source?: ShotStoreState["lastUpdatedBy"]) => void;
-  resetPoses: (source?: ShotStoreState["lastUpdatedBy"]) => void;
+  addCustomPosePreset: (preset: PosePreset, source?: StoreUpdateSource) => void;
+  deleteReplay: (replayId: string, source?: StoreUpdateSource) => void;
+  loadOptimizerShot: (
+    shot: Omit<OptimizedShotState, "appliedAt"> & {
+      shooterPose?: Partial<ShooterPoseState>;
+    },
+    source?: StoreUpdateSource,
+  ) => void;
+  loadReplay: (replayId: string, source?: StoreUpdateSource) => void;
+  resetShot: (source?: StoreUpdateSource) => void;
+  resetPoses: (source?: StoreUpdateSource) => void;
+  saveReplay: (
+    replay: Omit<ShotReplayEntry, "createdAt" | "id" | "label"> & {
+      label?: string;
+    },
+    source?: StoreUpdateSource,
+  ) => void;
+  setAnimationPlaying: (
+    isPlaying: boolean,
+    source?: StoreUpdateSource,
+  ) => void;
+  setAnimationProgress: (
+    progress: number,
+    source?: StoreUpdateSource,
+  ) => void;
+  setComparisonMode: (enabled: boolean, source?: StoreUpdateSource) => void;
+  setShotOutcome: (outcome: ShotOutcomeKind, source?: StoreUpdateSource) => void;
+  setSlowMotion: (enabled: boolean, source?: StoreUpdateSource) => void;
 };
 
 export type ShotStore = ShotStoreState & ShotStoreActions;
@@ -182,11 +258,20 @@ const DEFAULT_DEFENDER_POSES: Record<string, DefenderPoseState> = {
 // DEFAULT_SHOT_STATE combines position, metrics, and pose into one store shape.
 const DEFAULT_SHOT_STATE: ShotStoreState = {
   ...DEFAULT_METRICS,
+  animationPlaying: false,
+  animationProgress: SHOOTING_ANIMATION_KEYFRAMES[0].progress,
+  animationStage: SHOOTING_ANIMATION_KEYFRAMES[0].label,
+  comparisonMode: false,
+  customPosePresets: [],
   shooter: DEFAULT_SHOOTER,
   defenders: DEFAULT_DEFENDERS,
   activeDefenderCount: 2,
   shooterPose: DEFAULT_SHOOTER_POSE,
   defenderPoses: DEFAULT_DEFENDER_POSES,
+  optimizedShot: null,
+  replayHistory: [],
+  shotOutcome: "make",
+  slowMotion: false,
   lastUpdatedBy: "system",
 };
 
@@ -228,6 +313,8 @@ export const useShotStore = create<ShotStore>()(
       defenders: cloneDefaultDefenders(),
       shooterPose: { ...DEFAULT_SHOOTER_POSE },
       defenderPoses: cloneDefaultDefenderPoses(),
+      customPosePresets: [],
+      replayHistory: [],
 
       setShooterPosition: (position, source = "sandbox") =>
         set((state) => {
@@ -344,6 +431,70 @@ export const useShotStore = create<ShotStore>()(
           };
         }),
 
+      addCustomPosePreset: (preset, source = "simulator") =>
+        set((state) => ({
+          customPosePresets: [preset, ...state.customPosePresets].slice(0, 12),
+          lastUpdatedBy: source,
+        })),
+
+      deleteReplay: (replayId, source = "simulator") =>
+        set((state) => ({
+          replayHistory: state.replayHistory.filter(
+            (replay) => replay.id !== replayId,
+          ),
+          lastUpdatedBy: source,
+        })),
+
+      loadOptimizerShot: (shot, source = "optimizer") =>
+        set((state) => ({
+          epps: shot.epps,
+          makeProbability: shot.makeProbability,
+          optimizedShot: {
+            appliedAt: new Date().toISOString(),
+            epps: shot.epps,
+            makeProbability: shot.makeProbability,
+            pressureLevel: shot.pressureLevel,
+            shotQuality: shot.shotQuality,
+            shotValue: shot.shotValue,
+            title: shot.title,
+          },
+          pressureLevel: shot.pressureLevel,
+          recommendation: `Optimizer loaded ${shot.title}. Review the mechanics timeline and coaching feedback.`,
+          shotQuality: shot.shotQuality,
+          shotValue: shot.shotValue,
+          shooterPose: {
+            ...state.shooterPose,
+            ...(shot.shooterPose ?? {}),
+          },
+          animationPlaying: true,
+          animationProgress: 0,
+          animationStage: SHOOTING_ANIMATION_KEYFRAMES[0].label,
+          lastUpdatedBy: source,
+        })),
+
+      loadReplay: (replayId, source = "replay") =>
+        set((state) => {
+          const replay = state.replayHistory.find((item) => item.id === replayId);
+
+          if (!replay) {
+            return state;
+          }
+
+          return {
+            ...replay.metrics,
+            activeDefenderCount: replay.activeDefenderCount,
+            animationPlaying: true,
+            animationProgress: replay.timelineProgress,
+            animationStage: getTimelineFrame(replay.timelineProgress).label,
+            defenderPoses: cloneDefenderPoseRecord(replay.defenderPoses),
+            defenders: replay.defenders.map((defender) => ({ ...defender })),
+            shooter: { ...replay.shooter },
+            shooterPose: { ...replay.shooterPose },
+            shotOutcome: replay.shotOutcome,
+            lastUpdatedBy: source,
+          };
+        }),
+
       resetShot: (source = "system") =>
         // Reset shared shot position and metrics without changing pose controls.
         set({
@@ -351,6 +502,7 @@ export const useShotStore = create<ShotStore>()(
           shooter: { ...DEFAULT_SHOOTER },
           defenders: cloneDefaultDefenders(),
           activeDefenderCount: 2,
+          optimizedShot: null,
           lastUpdatedBy: source,
         }),
 
@@ -361,6 +513,69 @@ export const useShotStore = create<ShotStore>()(
           defenderPoses: cloneDefaultDefenderPoses(),
           lastUpdatedBy: source,
         }),
+
+      saveReplay: (replay, source = "simulator") =>
+        set((state) => {
+          const createdAt = new Date().toISOString();
+          const entry: ShotReplayEntry = {
+            ...replay,
+            createdAt,
+            id: `shot-${Date.now()}`,
+            label: replay.label ?? `Shot #${state.replayHistory.length + 1}`,
+          };
+
+          return {
+            replayHistory: [entry, ...state.replayHistory].slice(0, 24),
+            lastUpdatedBy: source,
+          };
+        }),
+
+      setAnimationPlaying: (isPlaying, source = "simulator") =>
+        set((state) =>
+          state.animationPlaying === isPlaying
+            ? state
+            : { animationPlaying: isPlaying, lastUpdatedBy: source },
+        ),
+
+      setAnimationProgress: (progress, source = "simulator") =>
+        set((state) => {
+          const normalizedProgress = Math.min(Math.max(progress, 0), 100);
+          const nextStage = getTimelineFrame(normalizedProgress).label;
+
+          if (
+            state.animationProgress === normalizedProgress &&
+            state.animationStage === nextStage
+          ) {
+            return state;
+          }
+
+          return {
+            animationProgress: normalizedProgress,
+            animationStage: nextStage,
+            lastUpdatedBy: source,
+          };
+        }),
+
+      setComparisonMode: (enabled, source = "simulator") =>
+        set((state) =>
+          state.comparisonMode === enabled
+            ? state
+            : { comparisonMode: enabled, lastUpdatedBy: source },
+        ),
+
+      setShotOutcome: (outcome, source = "simulator") =>
+        set((state) =>
+          state.shotOutcome === outcome
+            ? state
+            : { shotOutcome: outcome, lastUpdatedBy: source },
+        ),
+
+      setSlowMotion: (enabled, source = "simulator") =>
+        set((state) =>
+          state.slowMotion === enabled
+            ? state
+            : { slowMotion: enabled, lastUpdatedBy: source },
+        ),
     }),
     {
       name: "shotoptix-shot-state",
@@ -372,7 +587,20 @@ export const useShotStore = create<ShotStore>()(
         activeDefenderCount: state.activeDefenderCount,
         shooterPose: state.shooterPose,
         defenderPoses: state.defenderPoses,
+        animationProgress: state.animationProgress,
+        comparisonMode: state.comparisonMode,
+        customPosePresets: state.customPosePresets,
+        optimizedShot: state.optimizedShot,
+        replayHistory: state.replayHistory,
+        shotOutcome: state.shotOutcome,
+        slowMotion: state.slowMotion,
       }),
     },
   ),
 );
+
+function cloneDefenderPoseRecord(poses: Record<string, DefenderPoseState>) {
+  return Object.fromEntries(
+    Object.entries(poses).map(([id, pose]) => [id, { ...pose }]),
+  );
+}

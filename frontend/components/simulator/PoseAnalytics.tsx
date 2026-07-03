@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Shield, Target } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Gauge, Shield, Target } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import {
@@ -8,6 +8,10 @@ import {
   type DefenderPoseState,
   type ShooterPoseState,
 } from "@/store/useShotStore";
+import {
+  calculateMechanicsScore,
+  generateCoachingFeedback,
+} from "@/lib/simulator-analysis";
 
 type ReleaseQuality = "Balanced" | "Rushed" | "Low release" | "Off-balance";
 type ContestQuality = "Late" | "Moderate" | "Strong contest";
@@ -28,6 +32,12 @@ export function PoseAnalytics() {
   const activeDefenderCount = useShotStore((state) => state.activeDefenderCount);
   const defenders = useShotStore((state) => state.defenders);
   const defenderPoses = useShotStore((state) => state.defenderPoses);
+  const closestDefenderDistance = useShotStore(
+    (state) => state.closestDefenderDistance,
+  );
+  const epps = useShotStore((state) => state.epps);
+  const makeProbability = useShotStore((state) => state.makeProbability);
+  const pressureLevel = useShotStore((state) => state.pressureLevel);
   const shooterPose = useShotStore((state) => state.shooterPose);
   const activeDefenders = defenders.slice(0, activeDefenderCount);
   const primaryDefenderId = activeDefenders[0]?.id ?? "d1";
@@ -40,6 +50,36 @@ export function PoseAnalytics() {
   const contestInsight = useMemo(
     () => evaluateContestQuality(defenderPose),
     [defenderPose],
+  );
+  const mechanicsScore = useMemo(
+    () =>
+      calculateMechanicsScore({
+        defenderPose,
+        pressureLevel,
+        shooterPose,
+      }),
+    [defenderPose, pressureLevel, shooterPose],
+  );
+  const coachingFeedback = useMemo(
+    () =>
+      generateCoachingFeedback({
+        defenderPose,
+        metrics: {
+          closestDefenderDistance,
+          epps,
+          makeProbability,
+          pressureLevel,
+        },
+        shooterPose,
+      }),
+    [
+      closestDefenderDistance,
+      defenderPose,
+      epps,
+      makeProbability,
+      pressureLevel,
+      shooterPose,
+    ],
   );
 
   return (
@@ -60,17 +100,17 @@ export function PoseAnalytics() {
         title={`Contest quality: ${contestInsight.quality}`}
         tone={contestInsight.tone}
       />
+      <MechanicsScoreCard score={mechanicsScore} />
       <div className="rounded-lg border border-white/10 bg-black/30 p-4">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
           Coaching Feedback
         </p>
         <div className="mt-3 grid gap-2 text-sm leading-6 text-slate-200">
-          <FeedbackLine good={releaseInsight.tone === "green"}>
-            {releaseInsight.feedback}
-          </FeedbackLine>
-          <FeedbackLine good={contestInsight.tone === "green"}>
-            {contestInsight.feedback}
-          </FeedbackLine>
+          {coachingFeedback.map((item) => (
+            <FeedbackLine key={item.id} tone={item.tone}>
+              {item.message}
+            </FeedbackLine>
+          ))}
         </div>
       </div>
     </section>
@@ -113,19 +153,77 @@ function InsightCard({
   );
 }
 
+function MechanicsScoreCard({
+  score,
+}: {
+  score: ReturnType<typeof calculateMechanicsScore>;
+}) {
+  const rows = [
+    ["Balance", score.balance],
+    ["Release", score.release],
+    ["Jump Timing", score.jumpTiming],
+    ["Footwork", score.footwork],
+    ["Contest Handling", score.contestHandling],
+    ["Overall Form", score.overallForm],
+  ] as const;
+
+  return (
+    <article className="rounded-lg border border-sky-300/20 bg-sky-400/10 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-100/75">
+            Mechanics Scoring Engine
+          </p>
+          <h3 className="mt-1 text-base font-black text-white">
+            Overall Form {score.overallForm}
+          </h3>
+        </div>
+        <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-sky-200/25 bg-black/20 text-sky-100">
+          <Gauge className="size-4" />
+        </span>
+      </div>
+      <div className="mt-4 grid gap-2">
+        {rows.map(([label, value]) => (
+          <div
+            key={label}
+            className="grid grid-cols-[118px_minmax(0,1fr)_34px] items-center gap-2"
+          >
+            <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">
+              {label}
+            </span>
+            <span className="h-2 overflow-hidden rounded-full bg-black/35">
+              <span
+                className="block h-full rounded-full bg-sky-300"
+                style={{ width: `${value}%` }}
+              />
+            </span>
+            <span className="text-right text-xs font-black text-white">
+              {value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
 function FeedbackLine({
   children,
-  good,
+  tone,
 }: {
   children: ReactNode;
-  good: boolean;
+  tone: "green" | "orange" | "red";
 }) {
   return (
     <p className="flex gap-2">
-      {good ? (
+      {tone === "green" ? (
         <CheckCircle2 className="mt-1 size-4 shrink-0 text-green-300" />
       ) : (
-        <AlertTriangle className="mt-1 size-4 shrink-0 text-orange-300" />
+        <AlertTriangle
+          className={`mt-1 size-4 shrink-0 ${
+            tone === "red" ? "text-red-300" : "text-orange-300"
+          }`}
+        />
       )}
       <span>{children}</span>
     </p>

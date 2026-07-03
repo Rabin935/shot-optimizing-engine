@@ -10,7 +10,7 @@ import {
   Target,
   Users,
 } from "lucide-react";
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PoseControls } from "@/components/simulator/PoseControls";
 import { PoseAnalytics } from "@/components/simulator/PoseAnalytics";
@@ -20,6 +20,20 @@ import {
   type StagePoint,
 } from "@/components/simulator/ShotArc";
 import { StickmanPlayer } from "@/components/simulator/StickmanPlayer";
+import {
+  SHOOTING_ANIMATION_KEYFRAMES,
+  getTimelineFrameIndex,
+  interpolateDefenderPose,
+  interpolateShooterPose,
+  nextFrameProgress,
+  previousFrameProgress,
+} from "@/lib/simulator-animation";
+import {
+  calculateMechanicsScore,
+  comparePoses,
+  getRecommendedShooterPose,
+} from "@/lib/simulator-analysis";
+import { selectShotOutcome } from "@/lib/simulator-physics";
 import {
   courtStateToSimulatorContext,
   getDefenderDistanceLimits,
@@ -34,6 +48,7 @@ import {
   type DefenderPoseState,
   type SharedShotQuality,
   type ShooterPoseState,
+  type ShotReplayEntry,
 } from "@/store/useShotStore";
 
 const STAGE_WIDTH = 920;
@@ -67,6 +82,10 @@ export function SimulatorStateControls() {
   const shotDistance = useShotStore((state) => state.shotDistance);
   const shotAngle = useShotStore((state) => state.shotAngle);
   const shotZone = useShotStore((state) => state.shotZone);
+  const shotValue = useShotStore((state) => state.shotValue);
+  const closestDefenderDistance = useShotStore(
+    (state) => state.closestDefenderDistance,
+  );
   const pressureLevel = useShotStore((state) => state.pressureLevel);
   const makeProbability = useShotStore((state) => state.makeProbability);
   const epps = useShotStore((state) => state.epps);
@@ -74,18 +93,36 @@ export function SimulatorStateControls() {
   const recommendation = useShotStore((state) => state.recommendation);
   const confidence = useShotStore((state) => state.confidence);
   const predictionSource = useShotStore((state) => state.predictionSource);
+  const animationPlaying = useShotStore((state) => state.animationPlaying);
+  const animationProgress = useShotStore((state) => state.animationProgress);
+  const animationStage = useShotStore((state) => state.animationStage);
+  const shotOutcome = useShotStore((state) => state.shotOutcome);
+  const slowMotion = useShotStore((state) => state.slowMotion);
+  const comparisonMode = useShotStore((state) => state.comparisonMode);
+  const replayHistory = useShotStore((state) => state.replayHistory);
   const setShooterPosition = useShotStore((state) => state.setShooterPosition);
   const setDefenderPosition = useShotStore((state) => state.setDefenderPosition);
   const setDefenderCount = useShotStore((state) => state.setDefenderCount);
+  const setAnimationPlaying = useShotStore(
+    (state) => state.setAnimationPlaying,
+  );
+  const setAnimationProgress = useShotStore(
+    (state) => state.setAnimationProgress,
+  );
+  const setShotOutcome = useShotStore((state) => state.setShotOutcome);
+  const setComparisonMode = useShotStore((state) => state.setComparisonMode);
+  const setSlowMotion = useShotStore((state) => state.setSlowMotion);
+  const saveReplay = useShotStore((state) => state.saveReplay);
+  const loadReplay = useShotStore((state) => state.loadReplay);
+  const deleteReplay = useShotStore((state) => state.deleteReplay);
   const updateShooterPose = useShotStore((state) => state.updateShooterPose);
   const updateDefenderPose = useShotStore((state) => state.updateDefenderPose);
   const resetShot = useShotStore((state) => state.resetShot);
   const resetPoses = useShotStore((state) => state.resetPoses);
-  const [timeline, setTimeline] = useState(62);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isSlowMotion, setIsSlowMotion] = useState(false);
   const shooterJumpTimers = useRef<number[]>([]);
   const defenderJumpTimers = useRef<number[]>([]);
+  const savedCurrentCompletion = useRef(false);
+  const stageSvgRef = useRef<SVGSVGElement | null>(null);
   const primaryDefender = defenders[0];
   const sharedSimulatorContext = useMemo(
     () =>
@@ -102,18 +139,29 @@ export function SimulatorStateControls() {
   const previousSharedContext = useRef(sharedSimulatorContext);
 
   useEffect(() => {
-    if (!isPlaying) {
+    if (!animationPlaying) {
       return;
     }
 
-    // The simulator is still synthetic, so a small client timer is enough to
-    // preview the shot release without adding real physics or backend coupling.
+    // Timeline playback is stored globally so the optimizer, replay view, and
+    // simulator controls stay on the same animation frame.
     const intervalId = window.setInterval(() => {
-      setTimeline((current) => (current >= 100 ? 0 : current + 1));
-    }, isSlowMotion ? 120 : 45);
+      const current = useShotStore.getState().animationProgress;
+      setAnimationProgress(current >= 100 ? 0 : current + 1, "simulator");
+    }, slowMotion ? 120 : 45);
 
     return () => window.clearInterval(intervalId);
-  }, [isPlaying, isSlowMotion]);
+  }, [animationPlaying, setAnimationProgress, slowMotion]);
+
+  useEffect(() => {
+    const selectedOutcome = selectShotOutcome({
+      makeProbability,
+      releaseAngle: shooterPose.releaseAngle,
+      shotQuality,
+    });
+
+    setShotOutcome(selectedOutcome, "simulator");
+  }, [makeProbability, setShotOutcome, shooterPose.releaseAngle, shotQuality]);
 
   useEffect(() => {
     return () => {
@@ -138,6 +186,122 @@ export function SimulatorStateControls() {
   const primaryDefenderPose =
     defenderPoses[activePrimaryDefender?.id ?? "d1"] ??
     FALLBACK_DEFENDER_POSE;
+  const activeFrameIndex = getTimelineFrameIndex(animationProgress);
+  const recommendedPose = useMemo(
+    () => getRecommendedShooterPose(shooterPose),
+    [shooterPose],
+  );
+  const comparison = useMemo(
+    () =>
+      comparePoses({
+        currentEpps: epps,
+        currentPose: shooterPose,
+        defenderPose: primaryDefenderPose,
+        recommendedEpps: Math.max(epps + 0.12, epps * 1.08),
+        recommendedPose,
+      }),
+    [epps, primaryDefenderPose, recommendedPose, shooterPose],
+  );
+  const mechanicsScore = useMemo(
+    () =>
+      calculateMechanicsScore({
+        defenderPose: primaryDefenderPose,
+        pressureLevel,
+        shooterPose,
+      }),
+    [pressureLevel, primaryDefenderPose, shooterPose],
+  );
+  const currentMetrics = useMemo(
+    () => ({
+      closestDefenderDistance,
+      confidence,
+      epps,
+      makeProbability,
+      predictionSource,
+      pressureLevel,
+      recommendation,
+      shotAngle,
+      shotDistance,
+      shotQuality,
+      shotValue,
+      shotZone,
+    }),
+    [
+      closestDefenderDistance,
+      confidence,
+      epps,
+      makeProbability,
+      predictionSource,
+      pressureLevel,
+      recommendation,
+      shotAngle,
+      shotDistance,
+      shotQuality,
+      shotValue,
+      shotZone,
+    ],
+  );
+
+  const saveCurrentReplay = useCallback(
+    (label?: string) => {
+      // Replays persist the complete simulator context needed to restore and
+      // reanimate this shot later.
+      saveReplay(
+        {
+          activeDefenderCount,
+          defenderPoses,
+          defenders,
+          label,
+          mechanicsScore,
+          metrics: currentMetrics,
+          shooter,
+          shooterPose,
+          shotOutcome,
+          timelineProgress: animationProgress,
+        },
+        "simulator",
+      );
+    },
+    [
+      activeDefenderCount,
+      animationProgress,
+      currentMetrics,
+      defenderPoses,
+      defenders,
+      mechanicsScore,
+      saveReplay,
+      shooter,
+      shooterPose,
+      shotOutcome,
+    ],
+  );
+
+  useEffect(() => {
+    // Scrubbing or autoplay interpolates reusable keyframes, then writes the
+    // current body pose back into the shared store for every other panel.
+    updateShooterPose(interpolateShooterPose(animationProgress), "simulator");
+    updateDefenderPose(
+      activePrimaryDefender?.id ?? "d1",
+      interpolateDefenderPose(animationProgress),
+      "simulator",
+    );
+  }, [
+    activePrimaryDefender?.id,
+    animationProgress,
+    updateDefenderPose,
+    updateShooterPose,
+  ]);
+
+  useEffect(() => {
+    if (animationProgress >= 100 && !savedCurrentCompletion.current) {
+      saveCurrentReplay();
+      savedCurrentCompletion.current = true;
+    }
+
+    if (animationProgress < 96) {
+      savedCurrentCompletion.current = false;
+    }
+  }, [animationProgress, saveCurrentReplay]);
   const mappedDraft = useMemo(
     () => simulatorContextToCourt(positionDraft),
     [positionDraft],
@@ -189,8 +353,8 @@ export function SimulatorStateControls() {
     // A jump shot is staged as crouch/takeoff, peak release, and landing.
     // It writes to the same Zustand pose state that the sliders control.
     clearQueuedTimers(shooterJumpTimers);
-    setIsPlaying(false);
-    setTimeline(50);
+    setAnimationPlaying(false, "simulator");
+    setAnimationProgress(47, "simulator");
     updateShooterPose(
       {
         isAirborne: true,
@@ -201,7 +365,7 @@ export function SimulatorStateControls() {
       "simulator",
     );
     queueElevationStep(shooterJumpTimers, 240, () => {
-      setTimeline(62);
+      setAnimationProgress(62, "simulator");
       updateShooterPose(
         {
           guideHandAngle: 30,
@@ -235,7 +399,7 @@ export function SimulatorStateControls() {
         "simulator",
       );
     });
-  }, [updateShooterPose]);
+  }, [setAnimationPlaying, setAnimationProgress, updateShooterPose]);
 
   const runDefenderContestJump = useCallback(() => {
     // Defender contest uses the same elevation sequence, with a raised hand
@@ -326,31 +490,52 @@ export function SimulatorStateControls() {
           </div>
           <SyncBadge isSynced={positionsAreSynced} />
           <ShotArcControls
-            isPlaying={isPlaying}
-            isSlowMotion={isSlowMotion}
-            timeline={timeline}
-            onPause={() => setIsPlaying(false)}
-            onPlay={() => setIsPlaying(true)}
+            activeStage={animationStage}
+            frameCount={SHOOTING_ANIMATION_KEYFRAMES.length}
+            frameIndex={activeFrameIndex}
+            isPlaying={animationPlaying}
+            isSlowMotion={slowMotion}
+            timeline={animationProgress}
+            onNextFrame={() =>
+              setAnimationProgress(
+                nextFrameProgress(animationProgress),
+                "simulator",
+              )
+            }
+            onPause={() => setAnimationPlaying(false, "simulator")}
+            onPlay={() => setAnimationPlaying(true, "simulator")}
+            onPreviousFrame={() =>
+              setAnimationProgress(
+                previousFrameProgress(animationProgress),
+                "simulator",
+              )
+            }
             onReset={() => {
-              setTimeline(0);
-              setIsPlaying(false);
+              setAnimationProgress(0, "simulator");
+              setAnimationPlaying(false, "simulator");
             }}
-            onTimelineChange={setTimeline}
-            onToggleSlowMotion={() => setIsSlowMotion((current) => !current)}
+            onTimelineChange={(progress) =>
+              setAnimationProgress(progress, "simulator")
+            }
+            onToggleSlowMotion={() => setSlowMotion(!slowMotion, "simulator")}
           />
         </div>
 
         <SimulatorStage
+          comparisonMode={comparisonMode}
           defenderPose={primaryDefenderPose}
           defenderStage={defenderStage}
           makeProbability={makeProbability}
+          outcome={shotOutcome}
           epps={epps}
           recommendation={recommendation}
+          recommendedPose={recommendedPose}
           shooterPose={shooterPose}
           shooterStage={shooterStage}
           shotDistance={shotDistance}
           shotQuality={shotQuality}
-          timeline={timeline}
+          stageRef={stageSvgRef}
+          timeline={animationProgress}
         />
 
         <div className="grid gap-3 border-t border-white/10 bg-black/20 p-4 text-sm md:grid-cols-4">
@@ -390,6 +575,29 @@ export function SimulatorStateControls() {
 
         <PoseAnalytics />
 
+        <ComparisonPanel
+          comparison={comparison}
+          enabled={comparisonMode}
+          onToggle={() => setComparisonMode(!comparisonMode, "simulator")}
+        />
+
+        <ReplayHistoryPanel
+          replayHistory={replayHistory}
+          onDeleteReplay={(replayId) => deleteReplay(replayId, "simulator")}
+          onLoadReplay={(replayId) => loadReplay(replayId, "replay")}
+          onSaveReplay={() =>
+            saveCurrentReplay(`Shot #${replayHistory.length + 1}`)
+          }
+        />
+
+        <ExportSimulationPanel
+          mechanicsScore={mechanicsScore}
+          metrics={currentMetrics}
+          shooterPose={shooterPose}
+          stageRef={stageSvgRef}
+          timeline={animationProgress}
+        />
+
         <ShotInfoPanel
           confidence={confidence}
           epps={epps}
@@ -418,32 +626,41 @@ export function SimulatorStateControls() {
 }
 
 function SimulatorStage({
+  comparisonMode,
   defenderPose,
   defenderStage,
   epps,
   makeProbability,
+  outcome,
   recommendation,
+  recommendedPose,
   shooterPose,
   shooterStage,
   shotDistance,
   shotQuality,
+  stageRef,
   timeline,
 }: {
+  comparisonMode: boolean;
   defenderPose: DefenderPoseState;
   defenderStage: StagePoint;
   epps: number;
   makeProbability: number;
+  outcome: ReturnType<typeof selectShotOutcome>;
   recommendation: string;
+  recommendedPose: ShooterPoseState;
   shooterPose: ShooterPoseState;
   shooterStage: StagePoint;
   shotDistance: number;
   shotQuality: SharedShotQuality;
+  stageRef: RefObject<SVGSVGElement | null>;
   timeline: number;
 }) {
   // Stage is an SVG prototype, not a physics engine; it visualizes shared state.
   return (
     <div className="relative bg-[#10160f]">
       <svg
+        ref={stageRef}
         className="block h-[360px] w-full sm:h-[460px] xl:h-[560px]"
         viewBox={`0 0 ${STAGE_WIDTH} ${STAGE_HEIGHT}`}
         role="img"
@@ -456,6 +673,11 @@ function SimulatorStage({
             <stop offset="0.55" stopColor="#132116" />
             <stop offset="1" stopColor="#0b0f0d" />
           </linearGradient>
+          <radialGradient id="sim-court-light" cx="48%" cy="18%" r="74%">
+            <stop offset="0" stopColor="rgba(255,255,255,0.18)" />
+            <stop offset="0.42" stopColor="rgba(34,197,94,0.08)" />
+            <stop offset="1" stopColor="rgba(0,0,0,0)" />
+          </radialGradient>
           <filter id="sim-orange-glow" x="-40%" y="-40%" width="180%" height="180%">
             <feGaussianBlur stdDeviation="5" result="blur" />
             <feMerge>
@@ -470,15 +692,26 @@ function SimulatorStage({
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
+          <filter id="sim-sky-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
 
         <rect width={STAGE_WIDTH} height={STAGE_HEIGHT} fill="url(#sim-floor)" />
+        <rect width={STAGE_WIDTH} height={STAGE_HEIGHT} fill="url(#sim-court-light)" />
+        <CrowdBlurBackground />
+        <CourtParticles />
         <CourtBackground />
         <Basket />
 
         <ShotArc
           epps={epps}
           makeProbability={makeProbability}
+          outcome={outcome}
           recommendation={recommendation}
           releaseAngle={shooterPose.releaseAngle}
           rim={RIM}
@@ -508,6 +741,27 @@ function SimulatorStage({
           x={shooterStage.x}
           y={shooterStage.y}
         />
+        {comparisonMode ? (
+          <StickmanPlayer
+            color="#38bdf8"
+            glowFilter="url(#sim-sky-glow)"
+            guideHandAngle={recommendedPose.guideHandAngle}
+            handHeight={recommendedPose.handHeight}
+            isAirborne={recommendedPose.isAirborne}
+            jumpHeight={recommendedPose.jumpHeight}
+            kneeBend={recommendedPose.kneeBend}
+            label="Recommended"
+            leftLegAngle={recommendedPose.leftLegAngle}
+            releaseAngle={recommendedPose.releaseAngle}
+            rightLegAngle={recommendedPose.rightLegAngle}
+            shootingArmAngle={recommendedPose.shootingArmAngle}
+            torsoAngle={recommendedPose.torsoAngle}
+            type="shooter"
+            verticalOffset={recommendedPose.verticalOffset}
+            x={Math.min(shooterStage.x + 150, RIM.x - 170)}
+            y={shooterStage.y}
+          />
+        ) : null}
         <StickmanPlayer
           armRaise={defenderPose.armRaise}
           contestHeight={defenderPose.contestHeight}
@@ -561,6 +815,42 @@ function CourtBackground() {
   );
 }
 
+function CrowdBlurBackground() {
+  // Blurred crowd bands add depth while staying abstract enough to avoid
+  // distracting from the mechanics stage.
+  return (
+    <g opacity="0.34" filter="url(#sim-green-glow)">
+      <rect x="34" y="46" width="820" height="74" rx="18" fill="rgba(15,23,42,0.72)" />
+      {Array.from({ length: 18 }).map((_, index) => (
+        <circle
+          key={`crowd-${index}`}
+          cx={70 + index * 45}
+          cy={72 + (index % 3) * 13}
+          r={8 + (index % 4)}
+          fill={index % 2 ? "rgba(56,189,248,0.28)" : "rgba(251,146,60,0.24)"}
+        />
+      ))}
+    </g>
+  );
+}
+
+function CourtParticles() {
+  // Small floating dust highlights make jumps and rim hits feel less static.
+  return (
+    <g opacity="0.45">
+      {Array.from({ length: 20 }).map((_, index) => (
+        <circle
+          key={`particle-${index}`}
+          cx={72 + index * 41}
+          cy={164 + ((index * 29) % 188)}
+          r={index % 3 === 0 ? 2.4 : 1.4}
+          fill={index % 2 ? "#bbf7d0" : "#fed7aa"}
+        />
+      ))}
+    </g>
+  );
+}
+
 function Basket() {
   // Rim and backboard stay fixed for now while poses and shot arc update.
   return (
@@ -591,7 +881,7 @@ function Basket() {
         ry="10"
         fill="none"
         stroke="#fb923c"
-        strokeWidth="7"
+        strokeWidth="8"
         filter="url(#sim-orange-glow)"
       />
       <path
@@ -601,6 +891,292 @@ function Basket() {
         strokeWidth="2"
       />
     </g>
+  );
+}
+
+function ComparisonPanel({
+  comparison,
+  enabled,
+  onToggle,
+}: {
+  comparison: ReturnType<typeof comparePoses>;
+  enabled: boolean;
+  onToggle: () => void;
+}) {
+  // Frame comparison mode keeps the current and recommended forms animated on
+  // the same timeline while this panel explains the key differences.
+  return (
+    <section className="rounded-lg border border-sky-300/20 bg-sky-400/10 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-100/75">
+            Frame Comparison Mode
+          </p>
+          <p className="mt-1 text-sm font-black text-white">
+            Current Shot vs Recommended Shot
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-pressed={enabled}
+          onClick={onToggle}
+          className={`min-h-9 rounded-lg border px-3 text-xs font-black transition ${
+            enabled
+              ? "border-sky-200/40 bg-sky-300/20 text-sky-50"
+              : "border-white/10 bg-black/25 text-slate-300 hover:border-sky-200/30"
+          }`}
+        >
+          {enabled ? "On" : "Off"}
+        </button>
+      </div>
+      <div className="mt-4 grid gap-2">
+        <InfoRow
+          label="EPPS Difference"
+          value={`${comparison.eppsDifference >= 0 ? "+" : ""}${comparison.eppsDifference.toFixed(2)}`}
+        />
+        <InfoRow
+          label="Jump Difference"
+          value={`${comparison.jumpDifference >= 0 ? "+" : ""}${comparison.jumpDifference.toFixed(1)}`}
+        />
+        <InfoRow
+          label="Release Difference"
+          value={`${comparison.releaseDifference >= 0 ? "+" : ""}${comparison.releaseDifference.toFixed(1)} deg`}
+        />
+        <InfoRow
+          label="Contest Difference"
+          value={`${comparison.contestDifference >= 0 ? "+" : ""}${comparison.contestDifference}`}
+        />
+      </div>
+    </section>
+  );
+}
+
+function ReplayHistoryPanel({
+  onDeleteReplay,
+  onLoadReplay,
+  onSaveReplay,
+  replayHistory,
+}: {
+  onDeleteReplay: (replayId: string) => void;
+  onLoadReplay: (replayId: string) => void;
+  onSaveReplay: () => void;
+  replayHistory: ShotReplayEntry[];
+}) {
+  // Replays are lightweight local snapshots. Loading one writes its saved
+  // positions, poses, metrics, outcome, and timeline frame back to the store.
+  return (
+    <section className="rounded-lg border border-white/10 bg-black/30 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+            Shot Replay System
+          </p>
+          <p className="mt-1 text-sm font-black text-white">
+            Saved timeline shots
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onSaveReplay}
+          className="min-h-9 rounded-lg border border-orange-300/25 bg-orange-500/10 px-3 text-xs font-black text-orange-100 transition hover:bg-orange-500/20"
+        >
+          Save
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        {replayHistory.length ? (
+          replayHistory.map((replay) => (
+            <div
+              key={replay.id}
+              className="grid gap-2 rounded-lg border border-white/10 bg-white/[0.04] p-3"
+            >
+              <button
+                type="button"
+                onClick={() => onLoadReplay(replay.id)}
+                className="flex min-h-10 items-center justify-between gap-3 text-left"
+              >
+                <span>
+                  <span className="block text-sm font-black text-white">
+                    {replay.label}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {new Date(replay.createdAt).toLocaleString()} / EPPS{" "}
+                    {replay.metrics.epps.toFixed(2)}
+                  </span>
+                </span>
+                <span className="rounded-md border border-green-300/25 bg-green-400/10 px-2 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-green-100">
+                  Replay
+                </span>
+              </button>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-slate-400">
+                  Form {replay.mechanicsScore.overallForm} / {replay.shotOutcome}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onDeleteReplay(replay.id)}
+                  className="text-xs font-black text-red-200 transition hover:text-red-100"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="rounded-lg border border-white/10 bg-white/[0.04] p-3 text-sm leading-6 text-slate-400">
+            Finished autoplay shots will appear here automatically.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ExportSimulationPanel({
+  mechanicsScore,
+  metrics,
+  shooterPose,
+  stageRef,
+  timeline,
+}: {
+  mechanicsScore: ReturnType<typeof calculateMechanicsScore>;
+  metrics: {
+    closestDefenderDistance: number;
+    confidence: string;
+    epps: number;
+    makeProbability: number;
+    predictionSource: string;
+    pressureLevel: string;
+    recommendation: string;
+    shotAngle: number;
+    shotDistance: number;
+    shotQuality: string;
+    shotValue: number;
+    shotZone: string;
+  };
+  shooterPose: ShooterPoseState;
+  stageRef: RefObject<SVGSVGElement | null>;
+  timeline: number;
+}) {
+  const reportLines = [
+    "ShotOptix Simulation Report",
+    `Court Position: ${metrics.shotZone}, ${metrics.shotDistance.toFixed(1)} ft, ${metrics.shotAngle.toFixed(1)} deg`,
+    `Prediction: ${(metrics.makeProbability * 100).toFixed(1)}% make probability`,
+    `EPPS: ${metrics.epps.toFixed(2)}`,
+    `Pose: release ${shooterPose.releaseAngle.toFixed(1)} deg, knee ${shooterPose.kneeBend.toFixed(1)}, jump ${shooterPose.jumpHeight.toFixed(1)}`,
+    `Recommendation: ${metrics.recommendation}`,
+    `Frame Timeline: ${timeline}%`,
+    `Mechanics Score: overall ${mechanicsScore.overallForm}, balance ${mechanicsScore.balance}, release ${mechanicsScore.release}`,
+  ];
+
+  async function exportPng() {
+    const svg = stageRef.current;
+
+    if (!svg) {
+      return;
+    }
+
+    const serializedSvg = new XMLSerializer().serializeToString(svg);
+    const svgBlob = new Blob([serializedSvg], {
+      type: "image/svg+xml;charset=utf-8",
+    });
+    const url = URL.createObjectURL(svgBlob);
+    const image = new Image();
+
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = STAGE_WIDTH;
+      canvas.height = STAGE_HEIGHT;
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      context.fillStyle = "#10160f";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0);
+      canvas.toBlob((blob) => {
+        if (blob) {
+          downloadBlob(blob, "shotoptix-simulation.png");
+        }
+        URL.revokeObjectURL(url);
+      }, "image/png");
+    };
+    image.src = url;
+  }
+
+  function exportJson() {
+    downloadBlob(
+      new Blob(
+        [
+          JSON.stringify(
+            {
+              frameTimeline: timeline,
+              mechanicsScore,
+              metrics,
+              pose: shooterPose,
+              recommendation: metrics.recommendation,
+            },
+            null,
+            2,
+          ),
+        ],
+        { type: "application/json" },
+      ),
+      "shotoptix-simulation.json",
+    );
+  }
+
+  function exportReport() {
+    downloadBlob(
+      new Blob([reportLines.join("\n")], { type: "text/plain;charset=utf-8" }),
+      "shotoptix-shot-report.txt",
+    );
+  }
+
+  function exportPdf() {
+    downloadBlob(
+      new Blob([buildSimplePdf(reportLines)], { type: "application/pdf" }),
+      "shotoptix-shot-report.pdf",
+    );
+  }
+
+  return (
+    <section className="rounded-lg border border-white/10 bg-black/30 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+        Export Simulation
+      </p>
+      <p className="mt-1 text-sm font-black text-white">
+        Reports and analytics
+      </p>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <ExportButton label="PNG" onClick={exportPng} />
+        <ExportButton label="PDF" onClick={exportPdf} />
+        <ExportButton label="JSON" onClick={exportJson} />
+        <ExportButton label="Shot Report" onClick={exportReport} />
+      </div>
+    </section>
+  );
+}
+
+function ExportButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="min-h-10 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-black text-slate-200 transition hover:border-green-300/35 hover:text-green-100"
+    >
+      {label}
+    </button>
   );
 }
 
@@ -980,6 +1556,56 @@ function mapCourtPointToStage(x: number, y: number): StagePoint {
     x: 118 + (x / 50) * 560,
     y: FLOOR_Y - Math.min(y / 47, 1) * 58,
   };
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function buildSimplePdf(lines: string[]) {
+  // A tiny self-contained PDF writer keeps report export dependency-free.
+  const safeLines = lines.map((line) =>
+    line.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)"),
+  );
+  const content = [
+    "BT",
+    "/F1 12 Tf",
+    "50 770 Td",
+    ...safeLines.map((line, index) =>
+      index === 0 ? `(${line}) Tj` : `0 -24 Td (${line}) Tj`,
+    ),
+    "ET",
+  ].join("\n");
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+
+  objects.forEach((object, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  pdf += offsets
+    .slice(1)
+    .map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`)
+    .join("");
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return pdf;
 }
 
 const qualityBadge: Record<SharedShotQuality, string> = {
