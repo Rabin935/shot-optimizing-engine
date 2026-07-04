@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AdvancedSimulatorInsights } from "@/components/simulator/AdvancedSimulatorInsights";
 import { PoseControls } from "@/components/simulator/PoseControls";
 import { PoseAnalytics } from "@/components/simulator/PoseAnalytics";
 import {
@@ -597,6 +598,8 @@ export function SimulatorStateControls() {
           stageRef={stageSvgRef}
           timeline={animationProgress}
         />
+
+        <AdvancedSimulatorInsights />
 
         <ShotInfoPanel
           confidence={confidence}

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/AppShell";
-import { ComingSoon } from "@/components/layout/ComingSoon";
+import { AdvancedShotOptimizationMap } from "@/components/heatmap/AdvancedShotOptimizationMap";
 
 export const metadata: Metadata = {
   // Route metadata for the future heatmap workspace.
@@ -10,20 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default function HeatmapPage() {
-  // Render the shared roadmap placeholder until heatmaps are implemented.
   return (
     <AppShell>
-      <ComingSoon
-        title="Heatmap"
-        description="A court visualization workspace for locating high-value zones and pressure-adjusted scoring areas."
-        phase="Phase 5 Preview"
-        features={[
-          "Shot zone overlays",
-          "EPPS color scale",
-          "Pressure-adjusted maps",
-          "Player filter controls",
-        ]}
-      />
+      <AdvancedShotOptimizationMap />
     </AppShell>
   );
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/AppShell";
-import { ComingSoon } from "@/components/layout/ComingSoon";
+import { ResearchDashboard } from "@/components/reports/ResearchDashboard";
 
 export const metadata: Metadata = {
   // Route metadata for the future reporting workspace.
@@ -10,20 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default function ReportsPage() {
-  // Render the shared roadmap placeholder until reports are implemented.
   return (
     <AppShell>
-      <ComingSoon
-        title="Reports"
-        description="A reporting workspace for turning model results and sandbox experiments into readable summaries."
-        phase="Phase 5 Preview"
-        features={[
-          "PDF-ready summaries",
-          "Shot chart snapshots",
-          "Model metric exports",
-          "Viva explanation notes",
-        ]}
-      />
+      <ResearchDashboard />
     </AppShell>
   );
 }
