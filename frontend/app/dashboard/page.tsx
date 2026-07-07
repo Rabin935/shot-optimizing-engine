@@ -3,13 +3,12 @@ import { AnalyticsReportsDashboard } from "@/components/analytics/AnalyticsRepor
 import { AppShell } from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
-  // Route metadata for the future reporting workspace.
-  title: "Reports | ShotOptix",
-  description:
-    "ShotOptix reports workspace for exporting model, EPPS, and shot analysis summaries.",
+  title: "Dashboard | ShotOptix",
+  description: "ShotOptix comprehensive sports analytics dashboard.",
 };
 
-export default function ReportsPage() {
+export default function DashboardPage() {
+  // Dashboard is the primary analytics workspace for saved simulation history.
   return (
     <AppShell>
       <AnalyticsReportsDashboard />
