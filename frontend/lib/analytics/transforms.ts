@@ -1,4 +1,5 @@
 import type {
+  AnalyticsFilterState,
   AnalyticsPressureLevel,
   AnalyticsShot,
   AnalyticsShotZone,
@@ -53,6 +54,33 @@ export function replayHistoryToAnalyticsShots(
   return [...replays].reverse().map((replay, index) =>
     replayToAnalyticsShot(replay, index + 1),
   );
+}
+
+export function applyAnalyticsFilters(
+  shots: AnalyticsShot[],
+  filters: AnalyticsFilterState,
+) {
+  // One predicate keeps every analytics chart aligned to the same global filter state.
+  return shots.filter((shot) => {
+    const createdAt = new Date(shot.createdAt);
+    const afterStart =
+      !filters.dateFrom || createdAt >= new Date(`${filters.dateFrom}T00:00:00`);
+    const beforeEnd =
+      !filters.dateTo || createdAt <= new Date(`${filters.dateTo}T23:59:59`);
+
+    return (
+      (filters.shotZone === "all" || shot.zone === filters.shotZone) &&
+      (filters.pressureLevel === "all" || shot.pressure === filters.pressureLevel) &&
+      (filters.shotValue === "all" || String(shot.shotValue) === filters.shotValue) &&
+      (filters.predictionSource === "all" ||
+        shot.predictionSource === filters.predictionSource) &&
+      (!filters.sessionId || shot.sessionId === filters.sessionId) &&
+      shot.mechanicsScore >= filters.mechanicsScoreMin &&
+      shot.mechanicsScore <= filters.mechanicsScoreMax &&
+      afterStart &&
+      beforeEnd
+    );
+  });
 }
 
 export function metricsToAnalyticsShot({

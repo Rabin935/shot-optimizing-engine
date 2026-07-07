@@ -4,14 +4,14 @@ import { Flame, Gauge, MapPin, Target } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { FilterBar, StatCard } from "@/components/charts";
+import { GlobalAnalyticsFilterBar } from "@/components/analytics/GlobalAnalyticsFilterBar";
 import { formatDecimal, formatPercent } from "@/lib/analytics/formatters";
 import {
   ANALYTICS_PRESSURE_ORDER,
   ANALYTICS_ZONE_ORDER,
   buildHeatmapRegions,
-  replayHistoryToAnalyticsShots,
 } from "@/lib/analytics/transforms";
-import { useShotStore } from "@/store/useShotStore";
+import { useFilteredAnalyticsShots } from "@/lib/analytics/useFilteredAnalyticsShots";
 import type { AnalyticsPressureLevel, AnalyticsShotZone, HeatmapRegion } from "@/types/charts";
 
 type HeatmapFilter = {
@@ -29,11 +29,7 @@ const defaultFilter: HeatmapFilter = {
 };
 
 export function InteractiveHeatmapAnalytics() {
-  const replayHistory = useShotStore((state) => state.replayHistory);
-  const shots = useMemo(
-    () => replayHistoryToAnalyticsShots(replayHistory),
-    [replayHistory],
-  );
+  const shots = useFilteredAnalyticsShots();
   const [filter, setFilter] = useState(defaultFilter);
   const allRegions = useMemo(() => buildHeatmapRegions(shots), [shots]);
   const regions = useMemo(
@@ -68,6 +64,8 @@ export function InteractiveHeatmapAnalytics() {
           zone, pressure, make probability, or EPPS to inspect local strengths.
         </p>
       </header>
+
+      <GlobalAnalyticsFilterBar />
 
       <FilterBar title="Heatmap Filters">
         <SelectFilter label="Shot Zone" value={filter.zone} onChange={(value) => setFilter((current) => ({ ...current, zone: value as HeatmapFilter["zone"] }))}>

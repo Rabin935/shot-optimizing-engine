@@ -15,25 +15,21 @@ import {
   YAxis,
 } from "recharts";
 import { AnalyticsCard, ChartContainer, ExportChartButton, StatCard } from "@/components/charts";
+import { GlobalAnalyticsFilterBar } from "@/components/analytics/GlobalAnalyticsFilterBar";
 import { formatDecimal } from "@/lib/analytics/formatters";
 import {
   buildPressureAnalytics,
   getBestPressure,
   getMostCommonPressure,
   getWorstPressure,
-  replayHistoryToAnalyticsShots,
 } from "@/lib/analytics/transforms";
-import { useShotStore } from "@/store/useShotStore";
+import { useFilteredAnalyticsShots } from "@/lib/analytics/useFilteredAnalyticsShots";
 import type { PressureDatum } from "@/types/charts";
 
 const pressureColors = ["#86efac", "#60a5fa", "#facc15", "#fb923c", "#f87171"];
 
 export function DefenderPressureAnalytics() {
-  const replayHistory = useShotStore((state) => state.replayHistory);
-  const shots = useMemo(
-    () => replayHistoryToAnalyticsShots(replayHistory),
-    [replayHistory],
-  );
+  const shots = useFilteredAnalyticsShots();
   const pressureRows = useMemo(() => buildPressureAnalytics(shots), [shots]);
   const mostCommon = getMostCommonPressure(pressureRows);
   const bestPressure = getBestPressure(pressureRows);
@@ -53,6 +49,8 @@ export function DefenderPressureAnalytics() {
           as defenders move from very open space to very tight contests.
         </p>
       </header>
+
+      <GlobalAnalyticsFilterBar />
 
       <div className="grid gap-3 md:grid-cols-3">
         <StatCard icon={<Shield className="size-5" />} label="Most Common" value={mostCommon?.pressure ?? "No data"} />

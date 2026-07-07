@@ -11,20 +11,14 @@ import {
   Tooltip,
 } from "recharts";
 import { AnalyticsCard, ChartContainer, ExportChartButton, StatCard } from "@/components/charts";
+import { GlobalAnalyticsFilterBar } from "@/components/analytics/GlobalAnalyticsFilterBar";
 import { formatScore } from "@/lib/analytics/formatters";
-import {
-  buildMechanicsAnalytics,
-  replayHistoryToAnalyticsShots,
-} from "@/lib/analytics/transforms";
-import { useShotStore } from "@/store/useShotStore";
+import { buildMechanicsAnalytics } from "@/lib/analytics/transforms";
+import { useFilteredAnalyticsShots } from "@/lib/analytics/useFilteredAnalyticsShots";
 import type { MechanicsDatum } from "@/types/charts";
 
 export function MechanicsAnalysisDashboard() {
-  const replayHistory = useShotStore((state) => state.replayHistory);
-  const shots = useMemo(
-    () => replayHistoryToAnalyticsShots(replayHistory),
-    [replayHistory],
-  );
+  const shots = useFilteredAnalyticsShots();
   const mechanicsRows = useMemo(() => buildMechanicsAnalytics(shots), [shots]);
   const overallScore = average(mechanicsRows.map((row) => row.score));
   const bestCategory = pickCategory(mechanicsRows, "best");
@@ -45,6 +39,8 @@ export function MechanicsAnalysisDashboard() {
           footwork, release, jump timing, alignment, contest handling, and landing.
         </p>
       </header>
+
+      <GlobalAnalyticsFilterBar />
 
       <div className="grid gap-3 md:grid-cols-3">
         <StatCard icon={<Gauge className="size-5" />} label="Overall Mechanics" value={formatScore(overallScore)} tone="green" />

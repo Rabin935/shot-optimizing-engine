@@ -14,22 +14,16 @@ import {
   YAxis,
 } from "recharts";
 import { AnalyticsCard, ChartContainer, ExportChartButton, StatCard } from "@/components/charts";
+import { GlobalAnalyticsFilterBar } from "@/components/analytics/GlobalAnalyticsFilterBar";
 import { formatPercent } from "@/lib/analytics/formatters";
-import {
-  buildModelPerformance,
-  replayHistoryToAnalyticsShots,
-} from "@/lib/analytics/transforms";
-import { useShotStore } from "@/store/useShotStore";
+import { buildModelPerformance } from "@/lib/analytics/transforms";
+import { useFilteredAnalyticsShots } from "@/lib/analytics/useFilteredAnalyticsShots";
 import type { ModelPerformanceDatum } from "@/types/charts";
 
 const sourceColors = ["#86efac", "#fb923c", "#60a5fa", "#f87171"];
 
 export function ModelPerformanceDashboard() {
-  const replayHistory = useShotStore((state) => state.replayHistory);
-  const shots = useMemo(
-    () => replayHistoryToAnalyticsShots(replayHistory),
-    [replayHistory],
-  );
+  const shots = useFilteredAnalyticsShots();
   const modelRows = useMemo(() => buildModelPerformance(shots), [shots]);
   const totalPredictions = modelRows.reduce((sum, row) => sum + row.count, 0);
   const mlPredictions = modelRows.find((row) => row.source === "ml_model")?.count ?? 0;
@@ -53,6 +47,8 @@ export function ModelPerformanceDashboard() {
           or fallback path, plus confidence and response-time indicators.
         </p>
       </header>
+
+      <GlobalAnalyticsFilterBar />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={<BrainCircuit className="size-5" />} label="Total Predictions" value={String(totalPredictions)} />

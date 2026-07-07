@@ -11,12 +11,10 @@ import {
   YAxis,
 } from "recharts";
 import { AnalyticsCard, ChartContainer, ExportChartButton, StatCard } from "@/components/charts";
+import { GlobalAnalyticsFilterBar } from "@/components/analytics/GlobalAnalyticsFilterBar";
 import { formatDecimal, formatPercent } from "@/lib/analytics/formatters";
-import {
-  buildTrendSeries,
-  replayHistoryToAnalyticsShots,
-} from "@/lib/analytics/transforms";
-import { useShotStore } from "@/store/useShotStore";
+import { buildTrendSeries } from "@/lib/analytics/transforms";
+import { useFilteredAnalyticsShots } from "@/lib/analytics/useFilteredAnalyticsShots";
 import type { TrendPoint, TrendWindow } from "@/types/charts";
 
 const trendWindows: Array<{ label: string; value: TrendWindow }> = [
@@ -27,12 +25,8 @@ const trendWindows: Array<{ label: string; value: TrendWindow }> = [
 ];
 
 export function PredictionTrendAnalytics() {
-  const replayHistory = useShotStore((state) => state.replayHistory);
   const [windowSize, setWindowSize] = useState<TrendWindow>(10);
-  const shots = useMemo(
-    () => replayHistoryToAnalyticsShots(replayHistory),
-    [replayHistory],
-  );
+  const shots = useFilteredAnalyticsShots();
   const trendSeries = useMemo(
     () => buildTrendSeries(shots, windowSize),
     [shots, windowSize],
@@ -53,6 +47,8 @@ export function PredictionTrendAnalytics() {
           falling pressure tolerance, and repeatable scoring windows.
         </p>
       </header>
+
+      <GlobalAnalyticsFilterBar />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={<Gauge className="size-5" />} label="Average EPPS" value={formatDecimal(summary.averageEpps)} tone="green" />

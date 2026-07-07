@@ -13,12 +13,10 @@ import {
   YAxis,
 } from "recharts";
 import { AnalyticsCard, ChartContainer, ExportChartButton, StatCard } from "@/components/charts";
+import { GlobalAnalyticsFilterBar } from "@/components/analytics/GlobalAnalyticsFilterBar";
 import { formatDecimal, formatPercent, formatScore } from "@/lib/analytics/formatters";
-import {
-  buildZonePerformance,
-  replayHistoryToAnalyticsShots,
-} from "@/lib/analytics/transforms";
-import { useShotStore } from "@/store/useShotStore";
+import { buildZonePerformance } from "@/lib/analytics/transforms";
+import { useFilteredAnalyticsShots } from "@/lib/analytics/useFilteredAnalyticsShots";
 import type { ZonePerformanceDatum, ZoneSortMetric } from "@/types/charts";
 
 const sortOptions: Array<{ label: string; value: ZoneSortMetric }> = [
@@ -28,12 +26,8 @@ const sortOptions: Array<{ label: string; value: ZoneSortMetric }> = [
 ];
 
 export function ShotZonePerformanceAnalytics() {
-  const replayHistory = useShotStore((state) => state.replayHistory);
   const [sortBy, setSortBy] = useState<ZoneSortMetric>("epps");
-  const shots = useMemo(
-    () => replayHistoryToAnalyticsShots(replayHistory),
-    [replayHistory],
-  );
+  const shots = useFilteredAnalyticsShots();
   const zoneRows = useMemo(
     () => buildZonePerformance(shots, sortBy),
     [shots, sortBy],
@@ -54,6 +48,8 @@ export function ShotZonePerformanceAnalytics() {
           outcomes across EPPS, make probability, mechanics, and pressure.
         </p>
       </header>
+
+      <GlobalAnalyticsFilterBar />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={<Award className="size-5" />} label="Best Zone" value={bestZone?.zone ?? "No shots"} tone="green" />
