@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import { InteractiveHeatmapAnalytics } from "@/components/analytics/InteractiveHeatmapAnalytics";
 import { AppShell } from "@/components/layout/AppShell";
-import { AdvancedShotOptimizationMap } from "@/components/heatmap/AdvancedShotOptimizationMap";
 
 export const metadata: Metadata = {
   // Route metadata for the future heatmap workspace.
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function HeatmapPage() {
   return (
     <AppShell>
-      <AdvancedShotOptimizationMap />
+      <InteractiveHeatmapAnalytics />
     </AppShell>
   );
 }
