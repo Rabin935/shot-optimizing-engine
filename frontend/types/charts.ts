@@ -1,6 +1,5 @@
 import type {
   PredictionSource,
-  SharedPressureLevel,
   ShotMetricsState,
   ShotPoint,
   ShotReplayEntry,
