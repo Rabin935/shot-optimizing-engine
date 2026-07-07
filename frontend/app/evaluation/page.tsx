@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/AppShell";
-import { ComingSoon } from "@/components/layout/ComingSoon";
+import { PredictionTrendAnalytics } from "@/components/analytics/PredictionTrendAnalytics";
 
 export const metadata: Metadata = {
   // Route metadata for the future model evaluation workspace.
@@ -10,20 +10,10 @@ export const metadata: Metadata = {
 };
 
 export default function EvaluationPage() {
-  // Render the shared roadmap placeholder until evaluation charts are implemented.
+  // Render the prediction trend workspace from persisted replay history.
   return (
     <AppShell>
-      <ComingSoon
-        title="Evaluation"
-        description="A reporting surface for accuracy, precision, recall, F1 score, ROC AUC, and model interpretation."
-        phase="Phase 4 Review"
-        features={[
-          "Metric cards",
-          "Confusion matrix view",
-          "ROC AUC summary",
-          "Threshold comparison",
-        ]}
-      />
+      <PredictionTrendAnalytics />
     </AppShell>
   );
 }
