@@ -340,13 +340,17 @@ function buildShotPredictionRequest(
     defender_distance: roundMetric(defenderDistance),
     defender_x: roundMetric(defenderPoint.x),
     defender_y: roundMetric(defenderPoint.y),
+    dribbles: 1,
+    period: 4,
     pressure_level: toBackendPressureLevel(stats.defenderPressure),
     shooter_x: roundMetric(shooter.x),
     shooter_y: roundMetric(shooter.y),
+    shot_clock: 12,
     shot_angle: roundMetric(calculateShotAngle(shooter)),
     shot_distance: roundMetric(stats.distanceToBasket),
     shot_value: stats.shotValue,
     shot_zone: toBackendShotZone(stats.shotZone, stats.shotValue),
+    touch_time: 2.5,
   };
 }
 

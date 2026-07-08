@@ -44,6 +44,10 @@ The workflow uses cleaned shot log data from:
 data/processed/cleaned_shot_logs.csv
 ```
 
+The cleaner now combines the original `data/raw/shot_logs.csv` file with the
+added NBA shot-location season files in
+`data/raw/NBA shot dataset (2000 - 2024)/`.
+
 The target column is:
 
 ```text
@@ -63,11 +67,24 @@ these columns from API request data:
 - `shot_distance`
 - `shot_angle`
 - `defender_distance`
+- `loc_x`
+- `loc_y`
+- `abs_loc_x`
+- `game_clock_seconds`
+- shot action flags such as `is_dunk`, `is_layup`, `is_pullup`, and
+  `is_driving`
+- position flags such as `position_guard`, `position_forward`, and
+  `position_center`
 - `shot_value`
-- `shot_zone_paint`
-- `shot_zone_mid_range`
-- `shot_zone_three_point`
-- `shot_zone_corner_three`
+- `period`
+- `shot_clock`
+- `dribbles`
+- `touch_time`
+- derived context features such as `late_clock`, `quick_touch`, `long_three`,
+  and `distance_pressure_interaction`
+- `zone_paint`
+- `zone_mid_range`
+- `zone_three_point`
 - `pressure_very_tight`
 - `pressure_tight`
 - `pressure_open`
@@ -87,8 +104,14 @@ probability such as `0.42`, not only a made/missed label.
 
 ## Model Training And Evaluation
 
-Training was done in the notebook workflow under `notebooks/`. The model was
-trained on engineered shot features and evaluated with metrics stored in:
+Training can be regenerated with:
+
+```powershell
+.\backend\venv\Scripts\python.exe scripts\train_and_save_shotoptix_model.py
+```
+
+The model is trained on `data/processed/shotoptix_ml_training.csv` with
+`shot_made` as the target. Metrics and feature importance are stored in:
 
 ```text
 backend/trained_models/model_metadata.json
@@ -122,6 +145,11 @@ The request flow is:
    `prediction_source: "rule_based_fallback"`.
 6. EPPS, shot quality, recommendation, and confidence are calculated with the
    existing utility functions.
+
+Metadata is loaded from `model_metadata.json` for diagnostics. If metadata is
+missing, model prediction can still work. If the model file is missing or cannot
+be loaded, the backend prints a fallback message and continues with the
+rule-based predictor.
 
 ## API Endpoints
 
@@ -157,7 +185,11 @@ Example request:
   "shot_zone": "Three Point",
   "defender_distance": 3.2,
   "pressure_level": "Tight",
-  "shot_value": 3
+  "shot_value": 3,
+  "period": 4,
+  "shot_clock": 12,
+  "dribbles": 1,
+  "touch_time": 2.5
 }
 ```
 
@@ -183,24 +215,40 @@ Example response:
 ```json
 {
   "model_loaded": true,
-  "model_name": "ShotOptix XGBoost Shot Model",
-  "model_type": "XGBoostClassifier",
-  "features_used": [
-    "shot_distance",
-    "shot_angle",
-    "defender_distance",
-    "shot_value"
-  ],
+  "model_name": "shot_xgboost_model",
+  "model_type": "XGBoost XGBClassifier",
+  "phase": "Step 6 - Save Trained ShotOptix XGBoost Model",
   "target_column": "shot_made",
-  "phase": "Phase 4",
-  "prediction_fallback": "rule_based"
+  "features_used": [
+    "period",
+    "shot_clock",
+    "dribbles",
+    "touch_time",
+    "shot_distance",
+    "loc_x",
+    "loc_y",
+    "is_dunk",
+    "is_pullup"
+  ],
+  "metrics": {
+    "accuracy": 0.6295,
+    "roc_auc": 0.6539
+  },
+  "training_dataset": "data/processed/shotoptix_ml_training.csv",
+  "prediction_fallback": "rule_based_fallback available",
+  "notes": "Feature order must match app.ml.feature_builder.MODEL_FEATURES."
 }
 ```
 
 ## Frontend Display
 
-The Next.js sandbox reads `prediction_source` and shows a small badge in the
-stats panel:
+The Next.js sandbox has draggable shooter and defenders, presets, shot line,
+pressure radius, analytics overlay, local fallback stats, and a backend
+prediction panel. Court visuals and some small pills still use local
+`calculateSandboxStats` for instant feedback. The right stats panel reads
+backend output when available.
+
+The stats panel reads `prediction_source` and shows a small badge:
 
 - `ML Model` for `ml_model`
 - `Rule-Based Fallback` for `rule_based_fallback`

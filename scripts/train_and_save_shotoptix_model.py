@@ -41,7 +41,7 @@ def load_training_dataset() -> pd.DataFrame:
     if not TRAINING_DATA_PATH.exists():
         raise FileNotFoundError(f"Training dataset not found: {TRAINING_DATA_PATH}")
 
-    df = pd.read_csv(TRAINING_DATA_PATH)
+    df = pd.read_csv(TRAINING_DATA_PATH, low_memory=False)
     if TARGET_COLUMN not in df.columns:
         raise ValueError(f"Training dataset must contain {TARGET_COLUMN}.")
 

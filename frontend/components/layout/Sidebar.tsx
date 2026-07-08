@@ -112,7 +112,7 @@ function SidebarContent({
       <div className="border-t border-white/10 p-4">
         <div className="rounded-lg border border-green-300/20 bg-green-400/10 p-4">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-green-200">
-            Phase 4: ML Model
+            Phase 5: Analytics
           </p>
           <div className="mt-3 flex items-center justify-between gap-3">
             <span className="text-sm font-black text-white">In Progress</span>

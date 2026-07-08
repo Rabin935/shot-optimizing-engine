@@ -44,6 +44,13 @@ The raw source data lives in:
 data/raw/shot_logs.csv
 ```
 
+The current expanded training run also uses the added NBA shot-location season
+files from:
+
+```text
+data/raw/NBA shot dataset (2000 - 2024)/
+```
+
 ## 5. Feature Engineering
 
 Feature engineering means converting raw shot information into columns the model
@@ -55,11 +62,30 @@ Numeric values stay numeric:
 - `shot_angle`
 - `defender_distance`
 - `shot_value`
+- `period`
+- `shot_clock`
+- `dribbles`
+- `touch_time`
+- `loc_x`
+- `loc_y`
+- `game_clock_seconds`
+
+The current model also adds derived context features:
+
+- `distance_pressure_interaction`
+- `late_clock`
+- `early_clock`
+- `quick_touch`
+- `high_dribble`
+- `long_three`
+- `deep_two`
+- action flags such as `is_dunk`, `is_layup`, `is_pullup`, and `is_driving`
+- position flags such as `position_guard`, `position_forward`, and
+  `position_center`
 
 Text values are converted into one-hot columns:
 
-- Shot zones become columns like `shot_zone_paint` and
-  `shot_zone_three_point`.
+- Shot zones become `zone_paint`, `zone_mid_range`, and `zone_three_point`.
 - Pressure levels become columns like `pressure_tight` and `pressure_open`.
 
 The backend feature code is:
@@ -103,10 +129,10 @@ The training process follows this flow:
 5. Evaluate the model with classification metrics.
 6. Save the trained model and metadata for FastAPI inference.
 
-The notebook workflow lives in:
+The repeatable training script is:
 
 ```text
-notebooks/
+scripts/train_and_save_shotoptix_model.py
 ```
 
 ## 9. Model Evaluation Metrics
@@ -178,19 +204,22 @@ Returns:
 ### `GET /api/model-info`
 
 Returns whether the model is loaded, the model name, model type, features used,
-target column, phase, and fallback type.
+target column, phase, metrics, training dataset, notes, and fallback type.
 
 Example:
 
 ```json
 {
   "model_loaded": true,
-  "model_name": "ShotOptix XGBoost Shot Model",
-  "model_type": "XGBoostClassifier",
-  "features_used": ["shot_distance", "shot_angle"],
+  "model_name": "shot_xgboost_model",
+  "model_type": "XGBoost XGBClassifier",
+  "phase": "Step 6 - Save Trained ShotOptix XGBoost Model",
   "target_column": "shot_made",
-  "phase": "Phase 4",
-  "prediction_fallback": "rule_based"
+  "features_used": ["period", "shot_clock", "dribbles", "touch_time"],
+  "metrics": {"accuracy": 0.6295, "roc_auc": 0.6539},
+  "training_dataset": "data/processed/shotoptix_ml_training.csv",
+  "prediction_fallback": "rule_based_fallback available",
+  "notes": "Feature order must match app.ml.feature_builder.MODEL_FEATURES."
 }
 ```
 
@@ -205,7 +234,45 @@ The frontend sandbox displays a small badge in the stats panel:
 This helps users understand whether they are seeing ML inference or fallback
 logic.
 
-## 15. Phase 5 Improvements
+## 15. Current Sandbox Flow
+
+The current Court Sandbox includes:
+
+- Draggable shooter.
+- Draggable defenders.
+- Scenario presets.
+- Shot line.
+- Pressure radius.
+- Analytics overlay.
+- Local fallback stats.
+- Backend prediction panel.
+
+Frontend helper files calculate instant local court feedback:
+
+- `frontend/utils/courtMath.ts`
+- `frontend/utils/shotZones.ts`
+- `frontend/utils/shotQuality.ts`
+
+Important distinction: court visuals and some court pills use local
+`calculateSandboxStats` so dragging feels instant. The right stats panel can use
+the backend response when FastAPI is running, including ML probability,
+fallback status, EPPS, recommendation, confidence, and `prediction_source`.
+
+## 16. Final Training And Inference Flow
+
+```text
+Dataset with real made/missed shots
+-> Normalize columns to match sandbox request
+-> Build features in same order as backend
+-> Train XGBoost to predict P(make)
+-> Save model + metadata
+-> FastAPI loads model
+-> /api/predict-shot uses ML first
+-> If ML fails, rule-based fallback runs
+-> Frontend StatsPanel shows prediction_source
+```
+
+## 17. Phase 5 Improvements
 
 Phase 5 can improve:
 

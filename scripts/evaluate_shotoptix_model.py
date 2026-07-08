@@ -42,7 +42,7 @@ def load_dataset() -> pd.DataFrame:
     if not TRAINING_DATA_PATH.exists():
         raise FileNotFoundError(f"Training dataset not found: {TRAINING_DATA_PATH}")
 
-    df = pd.read_csv(TRAINING_DATA_PATH)
+    df = pd.read_csv(TRAINING_DATA_PATH, low_memory=False)
     if TARGET_COLUMN not in df.columns:
         raise ValueError(f"Dataset must contain target column: {TARGET_COLUMN}")
 
@@ -98,13 +98,75 @@ def add_pressure_features(features: pd.DataFrame, df: pd.DataFrame) -> None:
     )
 
 
+def add_derived_features(features: pd.DataFrame) -> None:
+    # Mirror backend feature engineering for saved models with derived inputs.
+    safe_defender_distance = features["defender_distance"].clip(lower=0.5)
+    features["distance_pressure_interaction"] = (
+        features["shot_distance"] / safe_defender_distance
+    )
+    features["late_clock"] = (features["shot_clock"] <= 4).astype(int)
+    features["early_clock"] = (features["shot_clock"] >= 18).astype(int)
+    features["quick_touch"] = (
+        (features["touch_time"] <= 2.0) & (features["dribbles"] <= 1)
+    ).astype(int)
+    features["high_dribble"] = (features["dribbles"] >= 6).astype(int)
+    features["long_three"] = (
+        (features["shot_value"] == 3) & (features["shot_distance"] >= 26)
+    ).astype(int)
+    features["deep_two"] = (
+        (features["shot_value"] == 2) & (features["shot_distance"] >= 16)
+    ).astype(int)
+    features["abs_loc_x"] = features["loc_x"].abs()
+
+
+def add_action_features(features: pd.DataFrame, df: pd.DataFrame) -> None:
+    action = df.get("action_type", pd.Series("", index=df.index)).apply(
+        normalize_text
+    )
+    features["is_layup"] = action.str.contains("layup").astype(int)
+    features["is_dunk"] = action.str.contains("dunk").astype(int)
+    features["is_jump_shot"] = action.str.contains("jump").astype(int)
+    features["is_pullup"] = (
+        action.str.contains("pullup") | action.str.contains("pull up")
+    ).astype(int)
+    features["is_driving"] = action.str.contains("driving").astype(int)
+    features["is_fadeaway"] = action.str.contains("fadeaway").astype(int)
+    features["is_hook"] = action.str.contains("hook").astype(int)
+    features["is_tip"] = action.str.contains("tip").astype(int)
+
+
+def add_position_features(features: pd.DataFrame, df: pd.DataFrame) -> None:
+    position = df.get("position_group", pd.Series("", index=df.index)).apply(
+        normalize_text
+    )
+    features["position_guard"] = position.str.contains("g").astype(int)
+    features["position_forward"] = position.str.contains("f").astype(int)
+    features["position_center"] = position.str.contains("c").astype(int)
+
+
 def build_features_for_model(df: pd.DataFrame, feature_names: list[str]) -> pd.DataFrame:
     # Create every known feature, then return only the model's expected order.
     features = pd.DataFrame(index=df.index)
 
-    for column in ["shot_distance", "shot_angle", "defender_distance", "shot_value"]:
+    for column in [
+        "period",
+        "shot_clock",
+        "dribbles",
+        "touch_time",
+        "shot_distance",
+        "shot_angle",
+        "defender_distance",
+        "loc_x",
+        "loc_y",
+        "game_clock_seconds",
+        "is_home",
+        "shot_value",
+    ]:
         add_numeric_feature(features, df, column)
 
+    add_derived_features(features)
+    add_action_features(features, df)
+    add_position_features(features, df)
     add_zone_features(features, df)
     add_pressure_features(features, df)
 
