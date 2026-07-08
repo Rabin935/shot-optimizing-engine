@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
+import { PageTransition } from "@/components/navigation/PageTransition";
 
 type AppShellProps = {
   children: ReactNode;
@@ -15,7 +17,8 @@ export function AppShell({ children }: AppShellProps) {
 
       <main className="relative z-10 min-h-screen lg:pl-72">
         <div className="mx-auto w-full max-w-[1520px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          {children}
+          <Breadcrumbs />
+          <PageTransition>{children}</PageTransition>
         </div>
       </main>
     </div>
