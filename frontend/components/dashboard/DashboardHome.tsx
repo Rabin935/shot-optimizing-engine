@@ -10,7 +10,7 @@ import {
   Clock3,
   FileText,
   Gauge,
-  LineChart,
+  LineChart as LineChartIcon,
   Percent,
   PlayCircle,
   Radar,
@@ -20,6 +20,18 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { ChartContainer } from "@/components/charts";
 import { useShotStore } from "@/store/useShotStore";
 
 type QuickAction = {
@@ -81,6 +93,9 @@ export function DashboardHome() {
   const predictionSource = useShotStore((state) => state.predictionSource);
   const recommendation = useShotStore((state) => state.recommendation);
   const optimizedShot = useShotStore((state) => state.optimizedShot);
+  const trendRows = buildTrendRows(replayHistory, epps, makeProbability);
+  const zoneRows = buildZoneRows(replayHistory);
+  const activityRows = buildActivityRows(replayHistory);
   const stats = buildDashboardStats({
     epps,
     makeProbability,
@@ -126,16 +141,10 @@ export function DashboardHome() {
 
           <SectionFrame
             eyebrow="Analytics"
-            icon={LineChart}
+            icon={LineChartIcon}
             title="Performance trends"
           >
-            <PlaceholderGrid
-              items={[
-                "EPPS Trend",
-                "Make Probability Trend",
-                "Shot Zone Distribution",
-              ]}
-            />
+            <DashboardCharts trendRows={trendRows} zoneRows={zoneRows} />
           </SectionFrame>
 
           <SectionFrame
@@ -159,23 +168,15 @@ export function DashboardHome() {
             icon={Gauge}
             title="Sidebar widgets"
           >
-            <PlaceholderGrid
-              items={[
-                "Prediction Engine Status",
-                "Replay History",
-                "Favorite Simulations",
-              ]}
-            />
+            <div className="grid gap-3">
+              <PredictionEngineWidget predictionSource={predictionSource} />
+              <ReplayHistoryWidget replayCount={replayHistory.length} />
+              <FavoriteSimulationsWidget />
+            </div>
           </SectionFrame>
 
           <SectionFrame eyebrow="System" icon={Clock3} title="Activity stream">
-            <PlaceholderGrid
-              items={[
-                "Recent Activity Timeline",
-                "System Information",
-                "Version Information",
-              ]}
-            />
+            <ActivityTimeline rows={activityRows} />
           </SectionFrame>
         </aside>
       </section>
@@ -352,6 +353,229 @@ function OverviewTile({
   );
 }
 
+type TrendRow = {
+  epps: number;
+  makeProbability: number;
+  name: string;
+};
+
+type ZoneRow = {
+  attempts: number;
+  fill: string;
+  zone: string;
+};
+
+type ActivityRow = {
+  description: string;
+  label: string;
+  status: "green" | "orange";
+};
+
+function DashboardCharts({
+  trendRows,
+  zoneRows,
+}: {
+  trendRows: TrendRow[];
+  zoneRows: ZoneRow[];
+}) {
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1fr_1fr_0.9fr]">
+      <ChartPanel title="EPPS Trend">
+        <ChartContainer height={260}>
+          <LineChart data={trendRows} margin={{ bottom: 8, left: -18, right: 10, top: 12 }}>
+            <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
+            <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 700 }} tickLine={false} />
+            <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 700 }} tickLine={false} />
+            <Tooltip content={<TrendTooltip metric="epps" />} />
+            <Line type="monotone" dataKey="epps" stroke="#86efac" strokeWidth={3} dot={{ fill: "#86efac", r: 3 }} />
+          </LineChart>
+        </ChartContainer>
+      </ChartPanel>
+
+      <ChartPanel title="Make Probability Trend">
+        <ChartContainer height={260}>
+          <LineChart data={trendRows} margin={{ bottom: 8, left: -18, right: 10, top: 12 }}>
+            <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
+            <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 700 }} tickLine={false} />
+            <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 700 }} tickLine={false} />
+            <Tooltip content={<TrendTooltip metric="makeProbability" />} />
+            <Line type="monotone" dataKey="makeProbability" stroke="#fb923c" strokeWidth={3} dot={{ fill: "#fb923c", r: 3 }} />
+          </LineChart>
+        </ChartContainer>
+      </ChartPanel>
+
+      <ChartPanel title="Shot Zone Distribution">
+        <ChartContainer height={260}>
+          <BarChart data={zoneRows} margin={{ bottom: 8, left: -18, right: 10, top: 12 }}>
+            <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
+            <XAxis dataKey="zone" stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 800 }} tickLine={false} />
+            <YAxis allowDecimals={false} stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 700 }} tickLine={false} />
+            <Tooltip content={<ZoneTooltip />} />
+            <Bar dataKey="attempts" radius={[6, 6, 0, 0]}>
+              {zoneRows.map((row) => (
+                <Cell key={row.zone} fill={row.fill} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ChartContainer>
+      </ChartPanel>
+    </div>
+  );
+}
+
+function ChartPanel({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <article className="min-w-0 rounded-lg border border-white/10 bg-black/25 p-3">
+      <h3 className="mb-3 text-sm font-black text-white">{title}</h3>
+      {children}
+    </article>
+  );
+}
+
+function PredictionEngineWidget({
+  predictionSource,
+}: {
+  predictionSource: string;
+}) {
+  const sourceLabel =
+    predictionSource === "ml_model"
+      ? "ML model"
+      : predictionSource === "rule_based_fallback"
+        ? "Fallback model"
+        : "Prediction engine";
+
+  return (
+    <WidgetRow
+      icon={BrainCircuit}
+      label="Prediction Engine Status"
+      meta="Healthy"
+      value={sourceLabel}
+    />
+  );
+}
+
+function ReplayHistoryWidget({ replayCount }: { replayCount: number }) {
+  return (
+    <WidgetRow
+      icon={PlayCircle}
+      label="Replay History"
+      meta="Saved sessions"
+      value={replayCount ? `${replayCount} replays` : "Synthetic mode"}
+    />
+  );
+}
+
+function FavoriteSimulationsWidget() {
+  return (
+    <WidgetRow
+      icon={Trophy}
+      label="Favorite Simulations"
+      meta="Pinned review"
+      value="3 curated looks"
+    />
+  );
+}
+
+function WidgetRow({
+  icon: Icon,
+  label,
+  meta,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  meta: string;
+  value: string;
+}) {
+  return (
+    <article className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/30 p-3">
+      <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-green-300/25 bg-green-400/10 text-green-100">
+        <Icon className="size-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-black text-white">{label}</p>
+        <p className="mt-1 truncate text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+          {meta}
+        </p>
+      </div>
+      <p className="ml-auto max-w-28 truncate text-right text-sm font-black text-orange-100">
+        {value}
+      </p>
+    </article>
+  );
+}
+
+function ActivityTimeline({ rows }: { rows: ActivityRow[] }) {
+  return (
+    <div className="grid gap-3">
+      {rows.map((row) => (
+        <article
+          key={`${row.label}-${row.description}`}
+          className="relative rounded-lg border border-white/10 bg-black/30 p-3 pl-9"
+        >
+          <span
+            className={`absolute left-3 top-4 size-3 rounded-full ${
+              row.status === "green" ? "bg-green-300" : "bg-orange-300"
+            }`}
+          />
+          <p className="text-sm font-black text-white">{row.label}</p>
+          <p className="mt-1 text-sm leading-6 text-slate-400">
+            {row.description}
+          </p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function TrendTooltip({
+  active,
+  metric,
+  payload,
+}: {
+  active?: boolean;
+  metric: "epps" | "makeProbability";
+  payload?: Array<{ payload: TrendRow }>;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const row = payload[0].payload;
+  const value =
+    metric === "epps" ? formatDecimal(row.epps) : formatPercent(row.makeProbability);
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-[#090909]/95 p-3 text-sm shadow-2xl">
+      <p className="font-black text-white">{row.name}</p>
+      <p className="mt-1 text-xs font-bold text-slate-300">{value}</p>
+    </div>
+  );
+}
+
+function ZoneTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: ZoneRow }>;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const row = payload[0].payload;
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-[#090909]/95 p-3 text-sm shadow-2xl">
+      <p className="font-black text-white">{row.zone}</p>
+      <p className="mt-1 text-xs font-bold text-slate-300">
+        {row.attempts} attempts
+      </p>
+    </div>
+  );
+}
+
 function buildDashboardStats({
   epps,
   makeProbability,
@@ -445,6 +669,86 @@ function buildDashboardStats({
     ] satisfies DashboardStat[],
     totalSimulations,
   };
+}
+
+function buildTrendRows(
+  replayHistory: ReturnType<typeof useShotStore.getState>["replayHistory"],
+  epps: number,
+  makeProbability: number,
+): TrendRow[] {
+  if (replayHistory.length) {
+    return replayHistory
+      .slice(0, 8)
+      .reverse()
+      .map((replay, index) => ({
+        epps: Number(replay.metrics.epps.toFixed(2)),
+        makeProbability: Number(replay.metrics.makeProbability.toFixed(2)),
+        name: `S${index + 1}`,
+      }));
+  }
+
+  // Synthetic trend rows provide a realistic first-run dashboard.
+  return [
+    { epps: 0.94, makeProbability: 0.39, name: "S1" },
+    { epps: 1.05, makeProbability: 0.43, name: "S2" },
+    { epps: 1.14, makeProbability: 0.46, name: "S3" },
+    { epps: epps || 1.22, makeProbability: makeProbability || 0.49, name: "S4" },
+    { epps: 1.31, makeProbability: 0.52, name: "S5" },
+  ];
+}
+
+function buildZoneRows(
+  replayHistory: ReturnType<typeof useShotStore.getState>["replayHistory"],
+): ZoneRow[] {
+  if (!replayHistory.length) {
+    return [
+      { attempts: 34, fill: "#86efac", zone: "Paint" },
+      { attempts: 41, fill: "#fb923c", zone: "Mid" },
+      { attempts: 53, fill: "#60a5fa", zone: "Three" },
+    ];
+  }
+
+  const counts = replayHistory.reduce<Record<string, number>>((totals, replay) => {
+    const zone = replay.metrics.shotZone.replace("-Range", "");
+    totals[zone] = (totals[zone] ?? 0) + 1;
+    return totals;
+  }, {});
+
+  return Object.entries(counts).map(([zone, attempts], index) => ({
+    attempts,
+    fill: ["#86efac", "#fb923c", "#60a5fa"][index % 3],
+    zone,
+  }));
+}
+
+function buildActivityRows(
+  replayHistory: ReturnType<typeof useShotStore.getState>["replayHistory"],
+): ActivityRow[] {
+  if (replayHistory.length) {
+    return replayHistory.slice(0, 4).map((replay) => ({
+      description: `${replay.metrics.shotZone} saved with ${formatDecimal(replay.metrics.epps)} EPPS.`,
+      label: replay.label,
+      status: replay.metrics.epps >= 1 ? "green" : "orange",
+    }));
+  }
+
+  return [
+    {
+      description: "Dashboard initialized with phase-6 synthetic product data.",
+      label: "Session ready",
+      status: "green",
+    },
+    {
+      description: "Optimizer recommendation queue prepared for review.",
+      label: "Optimizer synced",
+      status: "orange",
+    },
+    {
+      description: "Prediction engine health check completed successfully.",
+      label: "Model checked",
+      status: "green",
+    },
+  ];
 }
 
 function average(values: number[]) {
