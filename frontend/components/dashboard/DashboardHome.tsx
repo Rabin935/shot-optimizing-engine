@@ -14,8 +14,10 @@ import {
   Percent,
   PlayCircle,
   Radar,
+  ShieldCheck,
   Sparkles,
   Target,
+  TrendingUp,
   Trophy,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -96,6 +98,9 @@ export function DashboardHome() {
   const trendRows = buildTrendRows(replayHistory, epps, makeProbability);
   const zoneRows = buildZoneRows(replayHistory);
   const activityRows = buildActivityRows(replayHistory);
+  const recentRows = buildRecentSimulationRows(replayHistory);
+  const recommendationRows = buildRecommendationRows(optimizedShot?.title);
+  const coachingRows = buildCoachingRows(recommendation);
   const stats = buildDashboardStats({
     epps,
     makeProbability,
@@ -152,13 +157,11 @@ export function DashboardHome() {
             icon={Radar}
             title="Recent simulations and optimizer notes"
           >
-            <PlaceholderGrid
-              items={[
-                "Recent Simulations Table",
-                "Recent Optimizer Recommendations",
-                "Latest Coaching Feedback",
-              ]}
-            />
+            <div className="grid gap-4 2xl:grid-cols-[1.25fr_0.9fr_0.9fr]">
+              <RecentSimulationsTable rows={recentRows} />
+              <OptimizerRecommendations rows={recommendationRows} />
+              <CoachingFeedback rows={coachingRows} />
+            </div>
           </SectionFrame>
         </div>
 
@@ -371,6 +374,27 @@ type ActivityRow = {
   status: "green" | "orange";
 };
 
+type RecentSimulationRow = {
+  epps: string;
+  makeProbability: string;
+  mechanics: string;
+  pressure: string;
+  shot: string;
+  zone: string;
+};
+
+type RecommendationRow = {
+  delta: string;
+  label: string;
+  value: string;
+};
+
+type CoachingRow = {
+  label: string;
+  message: string;
+  tone: "green" | "orange";
+};
+
 function DashboardCharts({
   trendRows,
   zoneRows,
@@ -420,6 +444,99 @@ function DashboardCharts({
         </ChartContainer>
       </ChartPanel>
     </div>
+  );
+}
+
+function RecentSimulationsTable({ rows }: { rows: RecentSimulationRow[] }) {
+  return (
+    <article className="min-w-0 rounded-lg border border-white/10 bg-black/25 p-3">
+      <div className="mb-3 flex items-center gap-2">
+        <Activity className="size-4 text-green-200" />
+        <h3 className="text-sm font-black text-white">Recent Simulations</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <thead className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+            <tr className="border-b border-white/10">
+              <th className="py-2 pr-3">Shot</th>
+              <th className="py-2 pr-3">Zone</th>
+              <th className="py-2 pr-3">Pressure</th>
+              <th className="py-2 pr-3">EPPS</th>
+              <th className="py-2 pr-3">Make</th>
+              <th className="py-2">Mechanics</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={`${row.shot}-${row.zone}`} className="border-b border-white/5 last:border-0">
+                <td className="py-3 pr-3 font-black text-white">{row.shot}</td>
+                <td className="py-3 pr-3 font-bold text-slate-300">{row.zone}</td>
+                <td className="py-3 pr-3 font-bold text-slate-300">{row.pressure}</td>
+                <td className="py-3 pr-3 font-black text-green-200">{row.epps}</td>
+                <td className="py-3 pr-3 font-black text-orange-100">{row.makeProbability}</td>
+                <td className="py-3 font-black text-white">{row.mechanics}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </article>
+  );
+}
+
+function OptimizerRecommendations({ rows }: { rows: RecommendationRow[] }) {
+  return (
+    <article className="rounded-lg border border-white/10 bg-black/25 p-3">
+      <div className="mb-3 flex items-center gap-2">
+        <TrendingUp className="size-4 text-orange-200" />
+        <h3 className="text-sm font-black text-white">Recent Optimizer Recommendations</h3>
+      </div>
+      <div className="grid gap-3">
+        {rows.map((row) => (
+          <div key={row.label} className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+              {row.label}
+            </p>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <p className="text-sm font-black text-white">{row.value}</p>
+              <p className="rounded-md border border-green-300/20 bg-green-400/10 px-2 py-1 text-xs font-black text-green-100">
+                {row.delta}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function CoachingFeedback({ rows }: { rows: CoachingRow[] }) {
+  return (
+    <article className="rounded-lg border border-white/10 bg-black/25 p-3">
+      <div className="mb-3 flex items-center gap-2">
+        <ShieldCheck className="size-4 text-green-200" />
+        <h3 className="text-sm font-black text-white">Latest Coaching Feedback</h3>
+      </div>
+      <div className="grid gap-3">
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            className={`rounded-lg border p-3 ${
+              row.tone === "green"
+                ? "border-green-300/20 bg-green-400/10"
+                : "border-orange-300/20 bg-orange-500/10"
+            }`}
+          >
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+              {row.label}
+            </p>
+            <p className="mt-2 text-sm font-bold leading-6 text-white">
+              {row.message}
+            </p>
+          </div>
+        ))}
+      </div>
+    </article>
   );
 }
 
@@ -747,6 +864,88 @@ function buildActivityRows(
       description: "Prediction engine health check completed successfully.",
       label: "Model checked",
       status: "green",
+    },
+  ];
+}
+
+function buildRecentSimulationRows(
+  replayHistory: ReturnType<typeof useShotStore.getState>["replayHistory"],
+): RecentSimulationRow[] {
+  if (replayHistory.length) {
+    return replayHistory.slice(0, 5).map((replay, index) => ({
+      epps: formatDecimal(replay.metrics.epps),
+      makeProbability: formatPercent(replay.metrics.makeProbability),
+      mechanics: `${Math.round(replay.mechanicsScore.overallForm)}`,
+      pressure: replay.metrics.pressureLevel,
+      shot: replay.label || `Shot ${index + 1}`,
+      zone: replay.metrics.shotZone,
+    }));
+  }
+
+  return [
+    {
+      epps: "1.31",
+      makeProbability: "52%",
+      mechanics: "88",
+      pressure: "Open",
+      shot: "Corner lift",
+      zone: "Three Point",
+    },
+    {
+      epps: "1.18",
+      makeProbability: "59%",
+      mechanics: "83",
+      pressure: "Tight",
+      shot: "Elbow pull-up",
+      zone: "Mid-Range",
+    },
+    {
+      epps: "1.06",
+      makeProbability: "53%",
+      mechanics: "81",
+      pressure: "Very Open",
+      shot: "Paint touch",
+      zone: "Paint",
+    },
+  ];
+}
+
+function buildRecommendationRows(optimizedShotTitle?: string): RecommendationRow[] {
+  return [
+    {
+      delta: "+0.18 EPPS",
+      label: "Primary option",
+      value: optimizedShotTitle ?? "Shift to right corner three",
+    },
+    {
+      delta: "+7% make",
+      label: "Mechanics cue",
+      value: "Raise release window",
+    },
+    {
+      delta: "-1 defender",
+      label: "Spacing cue",
+      value: "Use weak-side relocation",
+    },
+  ];
+}
+
+function buildCoachingRows(recommendation: string): CoachingRow[] {
+  return [
+    {
+      label: "Current read",
+      message: recommendation,
+      tone: "green",
+    },
+    {
+      label: "Mechanics",
+      message: "Keep the release point above the contest and replay the simulator frame-by-frame.",
+      tone: "orange",
+    },
+    {
+      label: "Decision",
+      message: "Prioritize open threes when pressure drops below tight coverage.",
+      tone: "green",
     },
   ];
 }
