@@ -50,6 +50,8 @@ export function Sidebar() {
         </div>
       </header>
 
+      <MobileQuickNav pathname={pathname} />
+
       {isOpen ? (
         <div className="fixed inset-0 z-30 bg-black/70 backdrop-blur-sm lg:hidden">
           <button
@@ -71,6 +73,38 @@ export function Sidebar() {
         <SidebarContent pathname={pathname} />
       </aside>
     </>
+  );
+}
+
+function MobileQuickNav({ pathname }: { pathname: string }) {
+  return (
+    <nav
+      aria-label="Primary mobile navigation"
+      className="fixed inset-x-3 bottom-3 z-40 rounded-lg border border-white/10 bg-[#0A0A0A]/95 p-2 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:hidden"
+    >
+      <div className="grid grid-cols-4 gap-1">
+        {pinnedNavigationItems.slice(0, 4).map((item) => {
+          const Icon = item.icon;
+          const active = isActiveRoute(pathname, item.href);
+
+          return (
+            <Link
+              key={`mobile-${item.href}`}
+              href={item.href}
+              className={cx(
+                "grid min-h-14 place-items-center gap-1 rounded-md border px-1 py-2 text-center text-[10px] font-black transition",
+                active
+                  ? "border-orange-300/35 bg-orange-500/15 text-orange-100"
+                  : "border-transparent text-slate-500 hover:bg-white/[0.055] hover:text-white",
+              )}
+            >
+              <Icon className="size-4" />
+              <span className="max-w-full truncate">{shortMobileLabel(item.label)}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
 
@@ -459,4 +493,11 @@ function Brand() {
       </span>
     </Link>
   );
+}
+
+function shortMobileLabel(label: string) {
+  return label
+    .replace("Court ", "")
+    .replace("2D ", "")
+    .replace("Dashboard", "Home");
 }
