@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ChevronDown,
   Clock3,
@@ -22,11 +22,25 @@ import {
 import { Button, Input } from "@/components/ui";
 import { cx } from "@/lib/design-system";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const FAVORITES_KEY = "shotoptix-navigation-favorites";
 const RECENTS_KEY = "shotoptix-navigation-recents";
 const DEFAULT_FAVORITES = ["dashboard", "sandbox"];
+const NAV_SEARCH_ID = "shotoptix-navigation-search";
+
+function readStoredStringArray(key: string, fallback: string[]) {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(key);
+    return stored ? (JSON.parse(stored) as string[]) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -115,6 +129,7 @@ function SidebarContent({
   pathname: string;
   onNavigate?: () => void;
 }) {
+  const router = useRouter();
   const activeGroupIds = navigationGroups
     .filter((group) =>
       group.items.some((item) => isActiveRoute(pathname, item.href)),
@@ -125,8 +140,12 @@ function SidebarContent({
       .filter((group) => !activeGroupIds.includes(group.id))
       .map((group) => group.id),
   );
-  const [favoriteIds, setFavoriteIds] = useState<string[]>(DEFAULT_FAVORITES);
-  const [recentHrefs, setRecentHrefs] = useState<string[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(() =>
+    readStoredStringArray(FAVORITES_KEY, DEFAULT_FAVORITES),
+  );
+  const [recentHrefs, setRecentHrefs] = useState<string[]>(() =>
+    readStoredStringArray(RECENTS_KEY, []),
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const favoriteItems = navigationItems.filter((item) =>
     favoriteIds.includes(item.id),
@@ -147,19 +166,6 @@ function SidebarContent({
         .includes(query),
     );
   }, [searchQuery]);
-
-  useEffect(() => {
-    const storedFavorites = window.localStorage.getItem(FAVORITES_KEY);
-    const storedRecents = window.localStorage.getItem(RECENTS_KEY);
-
-    if (storedFavorites) {
-      setFavoriteIds(JSON.parse(storedFavorites) as string[]);
-    }
-
-    if (storedRecents) {
-      setRecentHrefs(JSON.parse(storedRecents) as string[]);
-    }
-  }, []);
 
   useEffect(() => {
     window.localStorage.setItem(FAVORITES_KEY, JSON.stringify(favoriteIds));
@@ -183,12 +189,52 @@ function SidebarContent({
         : [itemId, ...current].slice(0, 8),
     );
   };
-  const recordVisit = (item: NavigationItem) => {
+  const recordVisit = useCallback((item: NavigationItem) => {
     setRecentHrefs((current) =>
       [item.href, ...current.filter((href) => href !== item.href)].slice(0, 5),
     );
     onNavigate?.();
-  };
+  }, [onNavigate]);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTyping =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "SELECT" ||
+        target?.tagName === "TEXTAREA";
+
+      if (event.key === "/" && !isTyping) {
+        event.preventDefault();
+        document.getElementById(NAV_SEARCH_ID)?.focus();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        setSearchQuery("");
+        document.getElementById(NAV_SEARCH_ID)?.blur();
+        return;
+      }
+
+      if (!event.altKey || isTyping) {
+        return;
+      }
+
+      const item = navigationItems.find(
+        (navItem) =>
+          navItem.shortcut?.toLowerCase() === event.key.toLowerCase(),
+      );
+
+      if (item) {
+        event.preventDefault();
+        recordVisit(item);
+        router.push(item.href);
+      }
+    };
+
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [router, recordVisit]);
 
   return (
     <div className="flex min-h-0 w-full flex-col">
@@ -203,9 +249,10 @@ function SidebarContent({
             Search Navigation
           </span>
           <Input
+            id={NAV_SEARCH_ID}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search pages..."
+            placeholder="Search pages or press /"
             className="bg-[#111]"
           />
         </label>
@@ -450,7 +497,7 @@ function SidebarLink({
         >
           <Icon className="size-4" />
         </span>
-        <span className="min-w-0 flex-1">
+      <span className="min-w-0 flex-1">
           <span className="block truncate">{item.label}</span>
           {!compact ? (
             <span className="mt-0.5 block truncate text-[11px] font-bold text-slate-500">
@@ -459,6 +506,11 @@ function SidebarLink({
           ) : null}
         </span>
       </Link>
+      {item.shortcut ? (
+        <span className="mr-2 hidden rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-black text-slate-500 group-hover:text-slate-300 sm:inline-flex">
+          Alt {item.shortcut}
+        </span>
+      ) : null}
       <button
         type="button"
         aria-label={favorite ? `Remove ${item.label} from favorites` : `Add ${item.label} to favorites`}
