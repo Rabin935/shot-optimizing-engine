@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Card, Eyebrow } from "@/components/ui";
 
 type FilterBarProps = {
   children: ReactNode;
@@ -8,15 +9,13 @@ type FilterBarProps = {
 };
 
 export function FilterBar({ children, title = "Filters" }: FilterBarProps) {
-  // FilterBar provides the reusable layout; A9 wires it to persistent filters.
+  // FilterBar uses the design-system card shell for every analytics page.
   return (
-    <section className="rounded-lg border border-white/10 bg-black/30 p-4">
+    <Card padding="sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-          {title}
-        </p>
+        <Eyebrow className="text-slate-400">{title}</Eyebrow>
         <div className="flex flex-wrap items-center gap-2">{children}</div>
       </div>
-    </section>
+    </Card>
   );
 }

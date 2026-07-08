@@ -3,6 +3,7 @@
 import { RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
 import { FilterBar } from "@/components/charts";
+import { Button, Dropdown, FieldLabel, Input } from "@/components/ui";
 import { ANALYTICS_PRESSURE_ORDER, ANALYTICS_ZONE_ORDER } from "@/lib/analytics/transforms";
 import { useAnalyticsFilterStore } from "@/lib/analytics/filter-store";
 import { useAnalyticsSessions } from "@/lib/analytics/useFilteredAnalyticsShots";
@@ -56,14 +57,14 @@ export function GlobalAnalyticsFilterBar() {
       <NumberControl label="Mech Max" value={filters.mechanicsScoreMax} onChange={(value) => updateFilters({ mechanicsScoreMax: value })} />
       <DateControl label="From" value={filters.dateFrom} onChange={(value) => updateFilters({ dateFrom: value })} />
       <DateControl label="To" value={filters.dateTo} onChange={(value) => updateFilters({ dateTo: value })} />
-      <button
+      <Button
         type="button"
         onClick={resetFilters}
-        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3 text-sm font-black text-slate-100 transition hover:border-orange-300/35 hover:bg-orange-500/15"
+        variant="outline"
       >
         <RotateCcw className="size-4" />
         Reset
-      </button>
+      </Button>
     </FilterBar>
   );
 }
@@ -80,16 +81,16 @@ function SelectControl({
   value: string;
 }) {
   return (
-    <label className="grid gap-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+    <FieldLabel className="grid gap-1 text-slate-500">
       {label}
-      <select
+      <Dropdown
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-h-10 rounded-lg border border-white/10 bg-[#111] px-3 text-sm font-bold normal-case tracking-normal text-white"
+        className="normal-case tracking-normal"
       >
         {children}
-      </select>
-    </label>
+      </Dropdown>
+    </FieldLabel>
   );
 }
 
@@ -103,17 +104,17 @@ function NumberControl({
   value: number;
 }) {
   return (
-    <label className="grid gap-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+    <FieldLabel className="grid gap-1 text-slate-500">
       {label}
-      <input
+      <Input
         type="number"
         min={0}
         max={100}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="min-h-10 w-24 rounded-lg border border-white/10 bg-[#111] px-3 text-sm font-bold normal-case tracking-normal text-white"
+        className="w-24 normal-case tracking-normal"
       />
-    </label>
+    </FieldLabel>
   );
 }
 
@@ -127,14 +128,14 @@ function DateControl({
   value: string;
 }) {
   return (
-    <label className="grid gap-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+    <FieldLabel className="grid gap-1 text-slate-500">
       {label}
-      <input
+      <Input
         type="date"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-h-10 rounded-lg border border-white/10 bg-[#111] px-3 text-sm font-bold normal-case tracking-normal text-white"
+        className="normal-case tracking-normal"
       />
-    </label>
+    </FieldLabel>
   );
 }

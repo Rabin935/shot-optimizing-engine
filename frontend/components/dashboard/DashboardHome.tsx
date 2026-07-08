@@ -34,6 +34,19 @@ import {
   YAxis,
 } from "recharts";
 import { ChartContainer } from "@/components/charts";
+import {
+  Badge,
+  Card,
+  CardHeader,
+  DataTable,
+  Eyebrow,
+  Heading,
+  StatusChip,
+  TableCell,
+  TableHead,
+  Text,
+} from "@/components/ui";
+import { cx, toneClasses } from "@/lib/design-system";
 import { useShotStore } from "@/store/useShotStore";
 
 type QuickAction = {
@@ -281,14 +294,15 @@ type DashboardStat = {
 
 function DashboardStatCard({ card }: { card: DashboardStat }) {
   const Icon = card.icon;
-  const toneClasses = {
-    green: "border-green-300/25 bg-green-400/10 text-green-100",
-    neutral: "border-white/10 bg-white/[0.045] text-white",
-    orange: "border-orange-300/25 bg-orange-500/10 text-orange-100",
+  const mappedTone = {
+    green: toneClasses.success,
+    neutral: toneClasses.neutral,
+    orange: toneClasses.primary,
   };
+  const tone = mappedTone[card.tone];
 
   return (
-    <article className={`rounded-lg border p-4 ${toneClasses[card.tone]}`}>
+    <article className={cx("rounded-lg border p-4", tone.border, tone.soft, tone.text)}>
       <div className="flex min-h-24 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[0.16em] opacity-70">
@@ -319,22 +333,18 @@ function SectionFrame({
 }) {
   // SectionFrame provides consistent density, borders, and labels across panels.
   return (
-    <section className="rounded-lg border border-white/10 bg-white/[0.045] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
-      <div className="mb-4 flex items-start gap-3 border-b border-white/10 pb-4">
+    <Card>
+      <CardHeader
+        eyebrow={eyebrow}
+        title={title}
+        className="flex-row items-start justify-start"
+      >
         <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-orange-300/25 bg-orange-500/10 text-orange-100">
           <Icon className="size-5" />
         </span>
-        <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-green-300">
-            {eyebrow}
-          </p>
-          <h2 className="mt-1 text-xl font-black tracking-tight text-white">
-            {title}
-          </h2>
-        </div>
-      </div>
+      </CardHeader>
       {children}
-    </section>
+    </Card>
   );
 }
 
@@ -348,13 +358,11 @@ function OverviewTile({
   value: string;
 }) {
   return (
-    <article className="rounded-lg border border-white/10 bg-black/30 p-4">
+    <Card padding="sm" className="bg-panel-muted">
       <Icon className="size-5 text-orange-200" />
-      <p className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-2 text-lg font-black text-white">{value}</p>
-    </article>
+      <Eyebrow className="mt-4 text-slate-500">{label}</Eyebrow>
+      <Heading className="mt-2 text-lg" level={3}>{value}</Heading>
+    </Card>
   );
 }
 
@@ -451,17 +459,13 @@ function DashboardCharts({
 
 function RecentSimulationsTable({ rows }: { rows: RecentSimulationRow[] }) {
   return (
-    <article className="min-w-0 rounded-lg border border-white/10 bg-black/25 p-3">
+    <Card padding="sm" className="min-w-0 bg-panel-muted">
       <div className="mb-3 flex items-center gap-2">
         <Activity className="size-4 text-green-200" />
-        <h3 className="text-sm font-black text-white">Recent Simulations</h3>
+        <Heading className="text-sm" level={3}>Recent Simulations</Heading>
       </div>
-      <div className="overflow-x-auto">
-        <table
-          aria-label="Recent simulations"
-          className="w-full min-w-[640px] text-left text-sm"
-        >
-          <thead className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+      <DataTable aria-label="Recent simulations">
+          <TableHead>
             <tr className="border-b border-white/10">
               <th className="py-2 pr-3">Shot</th>
               <th className="py-2 pr-3">Zone</th>
@@ -470,78 +474,62 @@ function RecentSimulationsTable({ rows }: { rows: RecentSimulationRow[] }) {
               <th className="py-2 pr-3">Make</th>
               <th className="py-2">Mechanics</th>
             </tr>
-          </thead>
+          </TableHead>
           <tbody>
             {rows.map((row) => (
               <tr key={`${row.shot}-${row.zone}`} className="border-b border-white/5 last:border-0">
-                <td className="py-3 pr-3 font-black text-white">{row.shot}</td>
-                <td className="py-3 pr-3 font-bold text-slate-300">{row.zone}</td>
-                <td className="py-3 pr-3 font-bold text-slate-300">{row.pressure}</td>
-                <td className="py-3 pr-3 font-black text-green-200">{row.epps}</td>
-                <td className="py-3 pr-3 font-black text-orange-100">{row.makeProbability}</td>
-                <td className="py-3 font-black text-white">{row.mechanics}</td>
+                <TableCell className="font-black text-white">{row.shot}</TableCell>
+                <TableCell className="font-bold text-slate-300">{row.zone}</TableCell>
+                <TableCell className="font-bold text-slate-300">{row.pressure}</TableCell>
+                <TableCell className="font-black text-green-200">{row.epps}</TableCell>
+                <TableCell className="font-black text-orange-100">{row.makeProbability}</TableCell>
+                <TableCell className="font-black text-white">{row.mechanics}</TableCell>
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
-    </article>
+      </DataTable>
+    </Card>
   );
 }
 
 function OptimizerRecommendations({ rows }: { rows: RecommendationRow[] }) {
   return (
-    <article className="rounded-lg border border-white/10 bg-black/25 p-3">
+    <Card padding="sm" className="bg-panel-muted">
       <div className="mb-3 flex items-center gap-2">
         <TrendingUp className="size-4 text-orange-200" />
-        <h3 className="text-sm font-black text-white">Recent Optimizer Recommendations</h3>
+        <Heading className="text-sm" level={3}>Recent Optimizer Recommendations</Heading>
       </div>
       <div className="grid gap-3">
         {rows.map((row) => (
-          <div key={row.label} className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-              {row.label}
-            </p>
+          <Card key={row.label} padding="sm">
+            <Eyebrow className="text-slate-500">{row.label}</Eyebrow>
             <div className="mt-2 flex items-center justify-between gap-3">
               <p className="text-sm font-black text-white">{row.value}</p>
-              <p className="rounded-md border border-green-300/20 bg-green-400/10 px-2 py-1 text-xs font-black text-green-100">
-                {row.delta}
-              </p>
+              <Badge tone="success">{row.delta}</Badge>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
-    </article>
+    </Card>
   );
 }
 
 function CoachingFeedback({ rows }: { rows: CoachingRow[] }) {
   return (
-    <article className="rounded-lg border border-white/10 bg-black/25 p-3">
+    <Card padding="sm" className="bg-panel-muted">
       <div className="mb-3 flex items-center gap-2">
         <ShieldCheck className="size-4 text-green-200" />
-        <h3 className="text-sm font-black text-white">Latest Coaching Feedback</h3>
+        <Heading className="text-sm" level={3}>Latest Coaching Feedback</Heading>
       </div>
       <div className="grid gap-3">
         {rows.map((row) => (
-          <div
-            key={row.label}
-            className={`rounded-lg border p-3 ${
-              row.tone === "green"
-                ? "border-green-300/20 bg-green-400/10"
-                : "border-orange-300/20 bg-orange-500/10"
-            }`}
-          >
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-              {row.label}
-            </p>
-            <p className="mt-2 text-sm font-bold leading-6 text-white">
-              {row.message}
-            </p>
-          </div>
+          <Card key={row.label} padding="sm" className={row.tone === "green" ? "bg-success-soft" : "bg-primary-soft"}>
+            <Eyebrow className="text-slate-400">{row.label}</Eyebrow>
+            <Text className="mt-2 font-bold text-white">{row.message}</Text>
+          </Card>
         ))}
       </div>
-    </article>
+    </Card>
   );
 }
 
@@ -590,21 +578,19 @@ function BottomOperationsSection({
 
 function SystemInfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/30 px-3 py-2">
-      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-        {label}
-      </span>
+    <Card padding="sm" className="flex min-h-12 items-center justify-between gap-3 bg-panel-muted">
+      <Eyebrow className="text-slate-500">{label}</Eyebrow>
       <span className="text-right text-sm font-black text-white">{value}</span>
-    </div>
+    </Card>
   );
 }
 
 function ChartPanel({ children, title }: { children: ReactNode; title: string }) {
   return (
-    <article className="min-w-0 rounded-lg border border-white/10 bg-black/25 p-3">
-      <h3 className="mb-3 text-sm font-black text-white">{title}</h3>
+    <Card padding="sm" className="min-w-0 bg-panel-muted">
+      <Heading className="mb-3 text-sm" level={3}>{title}</Heading>
       {children}
-    </article>
+    </Card>
   );
 }
 
@@ -664,7 +650,7 @@ function WidgetRow({
   value: string;
 }) {
   return (
-    <article className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/30 p-3">
+    <Card padding="sm" className="flex items-center gap-3 bg-panel-muted">
       <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-green-300/25 bg-green-400/10 text-green-100">
         <Icon className="size-5" />
       </span>
@@ -674,10 +660,10 @@ function WidgetRow({
           {meta}
         </p>
       </div>
-      <p className="ml-auto max-w-28 truncate text-right text-sm font-black text-orange-100">
+      <StatusChip className="ml-auto max-w-32 truncate" tone="primary">
         {value}
-      </p>
-    </article>
+      </StatusChip>
+    </Card>
   );
 }
 
@@ -685,9 +671,10 @@ function ActivityTimeline({ rows }: { rows: ActivityRow[] }) {
   return (
     <div className="grid gap-3">
       {rows.map((row) => (
-        <article
+        <Card
+          padding="sm"
           key={`${row.label}-${row.description}`}
-          className="relative rounded-lg border border-white/10 bg-black/30 p-3 pl-9"
+          className="relative bg-panel-muted pl-9"
         >
           <span
             className={`absolute left-3 top-4 size-3 rounded-full ${
@@ -698,7 +685,7 @@ function ActivityTimeline({ rows }: { rows: ActivityRow[] }) {
           <p className="mt-1 text-sm leading-6 text-slate-400">
             {row.description}
           </p>
-        </article>
+        </Card>
       ))}
     </div>
   );
