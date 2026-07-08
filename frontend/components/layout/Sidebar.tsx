@@ -4,8 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown,
+  Clock3,
   Menu,
   Pin,
+  Search,
+  Star,
   Target,
   X,
 } from "lucide-react";
@@ -13,11 +16,17 @@ import type { NavigationGroup, NavigationItem } from "@/components/navigation/na
 import {
   isActiveRoute,
   navigationGroups,
+  navigationItems,
   pinnedNavigationItems,
 } from "@/components/navigation/navigation-data";
-import { Button } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
 import { cx } from "@/lib/design-system";
-import { useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+const FAVORITES_KEY = "shotoptix-navigation-favorites";
+const RECENTS_KEY = "shotoptix-navigation-recents";
+const DEFAULT_FAVORITES = ["dashboard", "sandbox"];
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -82,6 +91,49 @@ function SidebarContent({
       .filter((group) => !activeGroupIds.includes(group.id))
       .map((group) => group.id),
   );
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(DEFAULT_FAVORITES);
+  const [recentHrefs, setRecentHrefs] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const favoriteItems = navigationItems.filter((item) =>
+    favoriteIds.includes(item.id),
+  );
+  const recentItems = recentHrefs
+    .map((href) => navigationItems.find((item) => item.href === href))
+    .filter((item): item is NavigationItem => Boolean(item));
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return [];
+    }
+
+    return navigationItems.filter((item) =>
+      `${item.label} ${item.description} ${item.href}`
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const storedFavorites = window.localStorage.getItem(FAVORITES_KEY);
+    const storedRecents = window.localStorage.getItem(RECENTS_KEY);
+
+    if (storedFavorites) {
+      setFavoriteIds(JSON.parse(storedFavorites) as string[]);
+    }
+
+    if (storedRecents) {
+      setRecentHrefs(JSON.parse(storedRecents) as string[]);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(FAVORITES_KEY, JSON.stringify(favoriteIds));
+  }, [favoriteIds]);
+
+  useEffect(() => {
+    window.localStorage.setItem(RECENTS_KEY, JSON.stringify(recentHrefs));
+  }, [recentHrefs]);
 
   const toggleGroup = (groupId: string) => {
     setCollapsedGroups((current) =>
@@ -89,6 +141,19 @@ function SidebarContent({
         ? current.filter((id) => id !== groupId)
         : [...current, groupId],
     );
+  };
+  const toggleFavorite = (itemId: string) => {
+    setFavoriteIds((current) =>
+      current.includes(itemId)
+        ? current.filter((id) => id !== itemId)
+        : [itemId, ...current].slice(0, 8),
+    );
+  };
+  const recordVisit = (item: NavigationItem) => {
+    setRecentHrefs((current) =>
+      [item.href, ...current.filter((href) => href !== item.href)].slice(0, 5),
+    );
+    onNavigate?.();
   };
 
   return (
@@ -98,6 +163,31 @@ function SidebarContent({
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+        <label className="mb-4 grid gap-2 px-1">
+          <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+            <Search className="size-3.5" />
+            Search Navigation
+          </span>
+          <Input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search pages..."
+            className="bg-[#111]"
+          />
+        </label>
+
+        {searchQuery ? (
+          <NavigationList
+            emptyLabel="No matching pages"
+            favoriteIds={favoriteIds}
+            items={searchResults}
+            label="Search Results"
+            pathname={pathname}
+            onFavoriteToggle={toggleFavorite}
+            onVisit={recordVisit}
+          />
+        ) : null}
+
         <div className="mb-5">
           <p className="mb-2 px-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
             Pinned
@@ -107,13 +197,37 @@ function SidebarContent({
               <SidebarLink
                 key={item.href}
                 active={isActiveRoute(pathname, item.href)}
+                favorite={favoriteIds.includes(item.id)}
                 item={item}
-                onNavigate={onNavigate}
+                onFavoriteToggle={toggleFavorite}
+                onVisit={recordVisit}
                 compact
               />
             ))}
           </div>
         </div>
+
+        <NavigationList
+          emptyLabel="Star pages to add favorites"
+          favoriteIds={favoriteIds}
+          icon={<Star className="size-3.5" />}
+          items={favoriteItems}
+          label="Favorites"
+          pathname={pathname}
+          onFavoriteToggle={toggleFavorite}
+          onVisit={recordVisit}
+        />
+
+        <NavigationList
+          emptyLabel="Visited pages will appear here"
+          favoriteIds={favoriteIds}
+          icon={<Clock3 className="size-3.5" />}
+          items={recentItems}
+          label="Recently Visited"
+          pathname={pathname}
+          onFavoriteToggle={toggleFavorite}
+          onVisit={recordVisit}
+        />
 
         <div className="grid gap-3">
           {navigationGroups.map((group) => (
@@ -122,8 +236,10 @@ function SidebarContent({
               collapsed={collapsedGroups.includes(group.id)}
               group={group}
               pathname={pathname}
-              onNavigate={onNavigate}
+              favoriteIds={favoriteIds}
+              onFavoriteToggle={toggleFavorite}
               onToggle={() => toggleGroup(group.id)}
+              onVisit={recordVisit}
             />
           ))}
         </div>
@@ -146,15 +262,19 @@ function SidebarContent({
 
 function NavigationGroupSection({
   collapsed,
+  favoriteIds,
   group,
-  onNavigate,
+  onFavoriteToggle,
   onToggle,
+  onVisit,
   pathname,
 }: {
   collapsed: boolean;
+  favoriteIds: string[];
   group: NavigationGroup;
-  onNavigate?: () => void;
+  onFavoriteToggle: (itemId: string) => void;
   onToggle: () => void;
+  onVisit: (item: NavigationItem) => void;
   pathname: string;
 }) {
   const hasActiveItem = group.items.some((item) =>
@@ -192,8 +312,10 @@ function NavigationGroupSection({
             <SidebarLink
               key={item.href}
               active={isActiveRoute(pathname, item.href)}
+              favorite={favoriteIds.includes(item.id)}
               item={item}
-              onNavigate={onNavigate}
+              onFavoriteToggle={onFavoriteToggle}
+              onVisit={onVisit}
             />
           ))}
         </div>
@@ -202,25 +324,75 @@ function NavigationGroupSection({
   );
 }
 
+function NavigationList({
+  emptyLabel,
+  favoriteIds,
+  icon,
+  items,
+  label,
+  onFavoriteToggle,
+  onVisit,
+  pathname,
+}: {
+  emptyLabel: string;
+  favoriteIds: string[];
+  icon?: ReactNode;
+  items: NavigationItem[];
+  label: string;
+  onFavoriteToggle: (itemId: string) => void;
+  onVisit: (item: NavigationItem) => void;
+  pathname: string;
+}) {
+  return (
+    <section className="mb-5">
+      <p className="mb-2 flex items-center gap-2 px-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+        {icon}
+        {label}
+      </p>
+      <div className="grid gap-1">
+        {items.length ? (
+          items.map((item) => (
+            <SidebarLink
+              key={`${label}-${item.href}`}
+              active={isActiveRoute(pathname, item.href)}
+              favorite={favoriteIds.includes(item.id)}
+              item={item}
+              onFavoriteToggle={onFavoriteToggle}
+              onVisit={onVisit}
+              compact
+            />
+          ))
+        ) : (
+          <p className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-bold text-slate-500">
+            {emptyLabel}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function SidebarLink({
   active,
   compact = false,
+  favorite,
   item,
-  onNavigate,
+  onFavoriteToggle,
+  onVisit,
 }: {
   active: boolean;
   compact?: boolean;
+  favorite: boolean;
   item: NavigationItem;
-  onNavigate?: () => void;
+  onFavoriteToggle: (itemId: string) => void;
+  onVisit: (item: NavigationItem) => void;
 }) {
   const Icon = item.icon;
 
   return (
-    <Link
-      href={item.href}
-      onClick={onNavigate}
+    <div
       className={cx(
-        "group relative flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2.5 text-sm font-bold transition",
+        "group relative flex min-h-11 items-center rounded-lg border text-sm font-bold transition",
         active
           ? "border-orange-300/35 bg-orange-500/15 text-orange-100 shadow-[0_12px_40px_rgba(249,115,22,0.12)]"
           : "border-transparent text-slate-400 hover:border-white/10 hover:bg-white/[0.055] hover:text-white",
@@ -229,26 +401,45 @@ function SidebarLink({
       {active ? (
         <span className="absolute left-0 top-2 h-[calc(100%-1rem)] w-1 rounded-r-full bg-orange-300" />
       ) : null}
-      <span
+      <Link
+        href={item.href}
+        onClick={() => onVisit(item)}
+        className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-3"
+      >
+        <span
+          className={cx(
+            "grid size-9 shrink-0 place-items-center rounded-md border transition",
+            active
+              ? "border-green-300/25 bg-green-400/10 text-green-100"
+              : "border-white/10 bg-white/[0.04] text-slate-400 group-hover:text-orange-100",
+          )}
+        >
+          <Icon className="size-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate">{item.label}</span>
+          {!compact ? (
+            <span className="mt-0.5 block truncate text-[11px] font-bold text-slate-500">
+              {item.description}
+            </span>
+          ) : null}
+        </span>
+      </Link>
+      <button
+        type="button"
+        aria-label={favorite ? `Remove ${item.label} from favorites` : `Add ${item.label} to favorites`}
+        onClick={() => onFavoriteToggle(item.id)}
         className={cx(
-          "grid size-9 shrink-0 place-items-center rounded-md border transition",
-          active
-            ? "border-green-300/25 bg-green-400/10 text-green-100"
-            : "border-white/10 bg-white/[0.04] text-slate-400 group-hover:text-orange-100",
+          "mr-2 grid size-8 shrink-0 place-items-center rounded-md border transition",
+          favorite
+            ? "border-yellow-300/30 bg-yellow-300/10 text-yellow-100"
+            : "border-transparent text-slate-600 hover:border-white/10 hover:text-yellow-100",
         )}
       >
-        <Icon className="size-4" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate">{item.label}</span>
-        {!compact ? (
-          <span className="mt-0.5 block truncate text-[11px] font-bold text-slate-500">
-            {item.description}
-          </span>
-        ) : null}
-      </span>
-      {item.pinned ? <Pin className="size-3.5 text-green-200" /> : null}
-    </Link>
+        <Star className={cx("size-4", favorite ? "fill-current" : "")} />
+      </button>
+      {item.pinned ? <Pin className="mr-3 size-3.5 text-green-200" /> : null}
+    </div>
   );
 }
 
