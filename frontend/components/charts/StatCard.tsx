@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import type { DesignTone } from "@/lib/design-system";
+import { cx, toneClasses } from "@/lib/design-system";
 
 type StatCardProps = {
   icon?: ReactNode;
@@ -7,17 +9,26 @@ type StatCardProps = {
   value: string;
 };
 
-const toneClasses = {
-  green: "border-green-300/25 bg-green-400/10 text-green-100",
-  neutral: "border-white/10 bg-white/[0.045] text-white",
-  orange: "border-orange-300/25 bg-orange-500/10 text-orange-100",
-  red: "border-red-300/25 bg-red-500/10 text-red-100",
+const toneMap: Record<NonNullable<StatCardProps["tone"]>, DesignTone> = {
+  green: "success",
+  neutral: "neutral",
+  orange: "primary",
+  red: "danger",
 };
 
 export function StatCard({ icon, label, tone = "neutral", value }: StatCardProps) {
+  const semanticTone = toneClasses[toneMap[tone]];
+
   // StatCard is intentionally dense so dashboards can scan like an ops console.
   return (
-    <article className={`rounded-lg border p-4 ${toneClasses[tone]}`}>
+    <article
+      className={cx(
+        "rounded-lg border p-4",
+        semanticTone.border,
+        semanticTone.soft,
+        semanticTone.text,
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[0.16em] opacity-70">
