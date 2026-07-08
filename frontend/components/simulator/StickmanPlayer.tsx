@@ -1,12 +1,58 @@
 "use client";
 
 import { motion } from "framer-motion";
+import type { PointerEvent } from "react";
+import { useState } from "react";
 
 type PlayerType = "shooter" | "defender";
 
-type Point = {
+export type StickmanPoint = {
   x: number;
   y: number;
+};
+
+export type StickmanPoseHandle =
+  | "head"
+  | "hip"
+  | "leftFoot"
+  | "leftKnee"
+  | "primaryElbow"
+  | "primaryHand"
+  | "rightFoot"
+  | "rightKnee"
+  | "secondaryElbow"
+  | "secondaryHand"
+  | "shoulder";
+
+export type StickmanPoseDrag = {
+  delta: StickmanPoint;
+  handle: StickmanPoseHandle;
+  point: StickmanPoint;
+  type: PlayerType;
+};
+
+type StickmanGeometry = {
+  arms: {
+    primaryElbow: StickmanPoint;
+    primaryHand: StickmanPoint;
+    secondaryElbow: StickmanPoint;
+    secondaryHand: StickmanPoint;
+  };
+  head: StickmanPoint;
+  hip: StickmanPoint;
+  leftFoot: StickmanPoint;
+  leftKnee: StickmanPoint;
+  lift: number;
+  rightFoot: StickmanPoint;
+  rightKnee: StickmanPoint;
+  shadowOpacity: number;
+  shadowWidth: number;
+  shoulder: StickmanPoint;
+};
+
+export type StickmanHitGeometry = {
+  circles: { point: StickmanPoint; radius: number }[];
+  segments: { from: StickmanPoint; radius: number; to: StickmanPoint }[];
 };
 
 export type StickmanPlayerProps = {
@@ -22,6 +68,7 @@ export type StickmanPlayerProps = {
   guideHandAngle?: number;
   handHeight?: number;
   releaseAngle?: number;
+  isAnimating?: boolean;
   armRaise?: number;
   contestHeight?: number;
   isAirborne: boolean;
@@ -29,6 +76,7 @@ export type StickmanPlayerProps = {
   color?: string;
   glowFilter?: string;
   label?: string;
+  onPosePointDrag?: (drag: StickmanPoseDrag) => void;
   showActionMarker?: boolean;
 };
 
@@ -49,11 +97,13 @@ export function StickmanPlayer({
   glowFilter,
   guideHandAngle = 24,
   handHeight = 8.4,
+  isAnimating = false,
   isAirborne,
   jumpHeight = 0,
   kneeBend,
   label,
   leftLegAngle = 0,
+  onPosePointDrag,
   rightLegAngle = 0,
   releaseAngle = 48,
   showActionMarker = true,
@@ -68,39 +118,100 @@ export function StickmanPlayer({
   const displayLabel = label ?? PLAYER_LABELS[type];
   const isShooter = type === "shooter";
   const bodyStroke = isShooter ? "#f8fafc" : "#d1fae5";
-  const lift = Math.max(
-    0,
-    verticalOffset * 22 + (isAirborne ? jumpHeight * 4 + 12 : jumpHeight * 2),
-  );
-  const shadowWidth = Math.max(58, 120 - lift * 0.42);
-  const shadowOpacity = Math.max(0.18, 0.48 - lift * 0.004);
+  const geometry = getStickmanGeometry({
+    armRaise,
+    contestHeight,
+    guideHandAngle,
+    handHeight,
+    isAirborne,
+    jumpHeight,
+    kneeBend,
+    leftLegAngle,
+    releaseAngle,
+    rightLegAngle,
+    shootingArmAngle,
+    torsoAngle,
+    type,
+    verticalOffset,
+    x,
+    y,
+  });
+  const {
+    arms,
+    head,
+    hip,
+    leftFoot,
+    leftKnee,
+    lift,
+    rightFoot,
+    rightKnee,
+    shadowOpacity,
+    shadowWidth,
+    shoulder,
+  } = geometry;
+  const [dragState, setDragState] = useState<{
+    lastPoint: StickmanPoint;
+    pointerId: number;
+  } | null>(null);
+  const beginPoseDrag = (
+    handle: StickmanPoseHandle,
+    event: PointerEvent<SVGElement>,
+  ) => {
+    if (!onPosePointDrag) {
+      return;
+    }
 
-  // Geometry is built from the floor anchor, then the whole body group is
-  // translated upward. That keeps the stickman free to jump while the shadow
-  // remains on the court and shows the current height.
-  const hipHeight = Math.max(58, 92 - kneeBend * 0.42);
-  const hip = { x, y: y - hipHeight };
-  const shoulder = polarPoint(hip, -90 + torsoAngle, 72);
-  const head = polarPoint(shoulder, -90 + torsoAngle * 0.35, 30);
-  const leftFoot = {
-    x: x - 34 - kneeBend * 0.12 + leftLegAngle * 0.34,
-    y,
+    const point = getPointerStagePoint(event);
+
+    if (!point) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDragState({ lastPoint: point, pointerId: event.pointerId });
   };
-  const rightFoot = {
-    x: x + 34 + kneeBend * 0.12 + rightLegAngle * 0.34,
-    y,
+  const continuePoseDrag = (
+    handle: StickmanPoseHandle,
+    event: PointerEvent<SVGElement>,
+  ) => {
+    if (!onPosePointDrag || !dragState) {
+      return;
+    }
+
+    const point = getPointerStagePoint(event);
+
+    if (!point) {
+      return;
+    }
+
+    const delta = {
+      x: point.x - dragState.lastPoint.x,
+      y: point.y - dragState.lastPoint.y,
+    };
+
+    setDragState({ ...dragState, lastPoint: point });
+    onPosePointDrag({ delta, handle, point, type });
   };
-  const leftKnee = kneePoint(hip, leftFoot, leftLegAngle, -1, kneeBend);
-  const rightKnee = kneePoint(hip, rightFoot, rightLegAngle, 1, kneeBend);
-  const arms = isShooter
-    ? buildShooterArms(
-        shoulder,
-        shootingArmAngle,
-        guideHandAngle,
-        handHeight,
-        releaseAngle,
-      )
-    : buildDefenderArms(shoulder, armRaise, contestHeight);
+  const endPoseDrag = (event: PointerEvent<SVGElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    setDragState(null);
+  };
+  const getHandleProps = (handle: StickmanPoseHandle) =>
+    onPosePointDrag
+      ? {
+          onPointerCancel: endPoseDrag,
+          onPointerDown: (event: PointerEvent<SVGElement>) =>
+            beginPoseDrag(handle, event),
+          onPointerMove: (event: PointerEvent<SVGElement>) =>
+            continuePoseDrag(handle, event),
+          onPointerUp: endPoseDrag,
+        }
+      : undefined;
 
   return (
     <g filter={glowFilter}>
@@ -176,25 +287,67 @@ export function StickmanPlayer({
           strokeWidth="5"
         />
 
-        {[hip, shoulder, leftKnee, rightKnee, arms.primaryElbow, arms.secondaryElbow].map(
-          (point, index) => (
-            <Joint
-              key={`${type}-joint-${index}`}
-              accentColor={accentColor}
-              point={point}
-            />
-          ),
-        )}
-        {[arms.primaryHand, arms.secondaryHand].map((point, index) => (
-          <Hand key={`${type}-hand-${index}`} accentColor={accentColor} point={point} />
-        ))}
-        {[leftFoot, rightFoot].map((point, index) => (
-          <Foot key={`${type}-foot-${index}`} accentColor={accentColor} point={point} />
-        ))}
+        <Joint
+          accentColor={accentColor}
+          point={hip}
+          pointerHandlers={getHandleProps("hip")}
+        />
+        <Joint
+          accentColor={accentColor}
+          point={shoulder}
+          pointerHandlers={getHandleProps("shoulder")}
+        />
+        <Joint
+          accentColor={accentColor}
+          point={leftKnee}
+          pointerHandlers={getHandleProps("leftKnee")}
+        />
+        <Joint
+          accentColor={accentColor}
+          point={rightKnee}
+          pointerHandlers={getHandleProps("rightKnee")}
+        />
+        <Joint
+          accentColor={accentColor}
+          point={arms.primaryElbow}
+          pointerHandlers={getHandleProps("primaryElbow")}
+        />
+        <Joint
+          accentColor={accentColor}
+          point={arms.secondaryElbow}
+          pointerHandlers={getHandleProps("secondaryElbow")}
+        />
+        <Hand
+          accentColor={accentColor}
+          point={arms.primaryHand}
+          pointerHandlers={getHandleProps("primaryHand")}
+        />
+        <Hand
+          accentColor={accentColor}
+          point={arms.secondaryHand}
+          pointerHandlers={getHandleProps("secondaryHand")}
+        />
+        <Foot
+          accentColor={accentColor}
+          point={leftFoot}
+          pointerHandlers={getHandleProps("leftFoot")}
+        />
+        <Foot
+          accentColor={accentColor}
+          point={rightFoot}
+          pointerHandlers={getHandleProps("rightFoot")}
+        />
+        <HandleDot
+          accentColor={accentColor}
+          point={head}
+          radius={12}
+          pointerHandlers={getHandleProps("head")}
+        />
 
         {showActionMarker ? (
           <ActionMarker
             accentColor={accentColor}
+            isAnimating={isAnimating}
             label={isShooter ? "Release" : "Contest"}
             point={arms.primaryHand}
           />
@@ -236,12 +389,14 @@ export function StickmanPlayer({
 
 function ActionMarker({
   accentColor,
+  isAnimating,
   label,
   point,
 }: {
   accentColor: string;
+  isAnimating: boolean;
   label: string;
-  point: Point;
+  point: StickmanPoint;
 }) {
   // This marker follows the active hand, making release and contest height
   // visible while the whole body group moves upward during a jump.
@@ -257,7 +412,11 @@ function ActionMarker({
         strokeWidth="3"
         initial={false}
         animate={{ opacity: [0.5, 1, 0.5], scale: [0.94, 1.08, 0.94] }}
-        transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+        transition={{
+          duration: 1.2,
+          repeat: isAnimating ? Infinity : 0,
+          ease: "easeInOut",
+        }}
       />
       <circle
         cx={point.x}
@@ -285,7 +444,7 @@ function LimbPath({
   stroke,
   width,
 }: {
-  points: Point[];
+  points: StickmanPoint[];
   stroke: string;
   width: number;
 }) {
@@ -304,18 +463,18 @@ function LimbPath({
 function Joint({
   accentColor,
   point,
+  pointerHandlers,
 }: {
   accentColor: string;
-  point: Point;
+  point: StickmanPoint;
+  pointerHandlers?: PointerHandlers;
 }) {
   return (
-    <circle
-      cx={point.x}
-      cy={point.y}
-      r="7"
-      fill="#050505"
-      stroke={accentColor}
-      strokeWidth="3"
+    <HandleDot
+      accentColor={accentColor}
+      point={point}
+      radius={7}
+      pointerHandlers={pointerHandlers}
     />
   );
 }
@@ -323,18 +482,19 @@ function Joint({
 function Hand({
   accentColor,
   point,
+  pointerHandlers,
 }: {
   accentColor: string;
-  point: Point;
+  point: StickmanPoint;
+  pointerHandlers?: PointerHandlers;
 }) {
   return (
-    <circle
-      cx={point.x}
-      cy={point.y}
-      r="8"
+    <HandleDot
+      accentColor="#fff7ed"
       fill={accentColor}
-      stroke="#fff7ed"
-      strokeWidth="2"
+      point={point}
+      radius={8}
+      pointerHandlers={pointerHandlers}
     />
   );
 }
@@ -342,25 +502,195 @@ function Hand({
 function Foot({
   accentColor,
   point,
+  pointerHandlers,
 }: {
   accentColor: string;
-  point: Point;
+  point: StickmanPoint;
+  pointerHandlers?: PointerHandlers;
 }) {
   return (
-    <line
-      x1={point.x - 12}
-      x2={point.x + 14}
-      y1={point.y + 3}
-      y2={point.y + 3}
+    <g>
+      <line
+        x1={point.x - 12}
+        x2={point.x + 14}
+        y1={point.y + 3}
+        y2={point.y + 3}
+        stroke={accentColor}
+        strokeLinecap="round"
+        strokeWidth="7"
+      />
+      <HandleDot
+        accentColor={accentColor}
+        point={{ x: point.x, y: point.y + 3 }}
+        radius={6}
+        pointerHandlers={pointerHandlers}
+      />
+    </g>
+  );
+}
+
+type PointerHandlers = {
+  onPointerCancel: (event: PointerEvent<SVGElement>) => void;
+  onPointerDown: (event: PointerEvent<SVGElement>) => void;
+  onPointerMove: (event: PointerEvent<SVGElement>) => void;
+  onPointerUp: (event: PointerEvent<SVGElement>) => void;
+};
+
+function HandleDot({
+  accentColor,
+  fill = "#050505",
+  point,
+  pointerHandlers,
+  radius,
+}: {
+  accentColor: string;
+  fill?: string;
+  point: StickmanPoint;
+  pointerHandlers?: PointerHandlers;
+  radius: number;
+}) {
+  return (
+    <circle
+      cx={point.x}
+      cy={point.y}
+      r={radius}
+      fill={fill}
       stroke={accentColor}
-      strokeLinecap="round"
-      strokeWidth="7"
+      strokeWidth="3"
+      style={{
+        cursor: pointerHandlers ? "grab" : "default",
+        pointerEvents: pointerHandlers ? "all" : "auto",
+      }}
+      {...pointerHandlers}
     />
   );
 }
 
+export function getStickmanGeometry({
+  armRaise = 0,
+  contestHeight = 0,
+  guideHandAngle = 24,
+  handHeight = 8.4,
+  isAirborne,
+  jumpHeight = 0,
+  kneeBend,
+  leftLegAngle = 0,
+  releaseAngle = 48,
+  rightLegAngle = 0,
+  shootingArmAngle = 52,
+  torsoAngle,
+  type,
+  verticalOffset,
+  x,
+  y,
+}: Pick<
+  StickmanPlayerProps,
+  | "armRaise"
+  | "contestHeight"
+  | "guideHandAngle"
+  | "handHeight"
+  | "isAirborne"
+  | "jumpHeight"
+  | "kneeBend"
+  | "leftLegAngle"
+  | "releaseAngle"
+  | "rightLegAngle"
+  | "shootingArmAngle"
+  | "torsoAngle"
+  | "type"
+  | "verticalOffset"
+  | "x"
+  | "y"
+>): StickmanGeometry {
+  const lift = Math.max(
+    0,
+    verticalOffset * 22 + (isAirborne ? jumpHeight * 4 + 12 : jumpHeight * 2),
+  );
+  const shadowWidth = Math.max(58, 120 - lift * 0.42);
+  const shadowOpacity = Math.max(0.18, 0.48 - lift * 0.004);
+  const hipHeight = Math.max(58, 92 - kneeBend * 0.42);
+  const hip = { x, y: y - hipHeight };
+  const shoulder = polarPoint(hip, -90 + torsoAngle, 72);
+  const head = polarPoint(shoulder, -90 + torsoAngle * 0.35, 30);
+  const leftFoot = {
+    x: x - 34 - kneeBend * 0.12 + leftLegAngle * 0.34,
+    y,
+  };
+  const rightFoot = {
+    x: x + 34 + kneeBend * 0.12 + rightLegAngle * 0.34,
+    y,
+  };
+  const leftKnee = kneePoint(hip, leftFoot, leftLegAngle, -1, kneeBend);
+  const rightKnee = kneePoint(hip, rightFoot, rightLegAngle, 1, kneeBend);
+  const arms =
+    type === "shooter"
+      ? buildShooterArms(
+          shoulder,
+          shootingArmAngle,
+          guideHandAngle,
+          handHeight,
+          releaseAngle,
+        )
+      : buildDefenderArms(shoulder, armRaise, contestHeight);
+
+  return {
+    arms,
+    head,
+    hip,
+    leftFoot,
+    leftKnee,
+    lift,
+    rightFoot,
+    rightKnee,
+    shadowOpacity,
+    shadowWidth,
+    shoulder,
+  };
+}
+
+export function getStickmanHitGeometry(
+  geometry: StickmanGeometry,
+): StickmanHitGeometry {
+  const visible = {
+    head: translateByLift(geometry.head, geometry.lift),
+    hip: translateByLift(geometry.hip, geometry.lift),
+    leftFoot: translateByLift(geometry.leftFoot, geometry.lift),
+    leftKnee: translateByLift(geometry.leftKnee, geometry.lift),
+    primaryElbow: translateByLift(geometry.arms.primaryElbow, geometry.lift),
+    primaryHand: translateByLift(geometry.arms.primaryHand, geometry.lift),
+    rightFoot: translateByLift(geometry.rightFoot, geometry.lift),
+    rightKnee: translateByLift(geometry.rightKnee, geometry.lift),
+    secondaryElbow: translateByLift(geometry.arms.secondaryElbow, geometry.lift),
+    secondaryHand: translateByLift(geometry.arms.secondaryHand, geometry.lift),
+    shoulder: translateByLift(geometry.shoulder, geometry.lift),
+  };
+
+  return {
+    circles: [
+      { point: visible.head, radius: 26 },
+      { point: visible.primaryHand, radius: 15 },
+      { point: visible.secondaryHand, radius: 14 },
+      { point: visible.primaryElbow, radius: 12 },
+      { point: visible.secondaryElbow, radius: 11 },
+      { point: visible.leftKnee, radius: 11 },
+      { point: visible.rightKnee, radius: 11 },
+    ],
+    segments: [
+      { from: visible.hip, radius: 9, to: visible.shoulder },
+      { from: visible.hip, radius: 9, to: visible.leftKnee },
+      { from: visible.leftKnee, radius: 9, to: visible.leftFoot },
+      { from: visible.hip, radius: 9, to: visible.rightKnee },
+      { from: visible.rightKnee, radius: 9, to: visible.rightFoot },
+      { from: visible.shoulder, radius: 10, to: visible.primaryElbow },
+      { from: visible.primaryElbow, radius: 10, to: visible.primaryHand },
+      { from: visible.shoulder, radius: 8, to: visible.secondaryElbow },
+      { from: visible.secondaryElbow, radius: 8, to: visible.secondaryHand },
+    ],
+  };
+}
+
 function buildShooterArms(
-  shoulder: Point,
+  shoulder: StickmanPoint,
   shootingArmAngle: number,
   guideHandAngle: number,
   handHeight: number,
@@ -397,7 +727,7 @@ function buildShooterArms(
 }
 
 function buildDefenderArms(
-  shoulder: Point,
+  shoulder: StickmanPoint,
   armRaise: number,
   contestHeight: number,
 ) {
@@ -418,8 +748,8 @@ function buildDefenderArms(
 }
 
 function kneePoint(
-  hip: Point,
-  foot: Point,
+  hip: StickmanPoint,
+  foot: StickmanPoint,
   legAngle: number,
   side: -1 | 1,
   kneeBend: number,
@@ -431,11 +761,43 @@ function kneePoint(
   };
 }
 
-function polarPoint(origin: Point, angleDegrees: number, length: number) {
+function polarPoint(
+  origin: StickmanPoint,
+  angleDegrees: number,
+  length: number,
+) {
   const angle = (angleDegrees * Math.PI) / 180;
 
   return {
     x: origin.x + Math.cos(angle) * length,
     y: origin.y + Math.sin(angle) * length,
+  };
+}
+
+function translateByLift(point: StickmanPoint, lift: number) {
+  return {
+    x: point.x,
+    y: point.y - lift,
+  };
+}
+
+function getPointerStagePoint(
+  event: PointerEvent<SVGElement>,
+): StickmanPoint | null {
+  const svg = event.currentTarget.ownerSVGElement;
+  const screenMatrix = svg?.getScreenCTM();
+
+  if (!svg || !screenMatrix) {
+    return null;
+  }
+
+  const point = svg.createSVGPoint();
+  point.x = event.clientX;
+  point.y = event.clientY;
+  const transformedPoint = point.matrixTransform(screenMatrix.inverse());
+
+  return {
+    x: transformedPoint.x,
+    y: transformedPoint.y,
   };
 }

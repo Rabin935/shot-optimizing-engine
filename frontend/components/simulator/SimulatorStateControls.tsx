@@ -3,6 +3,7 @@
 import {
   Activity,
   CheckCircle2,
+  Grip,
   Gauge,
   RotateCcw,
   Send,
@@ -10,7 +11,13 @@ import {
   Target,
   Users,
 } from "lucide-react";
-import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
+import type {
+  Dispatch,
+  PointerEvent,
+  ReactNode,
+  RefObject,
+  SetStateAction,
+} from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdvancedSimulatorInsights } from "@/components/simulator/AdvancedSimulatorInsights";
 import { PoseControls } from "@/components/simulator/PoseControls";
@@ -20,7 +27,13 @@ import {
   ShotArcControls,
   type StagePoint,
 } from "@/components/simulator/ShotArc";
-import { StickmanPlayer } from "@/components/simulator/StickmanPlayer";
+import {
+  StickmanPlayer,
+  getStickmanGeometry,
+  getStickmanHitGeometry,
+  type StickmanHitGeometry,
+  type StickmanPoseDrag,
+} from "@/components/simulator/StickmanPlayer";
 import {
   SHOOTING_ANIMATION_KEYFRAMES,
   getTimelineFrameIndex,
@@ -34,7 +47,13 @@ import {
   comparePoses,
   getRecommendedShooterPose,
 } from "@/lib/simulator-analysis";
-import { selectShotOutcome } from "@/lib/simulator-physics";
+import {
+  getArcControlPoint,
+  getBezierPoint,
+  getReleasePoint,
+  selectShotOutcome,
+  type ShotOutcomeKind,
+} from "@/lib/simulator-physics";
 import {
   courtStateToSimulatorContext,
   getDefenderDistanceLimits,
@@ -56,6 +75,10 @@ const STAGE_WIDTH = 920;
 const STAGE_HEIGHT = 520;
 const FLOOR_Y = 418;
 const RIM = { x: 792, y: 178 };
+const STAGE_COURT_MIN_X = 118;
+const STAGE_COURT_MAX_X = 678;
+const STAGE_COURT_MIN_Y = FLOOR_Y - 58;
+const STAGE_COURT_MAX_Y = FLOOR_Y;
 const SHOOTER_PEAK_ELEVATION = { jumpHeight: 9.2, verticalOffset: 1.45 };
 const DEFENDER_PEAK_ELEVATION = { jumpHeight: 8.4, verticalOffset: 1.2 };
 
@@ -137,6 +160,7 @@ export function SimulatorStateControls() {
   const [positionDraft, setPositionDraft] = useState<SimulatorShotContext>(
     () => sharedSimulatorContext,
   );
+  const [shotAimTarget, setShotAimTarget] = useState<StagePoint>(RIM);
   const previousSharedContext = useRef(sharedSimulatorContext);
 
   useEffect(() => {
@@ -148,11 +172,17 @@ export function SimulatorStateControls() {
     // simulator controls stay on the same animation frame.
     const intervalId = window.setInterval(() => {
       const current = useShotStore.getState().animationProgress;
-      setAnimationProgress(current >= 100 ? 0 : current + 1, "simulator");
+      const nextProgress = Math.min(current + 1, 100);
+
+      setAnimationProgress(nextProgress, "simulator");
+
+      if (nextProgress >= 100) {
+        setAnimationPlaying(false, "simulator");
+      }
     }, slowMotion ? 120 : 45);
 
     return () => window.clearInterval(intervalId);
-  }, [animationPlaying, setAnimationProgress, slowMotion]);
+  }, [animationPlaying, setAnimationPlaying, setAnimationProgress, slowMotion]);
 
   useEffect(() => {
     const selectedOutcome = selectShotOutcome({
@@ -320,6 +350,36 @@ export function SimulatorStateControls() {
     () => mapCourtPointToStage(mappedDraft.defender.x, mappedDraft.defender.y),
     [mappedDraft.defender.x, mappedDraft.defender.y],
   );
+  const releasePoint = useMemo(
+    () => getReleasePoint({ shooterPose, shooterStage }),
+    [shooterPose, shooterStage],
+  );
+  const blockInfo = useMemo(
+    () =>
+      findBlockPoint({
+        defenderPose: primaryDefenderPose,
+        defenderStage,
+        releaseAngle: shooterPose.releaseAngle,
+        releasePoint,
+        shotDistance,
+        target: shotAimTarget,
+      }),
+    [
+      defenderStage,
+      primaryDefenderPose,
+      releasePoint,
+      shooterPose.releaseAngle,
+      shotAimTarget,
+      shotDistance,
+    ],
+  );
+  const aimMissesRim =
+    distanceBetweenPoints(shotAimTarget, RIM) > 42 && !blockInfo;
+  const effectiveShotOutcome: ShotOutcomeKind = blockInfo
+    ? "block"
+    : aimMissesRim
+      ? "miss"
+      : shotOutcome;
   const sendPositionDraftToSandbox = useCallback(() => {
     // Commit all mapped values together from the user's perspective. Each store
     // action is marked as simulator-originated for traceability.
@@ -337,6 +397,123 @@ export function SimulatorStateControls() {
     setDefenderPosition,
     setShooterPosition,
   ]);
+  const commitSimulatorContext = useCallback(
+    (context: SimulatorShotContext) => {
+      const nextDraft = normalizeSimulatorDraft(context);
+      const nextCourtContext = simulatorContextToCourt(nextDraft);
+
+      setPositionDraft(nextDraft);
+      setShooterPosition(nextCourtContext.shooter, "simulator");
+      setDefenderPosition(
+        primaryDefender?.id ?? "d1",
+        nextCourtContext.defender,
+        "simulator",
+      );
+      setDefenderCount(nextCourtContext.defenderCount, "simulator");
+    },
+    [
+      primaryDefender?.id,
+      setDefenderCount,
+      setDefenderPosition,
+      setShooterPosition,
+    ],
+  );
+  const moveStagePlayer = useCallback(
+    (player: "defender" | "shooter", point: StagePoint) => {
+      const courtPoint = mapStagePointToCourt(point);
+      const nextContext =
+        player === "shooter"
+          ? courtStateToSimulatorContext(
+              courtPoint,
+              mappedDraft.defender,
+              positionDraft.defenderCount,
+            )
+          : courtStateToSimulatorContext(
+              mappedDraft.shooter,
+              courtPoint,
+              positionDraft.defenderCount,
+            );
+
+      setAnimationPlaying(false, "simulator");
+      commitSimulatorContext(nextContext);
+    },
+    [
+      commitSimulatorContext,
+      mappedDraft.defender,
+      mappedDraft.shooter,
+      positionDraft.defenderCount,
+      setAnimationPlaying,
+    ],
+  );
+  const playTimeline = useCallback(() => {
+    if (animationProgress >= 100) {
+      setAnimationProgress(0, "simulator");
+    }
+
+    setAnimationPlaying(true, "simulator");
+  }, [animationProgress, setAnimationPlaying, setAnimationProgress]);
+  const replayTimeline = useCallback(() => {
+    setAnimationProgress(0, "simulator");
+    setAnimationPlaying(true, "simulator");
+  }, [setAnimationPlaying, setAnimationProgress]);
+  const changeShotArcHeight = useCallback(
+    (point: StagePoint) => {
+      const distanceLift = Math.min(Math.max(shotDistance, 8), 32) * 3.8;
+      const targetY = Math.min(releasePoint.y, shotAimTarget.y);
+      const nextReleaseAngle =
+        (targetY - point.y - 48 - distanceLift) / 2.1 + 20;
+
+      setAnimationPlaying(false, "simulator");
+      updateShooterPose(
+        { releaseAngle: clampValue(nextReleaseAngle, 20, 75) },
+        "simulator",
+      );
+    },
+    [
+      releasePoint.y,
+      setAnimationPlaying,
+      shotAimTarget.y,
+      shotDistance,
+      updateShooterPose,
+    ],
+  );
+  const changeShotAimTarget = useCallback(
+    (point: StagePoint) => {
+      setAnimationPlaying(false, "simulator");
+      setShotAimTarget({
+        x: clampValue(point.x, RIM.x - 125, RIM.x + 105),
+        y: clampValue(point.y, RIM.y - 90, RIM.y + 105),
+      });
+    },
+    [setAnimationPlaying],
+  );
+  const handlePosePointDrag = useCallback(
+    (drag: StickmanPoseDrag) => {
+      setAnimationPlaying(false, "simulator");
+
+      if (drag.type === "shooter") {
+        updateShooterPose(
+          getShooterPosePatchFromDrag(shooterPose, drag),
+          "simulator",
+        );
+        return;
+      }
+
+      updateDefenderPose(
+        activePrimaryDefender?.id ?? "d1",
+        getDefenderPosePatchFromDrag(primaryDefenderPose, drag),
+        "simulator",
+      );
+    },
+    [
+      activePrimaryDefender?.id,
+      primaryDefenderPose,
+      setAnimationPlaying,
+      shooterPose,
+      updateDefenderPose,
+      updateShooterPose,
+    ],
+  );
   const resetSharedShot = useCallback(() => {
     // Zustand writes synchronously, so reload the reset coordinates into the
     // simulator draft immediately after resetting the shared shot.
@@ -504,7 +681,7 @@ export function SimulatorStateControls() {
               )
             }
             onPause={() => setAnimationPlaying(false, "simulator")}
-            onPlay={() => setAnimationPlaying(true, "simulator")}
+            onPlay={playTimeline}
             onPreviousFrame={() =>
               setAnimationProgress(
                 previousFrameProgress(animationProgress),
@@ -512,8 +689,7 @@ export function SimulatorStateControls() {
               )
             }
             onReset={() => {
-              setAnimationProgress(0, "simulator");
-              setAnimationPlaying(false, "simulator");
+              replayTimeline();
             }}
             onTimelineChange={(progress) =>
               setAnimationProgress(progress, "simulator")
@@ -526,15 +702,23 @@ export function SimulatorStateControls() {
           comparisonMode={comparisonMode}
           defenderPose={primaryDefenderPose}
           defenderStage={defenderStage}
+          aimTarget={shotAimTarget}
+          blockPoint={blockInfo?.point ?? null}
+          blockProgress={blockInfo?.progress}
           makeProbability={makeProbability}
-          outcome={shotOutcome}
+          effectiveOutcome={effectiveShotOutcome}
           epps={epps}
+          onAimTargetDrag={changeShotAimTarget}
+          onArcControlDrag={changeShotArcHeight}
+          onPosePointDrag={handlePosePointDrag}
           recommendation={recommendation}
           recommendedPose={recommendedPose}
           shooterPose={shooterPose}
           shooterStage={shooterStage}
           shotDistance={shotDistance}
           shotQuality={shotQuality}
+          isPlaying={animationPlaying}
+          onPlayerDrag={moveStagePlayer}
           stageRef={stageSvgRef}
           timeline={animationProgress}
         />
@@ -585,7 +769,11 @@ export function SimulatorStateControls() {
         <ReplayHistoryPanel
           replayHistory={replayHistory}
           onDeleteReplay={(replayId) => deleteReplay(replayId, "simulator")}
-          onLoadReplay={(replayId) => loadReplay(replayId, "replay")}
+          onLoadReplay={(replayId) => {
+            loadReplay(replayId, "replay");
+            setAnimationProgress(0, "replay");
+            setAnimationPlaying(true, "replay");
+          }}
           onSaveReplay={() =>
             saveCurrentReplay(`Shot #${replayHistory.length + 1}`)
           }
@@ -629,12 +817,20 @@ export function SimulatorStateControls() {
 }
 
 function SimulatorStage({
+  aimTarget,
+  blockPoint,
+  blockProgress,
   comparisonMode,
   defenderPose,
   defenderStage,
   epps,
+  effectiveOutcome,
+  isPlaying,
   makeProbability,
-  outcome,
+  onAimTargetDrag,
+  onArcControlDrag,
+  onPlayerDrag,
+  onPosePointDrag,
   recommendation,
   recommendedPose,
   shooterPose,
@@ -644,12 +840,20 @@ function SimulatorStage({
   stageRef,
   timeline,
 }: {
+  aimTarget: StagePoint;
+  blockPoint?: StagePoint | null;
+  blockProgress?: number;
   comparisonMode: boolean;
   defenderPose: DefenderPoseState;
   defenderStage: StagePoint;
   epps: number;
+  effectiveOutcome: ShotOutcomeKind;
+  isPlaying: boolean;
   makeProbability: number;
-  outcome: ReturnType<typeof selectShotOutcome>;
+  onAimTargetDrag: (point: StagePoint) => void;
+  onArcControlDrag: (point: StagePoint) => void;
+  onPlayerDrag: (player: "defender" | "shooter", point: StagePoint) => void;
+  onPosePointDrag: (drag: StickmanPoseDrag) => void;
   recommendation: string;
   recommendedPose: ShooterPoseState;
   shooterPose: ShooterPoseState;
@@ -659,6 +863,45 @@ function SimulatorStage({
   stageRef: RefObject<SVGSVGElement | null>;
   timeline: number;
 }) {
+  const [draggedPlayer, setDraggedPlayer] = useState<"defender" | "shooter" | null>(
+    null,
+  );
+
+  const beginPlayerDrag = (
+    player: "defender" | "shooter",
+    event: PointerEvent<SVGGElement>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDraggedPlayer(player);
+    moveDraggedPlayer(player, event);
+  };
+  const moveDraggedPlayer = (
+    player: "defender" | "shooter",
+    event: PointerEvent<SVGGElement>,
+  ) => {
+    const point = getPointerStagePoint(event);
+
+    if (point) {
+      onPlayerDrag(player, point);
+    }
+  };
+  const continuePlayerDrag = (event: PointerEvent<SVGGElement>) => {
+    if (!draggedPlayer) {
+      return;
+    }
+
+    moveDraggedPlayer(draggedPlayer, event);
+  };
+  const endPlayerDrag = (event: PointerEvent<SVGGElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    setDraggedPlayer(null);
+  };
+
   // Stage is an SVG prototype, not a physics engine; it visualizes shared state.
   return (
     <div className="relative bg-[#10160f]">
@@ -712,9 +955,14 @@ function SimulatorStage({
         <Basket />
 
         <ShotArc
+          aimTarget={aimTarget}
+          blockPoint={blockPoint}
+          blockProgress={blockProgress}
           epps={epps}
           makeProbability={makeProbability}
-          outcome={outcome}
+          onAimTargetDrag={onAimTargetDrag}
+          onArcControlDrag={onArcControlDrag}
+          outcome={effectiveOutcome}
           recommendation={recommendation}
           releaseAngle={shooterPose.releaseAngle}
           rim={RIM}
@@ -722,34 +970,46 @@ function SimulatorStage({
           shooterStage={shooterStage}
           shotDistance={shotDistance}
           shotQuality={shotQuality}
+          isPlaying={isPlaying}
           timeline={timeline}
         />
 
-        <StickmanPlayer
-          color="#fb923c"
-          glowFilter="url(#sim-orange-glow)"
-          guideHandAngle={shooterPose.guideHandAngle}
-          handHeight={shooterPose.handHeight}
-          isAirborne={shooterPose.isAirborne}
-          jumpHeight={shooterPose.jumpHeight}
-          kneeBend={shooterPose.kneeBend}
-          label="Shooter"
-          leftLegAngle={shooterPose.leftLegAngle}
-          releaseAngle={shooterPose.releaseAngle}
-          rightLegAngle={shooterPose.rightLegAngle}
-          shootingArmAngle={shooterPose.shootingArmAngle}
-          torsoAngle={shooterPose.torsoAngle}
-          type="shooter"
-          verticalOffset={shooterPose.verticalOffset}
-          x={shooterStage.x}
-          y={shooterStage.y}
-        />
+        <DraggablePlayerShell
+          isDragging={draggedPlayer === "shooter"}
+          label="Move shooter"
+          onPointerDown={(event) => beginPlayerDrag("shooter", event)}
+          onPointerMove={continuePlayerDrag}
+          onPointerUp={endPlayerDrag}
+        >
+          <StickmanPlayer
+            color="#fb923c"
+            glowFilter="url(#sim-orange-glow)"
+            guideHandAngle={shooterPose.guideHandAngle}
+            handHeight={shooterPose.handHeight}
+            isAnimating={isPlaying}
+            isAirborne={shooterPose.isAirborne}
+            jumpHeight={shooterPose.jumpHeight}
+            kneeBend={shooterPose.kneeBend}
+            label="Shooter"
+            leftLegAngle={shooterPose.leftLegAngle}
+            onPosePointDrag={onPosePointDrag}
+            releaseAngle={shooterPose.releaseAngle}
+            rightLegAngle={shooterPose.rightLegAngle}
+            shootingArmAngle={shooterPose.shootingArmAngle}
+            torsoAngle={shooterPose.torsoAngle}
+            type="shooter"
+            verticalOffset={shooterPose.verticalOffset}
+            x={shooterStage.x}
+            y={shooterStage.y}
+          />
+        </DraggablePlayerShell>
         {comparisonMode ? (
           <StickmanPlayer
             color="#38bdf8"
             glowFilter="url(#sim-sky-glow)"
             guideHandAngle={recommendedPose.guideHandAngle}
             handHeight={recommendedPose.handHeight}
+            isAnimating={isPlaying}
             isAirborne={recommendedPose.isAirborne}
             jumpHeight={recommendedPose.jumpHeight}
             kneeBend={recommendedPose.kneeBend}
@@ -765,26 +1025,82 @@ function SimulatorStage({
             y={shooterStage.y}
           />
         ) : null}
-        <StickmanPlayer
-          armRaise={defenderPose.armRaise}
-          contestHeight={defenderPose.contestHeight}
-          color="#4ade80"
-          glowFilter="url(#sim-green-glow)"
-          isAirborne={defenderPose.isAirborne}
-          jumpHeight={defenderPose.jumpHeight}
-          kneeBend={defenderPose.kneeBend}
-          label="Defender"
-          leftLegAngle={-defenderPose.stanceWidth * 7 + defenderPose.leanAngle * 0.2}
-          rightLegAngle={defenderPose.stanceWidth * 7 + defenderPose.leanAngle * 0.2}
-          torsoAngle={defenderPose.torsoAngle + defenderPose.leanAngle}
-          type="defender"
-          verticalOffset={defenderPose.verticalOffset}
-          x={defenderStage.x}
-          y={defenderStage.y}
-        />
+        <DraggablePlayerShell
+          isDragging={draggedPlayer === "defender"}
+          label="Move defender"
+          onPointerDown={(event) => beginPlayerDrag("defender", event)}
+          onPointerMove={continuePlayerDrag}
+          onPointerUp={endPlayerDrag}
+        >
+          <StickmanPlayer
+            armRaise={defenderPose.armRaise}
+            contestHeight={defenderPose.contestHeight}
+            color="#4ade80"
+            glowFilter="url(#sim-green-glow)"
+            isAnimating={isPlaying}
+            isAirborne={defenderPose.isAirborne}
+            jumpHeight={defenderPose.jumpHeight}
+            kneeBend={defenderPose.kneeBend}
+            label="Defender"
+            leftLegAngle={-defenderPose.stanceWidth * 7 + defenderPose.leanAngle * 0.2}
+            onPosePointDrag={onPosePointDrag}
+            rightLegAngle={defenderPose.stanceWidth * 7 + defenderPose.leanAngle * 0.2}
+            torsoAngle={defenderPose.torsoAngle + defenderPose.leanAngle}
+            type="defender"
+            verticalOffset={defenderPose.verticalOffset}
+            x={defenderStage.x}
+            y={defenderStage.y}
+          />
+        </DraggablePlayerShell>
 
       </svg>
     </div>
+  );
+}
+
+function DraggablePlayerShell({
+  children,
+  isDragging,
+  label,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: {
+  children: ReactNode;
+  isDragging: boolean;
+  label: string;
+  onPointerDown: (event: PointerEvent<SVGGElement>) => void;
+  onPointerMove: (event: PointerEvent<SVGGElement>) => void;
+  onPointerUp: (event: PointerEvent<SVGGElement>) => void;
+}) {
+  return (
+    <g
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      className="cursor-grab outline-none"
+      onPointerCancel={onPointerUp}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      style={{ cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }}
+    >
+      {isDragging ? (
+        <g opacity="0.95">
+          <rect
+            x="702"
+            y="34"
+            width="46"
+            height="36"
+            rx="8"
+            fill="rgba(0,0,0,0.56)"
+            stroke="rgba(255,255,255,0.16)"
+          />
+          <Grip x="718" y="43" width="18" height="18" color="#fed7aa" />
+        </g>
+      ) : null}
+      {children}
+    </g>
   );
 }
 
@@ -1508,6 +1824,187 @@ function IconButton({
   );
 }
 
+function getShooterPosePatchFromDrag(
+  pose: ShooterPoseState,
+  drag: StickmanPoseDrag,
+): Partial<ShooterPoseState> {
+  const { delta, handle } = drag;
+
+  if (handle === "primaryHand") {
+    return {
+      handHeight: clampValue(pose.handHeight - delta.y * 0.025, 5, 12),
+      releaseAngle: clampValue(pose.releaseAngle - delta.y * 0.16, 20, 75),
+      shootingArmAngle: clampValue(
+        pose.shootingArmAngle + delta.x * 0.14 - delta.y * 0.12,
+        10,
+        95,
+      ),
+    };
+  }
+
+  if (handle === "primaryElbow") {
+    return {
+      shootingArmAngle: clampValue(
+        pose.shootingArmAngle + delta.x * 0.12 - delta.y * 0.08,
+        10,
+        95,
+      ),
+    };
+  }
+
+  if (handle === "secondaryHand" || handle === "secondaryElbow") {
+    return {
+      guideHandAngle: clampValue(
+        pose.guideHandAngle + delta.x * 0.16 - delta.y * 0.08,
+        0,
+        70,
+      ),
+    };
+  }
+
+  if (handle === "leftKnee") {
+    return {
+      kneeBend: clampValue(pose.kneeBend + delta.y * 0.2, 0, 60),
+      leftLegAngle: clampValue(pose.leftLegAngle + delta.x * 0.18, -45, 45),
+    };
+  }
+
+  if (handle === "rightKnee") {
+    return {
+      kneeBend: clampValue(pose.kneeBend + delta.y * 0.2, 0, 60),
+      rightLegAngle: clampValue(pose.rightLegAngle + delta.x * 0.18, -45, 45),
+    };
+  }
+
+  if (handle === "leftFoot") {
+    return {
+      leftLegAngle: clampValue(pose.leftLegAngle + delta.x * 0.22, -45, 45),
+    };
+  }
+
+  if (handle === "rightFoot") {
+    return {
+      rightLegAngle: clampValue(pose.rightLegAngle + delta.x * 0.22, -45, 45),
+    };
+  }
+
+  if (handle === "head" || handle === "shoulder") {
+    return {
+      torsoAngle: clampValue(pose.torsoAngle + delta.x * 0.09, -35, 35),
+    };
+  }
+
+  return {
+    kneeBend: clampValue(pose.kneeBend + delta.y * 0.16, 0, 60),
+  };
+}
+
+function getDefenderPosePatchFromDrag(
+  pose: DefenderPoseState,
+  drag: StickmanPoseDrag,
+): Partial<DefenderPoseState> {
+  const { delta, handle } = drag;
+
+  if (handle === "primaryHand" || handle === "primaryElbow") {
+    return {
+      armRaise: clampValue(pose.armRaise + delta.x * 0.08 - delta.y * 0.22, 0, 100),
+      contestHeight: clampValue(pose.contestHeight - delta.y * 0.025, 5, 12),
+    };
+  }
+
+  if (handle === "secondaryHand" || handle === "secondaryElbow") {
+    return {
+      leanAngle: clampValue(pose.leanAngle + delta.x * 0.08, -30, 30),
+      stanceWidth: clampValue(pose.stanceWidth + Math.abs(delta.x) * 0.01, 0, 5),
+    };
+  }
+
+  if (handle === "leftKnee" || handle === "rightKnee" || handle === "hip") {
+    return {
+      kneeBend: clampValue(pose.kneeBend + delta.y * 0.2, 0, 60),
+    };
+  }
+
+  if (handle === "leftFoot" || handle === "rightFoot") {
+    return {
+      stanceWidth: clampValue(pose.stanceWidth + delta.x * 0.015, 0, 5),
+    };
+  }
+
+  return {
+    torsoAngle: clampValue(pose.torsoAngle + delta.x * 0.08, -35, 35),
+  };
+}
+
+function findBlockPoint({
+  defenderPose,
+  defenderStage,
+  releaseAngle,
+  releasePoint,
+  shotDistance,
+  target,
+}: {
+  defenderPose: DefenderPoseState;
+  defenderStage: StagePoint;
+  releaseAngle: number;
+  releasePoint: StagePoint;
+  shotDistance: number;
+  target: StagePoint;
+}): { point: StagePoint; progress: number } | null {
+  const defenderGeometry = getStickmanHitGeometry(
+    getStickmanGeometry({
+      armRaise: defenderPose.armRaise,
+      contestHeight: defenderPose.contestHeight,
+      isAirborne: defenderPose.isAirborne,
+      jumpHeight: defenderPose.jumpHeight,
+      kneeBend: defenderPose.kneeBend,
+      leftLegAngle: -defenderPose.stanceWidth * 7 + defenderPose.leanAngle * 0.2,
+      rightLegAngle: defenderPose.stanceWidth * 7 + defenderPose.leanAngle * 0.2,
+      torsoAngle: defenderPose.torsoAngle + defenderPose.leanAngle,
+      type: "defender",
+      verticalOffset: defenderPose.verticalOffset,
+      x: defenderStage.x,
+      y: defenderStage.y,
+    }),
+  );
+  const control = getArcControlPoint({
+    releaseAngle,
+    releasePoint,
+    rim: target,
+    shotDistance,
+  });
+
+  for (let index = 6; index <= 100; index += 1) {
+    const progress = index / 100;
+    const point = getBezierPoint(releasePoint, control, target, progress);
+
+    if (doesBallHitDefender(point, defenderGeometry)) {
+      return { point, progress };
+    }
+  }
+
+  return null;
+}
+
+function doesBallHitDefender(
+  ball: StagePoint,
+  defenderGeometry: StickmanHitGeometry,
+) {
+  const ballRadius = 15;
+  const touchesCircle = defenderGeometry.circles.some(
+    ({ point, radius }) => distanceBetweenPoints(ball, point) <= radius + ballRadius,
+  );
+
+  if (touchesCircle) {
+    return true;
+  }
+
+  return defenderGeometry.segments.some(
+    ({ from, radius, to }) =>
+      distancePointToSegment(ball, from, to) <= radius + ballRadius,
+  );
+}
+
 function normalizeSimulatorDraft(
   context: SimulatorShotContext,
 ): SimulatorShotContext {
@@ -1537,6 +2034,38 @@ function clampValue(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
+function distanceBetweenPoints(first: StagePoint, second: StagePoint) {
+  return Math.hypot(first.x - second.x, first.y - second.y);
+}
+
+function distancePointToSegment(
+  point: StagePoint,
+  segmentStart: StagePoint,
+  segmentEnd: StagePoint,
+) {
+  const segmentLengthSquared =
+    (segmentEnd.x - segmentStart.x) ** 2 +
+    (segmentEnd.y - segmentStart.y) ** 2;
+
+  if (segmentLengthSquared === 0) {
+    return distanceBetweenPoints(point, segmentStart);
+  }
+
+  const projection = clampValue(
+    ((point.x - segmentStart.x) * (segmentEnd.x - segmentStart.x) +
+      (point.y - segmentStart.y) * (segmentEnd.y - segmentStart.y)) /
+      segmentLengthSquared,
+    0,
+    1,
+  );
+  const closest = {
+    x: segmentStart.x + projection * (segmentEnd.x - segmentStart.x),
+    y: segmentStart.y + projection * (segmentEnd.y - segmentStart.y),
+  };
+
+  return distanceBetweenPoints(point, closest);
+}
+
 function clearQueuedTimers(timerBucket: { current: number[] }) {
   // Cancel queued jump phases so repeated button presses never fight each other.
   timerBucket.current.forEach((timerId) => window.clearTimeout(timerId));
@@ -1556,8 +2085,45 @@ function queueElevationStep(
 function mapCourtPointToStage(x: number, y: number): StagePoint {
   // Convert court coordinates into a readable side-view stage position.
   return {
-    x: 118 + (x / 50) * 560,
+    x: STAGE_COURT_MIN_X + (x / 50) * 560,
     y: FLOOR_Y - Math.min(y / 47, 1) * 58,
+  };
+}
+
+function mapStagePointToCourt(point: StagePoint) {
+  const stageX = clampValue(
+    point.x,
+    STAGE_COURT_MIN_X,
+    STAGE_COURT_MAX_X,
+  );
+  const stageY = clampValue(
+    point.y,
+    STAGE_COURT_MIN_Y,
+    STAGE_COURT_MAX_Y,
+  );
+
+  return {
+    x: ((stageX - STAGE_COURT_MIN_X) / 560) * 50,
+    y: ((FLOOR_Y - stageY) / 58) * 47,
+  };
+}
+
+function getPointerStagePoint(event: PointerEvent<SVGGElement>): StagePoint | null {
+  const svg = event.currentTarget.ownerSVGElement;
+  const screenMatrix = svg?.getScreenCTM();
+
+  if (!svg || !screenMatrix) {
+    return null;
+  }
+
+  const point = svg.createSVGPoint();
+  point.x = event.clientX;
+  point.y = event.clientY;
+  const transformedPoint = point.matrixTransform(screenMatrix.inverse());
+
+  return {
+    x: transformedPoint.x,
+    y: transformedPoint.y,
   };
 }
 

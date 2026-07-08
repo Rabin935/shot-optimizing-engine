@@ -2,11 +2,12 @@
 
 import { ChevronLeft, ChevronRight, Pause, Play, RotateCcw, Snail } from "lucide-react";
 import { motion } from "framer-motion";
-import type { ReactNode } from "react";
+import type { PointerEvent, ReactNode } from "react";
 import type { SharedShotQuality, ShooterPoseState } from "@/store/useShotStore";
 import { SHOOTING_ANIMATION_KEYFRAMES } from "@/lib/simulator-animation";
 import {
   buildShotPath,
+  getArcControlPoint,
   getBallVisualState,
   getFlightDuration,
   getReleasePoint,
@@ -19,8 +20,13 @@ import type { StagePoint } from "@/lib/simulator-physics";
 type RimPoint = StagePoint;
 
 type ShotArcProps = {
+  aimTarget: RimPoint;
+  blockPoint?: StagePoint | null;
+  blockProgress?: number;
   epps: number;
   makeProbability: number;
+  onAimTargetDrag: (point: StagePoint) => void;
+  onArcControlDrag: (point: StagePoint) => void;
   outcome: ShotOutcomeKind;
   recommendation: string;
   releaseAngle: number;
@@ -29,6 +35,7 @@ type ShotArcProps = {
   shooterStage: StagePoint;
   shotDistance: number;
   shotQuality: SharedShotQuality;
+  isPlaying: boolean;
   timeline: number;
 };
 
@@ -49,8 +56,13 @@ type ShotArcControlsProps = {
 };
 
 export function ShotArc({
+  aimTarget,
+  blockPoint,
+  blockProgress,
   epps,
   makeProbability,
+  onAimTargetDrag,
+  onArcControlDrag,
   outcome,
   recommendation,
   releaseAngle,
@@ -59,15 +71,23 @@ export function ShotArc({
   shooterStage,
   shotDistance,
   shotQuality,
+  isPlaying,
   timeline,
 }: ShotArcProps) {
   // ShotArc intentionally uses a readable Bezier approximation. It explains
   // release shape without pretending to be a full ballistics simulation.
   const releasePoint = getReleasePoint({ shooterPose, shooterStage });
+  const shotTarget = aimTarget;
+  const controlPoint = getArcControlPoint({
+    releaseAngle,
+    releasePoint,
+    rim: shotTarget,
+    shotDistance,
+  });
   const arcPath = buildShotPath({
     releaseAngle,
     releasePoint,
-    rim,
+    rim: shotTarget,
     shotDistance,
   });
   const visual = getBallVisualState({
@@ -75,8 +95,10 @@ export function ShotArc({
     progress: timeline,
     releaseAngle,
     releasePoint,
-    rim,
+    rim: shotTarget,
     shotDistance,
+    blockPoint,
+    blockProgress,
   });
   const flightDuration = getFlightDuration(shotDistance);
 
@@ -93,15 +115,31 @@ export function ShotArc({
         opacity="0.82"
       />
       <path
-        d={`M ${releasePoint.x} ${releasePoint.y} L ${rim.x} ${rim.y}`}
+        d={`M ${releasePoint.x} ${releasePoint.y} L ${shotTarget.x} ${shotTarget.y}`}
         stroke="rgba(255,255,255,0.18)"
         strokeDasharray="4 9"
         strokeLinecap="round"
         strokeWidth="2"
       />
 
-      <RimOutcomeEffects rim={rim} visual={visual} />
-      <Basketball ball={visual.ball} flightDuration={flightDuration} />
+      <RimOutcomeEffects isPlaying={isPlaying} rim={rim} visual={visual} />
+      <Basketball
+        ball={visual.ball}
+        flightDuration={flightDuration}
+        isPlaying={isPlaying}
+      />
+      <ArcDragHandle
+        label="Adjust shot height"
+        point={controlPoint}
+        tone="height"
+        onDrag={onArcControlDrag}
+      />
+      <ArcDragHandle
+        label="Adjust shot direction"
+        point={shotTarget}
+        tone="target"
+        onDrag={onAimTargetDrag}
+      />
 
       <ShotResultCallout
         epps={epps}
@@ -141,7 +179,7 @@ export function ShotArcControls({
         <ControlButton active={!isPlaying} label="Pause" onClick={onPause}>
           <Pause className="size-4" />
         </ControlButton>
-        <ControlButton label="Reset" onClick={onReset}>
+        <ControlButton label="Replay" onClick={onReset}>
           <RotateCcw className="size-4" />
         </ControlButton>
         <ControlButton label="Next Frame" onClick={onNextFrame}>
@@ -232,9 +270,11 @@ function ControlButton({
 function Basketball({
   ball,
   flightDuration,
+  isPlaying,
 }: {
   ball: StagePoint;
   flightDuration: number;
+  isPlaying: boolean;
 }) {
   // The basketball follows the same Bezier point used by the arc path, keeping
   // the visible motion aligned with the drawn explanation curve.
@@ -246,7 +286,7 @@ function Basketball({
       transition={{
         duration: flightDuration / 1000,
         ease: "easeInOut",
-        repeat: Infinity,
+        repeat: isPlaying ? Infinity : 0,
       }}
     >
       <circle
@@ -269,9 +309,11 @@ function Basketball({
 }
 
 function RimOutcomeEffects({
+  isPlaying,
   rim,
   visual,
 }: {
+  isPlaying: boolean;
   rim: StagePoint;
   visual: ReturnType<typeof getBallVisualState>;
 }) {
@@ -290,7 +332,7 @@ function RimOutcomeEffects({
           strokeWidth="4"
           initial={false}
           animate={{ opacity: [0.85, 0.18], scale: [1, 1.18] }}
-          transition={{ duration: 0.42, repeat: Infinity }}
+          transition={{ duration: 0.42, repeat: isPlaying ? Infinity : 0 }}
         />
       ) : null}
       {visual.swish ? (
@@ -302,7 +344,7 @@ function RimOutcomeEffects({
           strokeWidth="4"
           initial={false}
           animate={{ opacity: [0.35, 1, 0.35], y: [0, 8, 0] }}
-          transition={{ duration: 0.6, repeat: Infinity }}
+          transition={{ duration: 0.6, repeat: isPlaying ? Infinity : 0 }}
         />
       ) : null}
       {visual.backboardFlash ? (
@@ -317,7 +359,7 @@ function RimOutcomeEffects({
           strokeWidth="3"
           initial={false}
           animate={{ opacity: [0.15, 0.7, 0.15] }}
-          transition={{ duration: 0.48, repeat: Infinity }}
+          transition={{ duration: 0.48, repeat: isPlaying ? Infinity : 0 }}
         />
       ) : null}
       <text
@@ -329,6 +371,74 @@ function RimOutcomeEffects({
       >
         {visual.label}
       </text>
+    </g>
+  );
+}
+
+function ArcDragHandle({
+  label,
+  onDrag,
+  point,
+  tone,
+}: {
+  label: string;
+  onDrag: (point: StagePoint) => void;
+  point: StagePoint;
+  tone: "height" | "target";
+}) {
+  const handlePointerDown = (event: PointerEvent<SVGCircleElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const stagePoint = getPointerStagePoint(event);
+
+    if (stagePoint) {
+      onDrag(stagePoint);
+    }
+  };
+  const handlePointerMove = (event: PointerEvent<SVGCircleElement>) => {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
+      return;
+    }
+
+    const stagePoint = getPointerStagePoint(event);
+
+    if (stagePoint) {
+      onDrag(stagePoint);
+    }
+  };
+  const releasePointer = (event: PointerEvent<SVGCircleElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  return (
+    <g>
+      <circle
+        cx={point.x}
+        cy={point.y}
+        r={tone === "height" ? 14 : 12}
+        fill={tone === "height" ? "rgba(250,204,21,0.3)" : "rgba(251,146,60,0.32)"}
+        stroke={tone === "height" ? "#facc15" : "#fed7aa"}
+        strokeDasharray={tone === "height" ? "6 5" : undefined}
+        strokeWidth="4"
+        aria-label={label}
+        role="slider"
+        tabIndex={0}
+        style={{ cursor: "grab", pointerEvents: "all", touchAction: "none" }}
+        onPointerCancel={releasePointer}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={releasePointer}
+      />
+      <circle
+        cx={point.x}
+        cy={point.y}
+        r="4"
+        fill="#fff7ad"
+        pointerEvents="none"
+      />
     </g>
   );
 }
@@ -384,3 +494,24 @@ const qualityStroke: Record<SharedShotQuality, string> = {
   Good: "#34d399",
   Poor: "#fb923c",
 };
+
+function getPointerStagePoint(
+  event: PointerEvent<SVGCircleElement>,
+): StagePoint | null {
+  const svg = event.currentTarget.ownerSVGElement;
+  const screenMatrix = svg?.getScreenCTM();
+
+  if (!svg || !screenMatrix) {
+    return null;
+  }
+
+  const point = svg.createSVGPoint();
+  point.x = event.clientX;
+  point.y = event.clientY;
+  const transformedPoint = point.matrixTransform(screenMatrix.inverse());
+
+  return {
+    x: transformedPoint.x,
+    y: transformedPoint.y,
+  };
+}

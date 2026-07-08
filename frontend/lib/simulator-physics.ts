@@ -7,6 +7,7 @@ export type StagePoint = {
 
 export type ShotOutcomeKind =
   | "backboard"
+  | "block"
   | "make"
   | "miss"
   | "rim-bounce"
@@ -35,12 +36,25 @@ export function getReleasePoint({
         ? shooterPose.jumpHeight * 4 + 12
         : shooterPose.jumpHeight * 2),
   );
-  const releaseReach = (shooterPose.releaseAngle - 48) * 0.42;
+  const hipHeight = Math.max(58, 92 - shooterPose.kneeBend * 0.42);
+  const hip = { x: shooterStage.x, y: shooterStage.y - hipHeight };
+  const shoulder = polarPoint(hip, -90 + shooterPose.torsoAngle, 72);
   const handHeightBoost = (shooterPose.handHeight - 8.4) * 5;
+  const releaseBoost = (shooterPose.releaseAngle - 48) * 0.28;
+  const primaryElbow = polarPoint(
+    shoulder,
+    -82 + shooterPose.shootingArmAngle * 0.32 - releaseBoost * 0.35,
+    42,
+  );
+  const primaryHandBase = polarPoint(
+    primaryElbow,
+    -96 + shooterPose.shootingArmAngle * 0.24 - releaseBoost,
+    43,
+  );
 
   return {
-    x: shooterStage.x + 42 + releaseReach,
-    y: shooterStage.y - 126 - lift - handHeightBoost,
+    x: primaryHandBase.x,
+    y: primaryHandBase.y - lift - handHeightBoost,
   };
 }
 
@@ -65,6 +79,10 @@ export function buildShotPath({
   return `M ${releasePoint.x} ${releasePoint.y} Q ${control.x} ${control.y} ${rim.x} ${rim.y}`;
 }
 
+export function getShotPathTarget(outcome: ShotOutcomeKind, rim: StagePoint) {
+  return getOutcomeTarget(outcome, rim);
+}
+
 export function getBallVisualState({
   outcome,
   progress,
@@ -72,7 +90,11 @@ export function getBallVisualState({
   releasePoint,
   rim,
   shotDistance,
+  blockPoint,
+  blockProgress,
 }: {
+  blockPoint?: StagePoint | null;
+  blockProgress?: number;
   outcome: ShotOutcomeKind;
   progress: number;
   releaseAngle: number;
@@ -81,15 +103,33 @@ export function getBallVisualState({
   shotDistance: number;
 }): BallVisualState {
   const flightProgress = Math.min(Math.max((progress - 57) / 43, 0), 1);
-  const target = getOutcomeTarget(outcome, rim);
+  const blockFlightProgress = Math.max(blockProgress ?? 0.5, 0.08);
+  const target = outcome === "block" ? rim : getOutcomeTarget(outcome, rim);
+  const pathProgress =
+    outcome === "block"
+      ? Math.min(flightProgress, blockFlightProgress)
+      : flightProgress;
   const control = getArcControlPoint({
     releaseAngle,
     releasePoint,
     rim: target,
     shotDistance,
   });
-  const baseBall = getBezierPoint(releasePoint, control, target, flightProgress);
-  const impactOffset = getImpactOffset(outcome, flightProgress);
+  const baseBall =
+    outcome === "block" && blockPoint && flightProgress >= blockFlightProgress
+      ? blockPoint
+      : getBezierPoint(releasePoint, control, target, pathProgress);
+  const blockImpactProgress =
+    outcome === "block"
+      ? Math.min(
+          Math.max((flightProgress - blockFlightProgress) / (1 - blockFlightProgress), 0),
+          1,
+        )
+      : pathProgress;
+  const impactOffset = getImpactOffset(
+    outcome,
+    outcome === "block" ? 0.82 + blockImpactProgress * 0.18 : pathProgress,
+  );
   const ball = {
     x: baseBall.x + impactOffset.x,
     y: baseBall.y + impactOffset.y,
@@ -139,7 +179,7 @@ export function getFlightDuration(shotDistance: number) {
   return Math.round(850 + Math.min(Math.max(shotDistance, 2), 32) * 34);
 }
 
-function getArcControlPoint({
+export function getArcControlPoint({
   releaseAngle,
   releasePoint,
   rim,
@@ -159,7 +199,7 @@ function getArcControlPoint({
   };
 }
 
-function getBezierPoint(
+export function getBezierPoint(
   start: StagePoint,
   control: StagePoint,
   end: StagePoint,
@@ -173,7 +213,20 @@ function getBezierPoint(
   };
 }
 
+function polarPoint(origin: StagePoint, angleDegrees: number, length: number) {
+  const angle = (angleDegrees * Math.PI) / 180;
+
+  return {
+    x: origin.x + Math.cos(angle) * length,
+    y: origin.y + Math.sin(angle) * length,
+  };
+}
+
 function getOutcomeTarget(outcome: ShotOutcomeKind, rim: StagePoint) {
+  if (outcome === "block") {
+    return rim;
+  }
+
   if (outcome === "backboard") {
     return { x: rim.x + 38, y: rim.y - 48 };
   }
@@ -212,10 +265,18 @@ function getImpactOffset(outcome: ShotOutcomeKind, progress: number): StagePoint
     return { x: Math.sin(impact * Math.PI * 2) * 8, y: impact * 38 };
   }
 
+  if (outcome === "block") {
+    return { x: -impact * 34, y: impact * 30 };
+  }
+
   return { x: 0, y: impact * 46 };
 }
 
 function getOutcomeLabel(outcome: ShotOutcomeKind) {
+  if (outcome === "block") {
+    return "Block";
+  }
+
   if (outcome === "swish") {
     return "Swish";
   }
