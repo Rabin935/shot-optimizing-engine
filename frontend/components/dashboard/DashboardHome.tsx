@@ -183,6 +183,8 @@ export function DashboardHome() {
           </SectionFrame>
         </aside>
       </section>
+
+      <BottomOperationsSection activityRows={activityRows} />
     </section>
   );
 }
@@ -455,7 +457,10 @@ function RecentSimulationsTable({ rows }: { rows: RecentSimulationRow[] }) {
         <h3 className="text-sm font-black text-white">Recent Simulations</h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-left text-sm">
+        <table
+          aria-label="Recent simulations"
+          className="w-full min-w-[640px] text-left text-sm"
+        >
           <thead className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
             <tr className="border-b border-white/10">
               <th className="py-2 pr-3">Shot</th>
@@ -537,6 +542,60 @@ function CoachingFeedback({ rows }: { rows: CoachingRow[] }) {
         ))}
       </div>
     </article>
+  );
+}
+
+function BottomOperationsSection({
+  activityRows,
+}: {
+  activityRows: ActivityRow[];
+}) {
+  return (
+    <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr_0.9fr]">
+      <SectionFrame
+        eyebrow="Activity"
+        icon={Clock3}
+        title="Recent activity timeline"
+      >
+        <ActivityTimeline rows={activityRows} />
+      </SectionFrame>
+
+      <SectionFrame eyebrow="System" icon={Gauge} title="System information">
+        <div className="grid gap-3">
+          <SystemInfoRow label="Prediction API" value="Ready" />
+          <SystemInfoRow label="Dashboard Data" value="Live + synthetic" />
+          <SystemInfoRow label="Reports Export" value="Available" />
+          <SystemInfoRow label="Performance Mode" value="Responsive charts" />
+        </div>
+      </SectionFrame>
+
+      <SectionFrame eyebrow="Release" icon={FileText} title="Version information">
+        <div className="grid gap-3">
+          <SystemInfoRow label="Product Phase" value="Phase 6" />
+          <SystemInfoRow label="Dashboard Step" value="6.1" />
+          <SystemInfoRow label="Next Runtime" value="16.2.4" />
+          <SystemInfoRow label="Phase 7 Readiness" value="In progress" />
+          <Link
+            href="/reports"
+            className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-orange-300/25 bg-orange-500/10 px-3 text-sm font-black text-orange-100 transition hover:border-orange-200/50 hover:bg-orange-500/20"
+          >
+            Advanced Reports & Export
+            <ArrowRight className="size-4" />
+          </Link>
+        </div>
+      </SectionFrame>
+    </section>
+  );
+}
+
+function SystemInfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/30 px-3 py-2">
+      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+        {label}
+      </span>
+      <span className="text-right text-sm font-black text-white">{value}</span>
+    </div>
   );
 }
 
@@ -963,22 +1022,4 @@ function formatDecimal(value: number) {
 
 function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
-}
-
-function PlaceholderGrid({ items }: { items: string[] }) {
-  return (
-    <div className="grid gap-3 md:grid-cols-3">
-      {items.map((item) => (
-        <div
-          key={item}
-          className="min-h-24 rounded-lg border border-dashed border-white/10 bg-black/25 p-4"
-        >
-          <p className="text-sm font-black text-slate-200">{item}</p>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
-            Ready for phase-6 dashboard data.
-          </p>
-        </div>
-      ))}
-    </div>
-  );
 }
