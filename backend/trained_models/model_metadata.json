@@ -1,0 +1,212 @@
+{
+  "model_name": "shot_xgboost_model",
+  "model_type": "XGBoost XGBClassifier",
+  "phase": "Step 6 - Save Trained ShotOptix XGBoost Model",
+  "target_column": "shot_made",
+  "features_used": [
+    "period",
+    "shot_clock",
+    "dribbles",
+    "touch_time",
+    "shot_distance",
+    "shot_angle",
+    "defender_distance",
+    "loc_x",
+    "loc_y",
+    "abs_loc_x",
+    "game_clock_seconds",
+    "is_home",
+    "shot_value",
+    "distance_pressure_interaction",
+    "late_clock",
+    "early_clock",
+    "quick_touch",
+    "high_dribble",
+    "long_three",
+    "deep_two",
+    "is_layup",
+    "is_dunk",
+    "is_jump_shot",
+    "is_pullup",
+    "is_driving",
+    "is_fadeaway",
+    "is_hook",
+    "is_tip",
+    "position_guard",
+    "position_forward",
+    "position_center",
+    "zone_paint",
+    "zone_mid_range",
+    "zone_three_point",
+    "pressure_very_tight",
+    "pressure_tight",
+    "pressure_open",
+    "pressure_very_open"
+  ],
+  "training_dataset": "data/processed/shotoptix_ml_training.csv",
+  "training_rows": 3487218,
+  "test_rows": 871805,
+  "metrics": {
+    "accuracy": 0.6295387156531563,
+    "precision": 0.6588256952899779,
+    "recall": 0.3947464081486328,
+    "f1_score": 0.49369013466271616,
+    "roc_auc": 0.6539309495705381
+  },
+  "feature_importance": [
+    {
+      "feature": "is_dunk",
+      "importance": 0.5528688430786133
+    },
+    {
+      "feature": "distance_pressure_interaction",
+      "importance": 0.1576070785522461
+    },
+    {
+      "feature": "shot_distance",
+      "importance": 0.03833016753196716
+    },
+    {
+      "feature": "is_driving",
+      "importance": 0.03145391494035721
+    },
+    {
+      "feature": "is_jump_shot",
+      "importance": 0.02794218435883522
+    },
+    {
+      "feature": "is_pullup",
+      "importance": 0.02676641382277012
+    },
+    {
+      "feature": "zone_paint",
+      "importance": 0.019317885860800743
+    },
+    {
+      "feature": "is_hook",
+      "importance": 0.01711697317659855
+    },
+    {
+      "feature": "is_tip",
+      "importance": 0.01695936731994152
+    },
+    {
+      "feature": "quick_touch",
+      "importance": 0.014827344566583633
+    },
+    {
+      "feature": "is_fadeaway",
+      "importance": 0.014186851680278778
+    },
+    {
+      "feature": "game_clock_seconds",
+      "importance": 0.012415008619427681
+    },
+    {
+      "feature": "is_layup",
+      "importance": 0.011214565485715866
+    },
+    {
+      "feature": "abs_loc_x",
+      "importance": 0.008019202388823032
+    },
+    {
+      "feature": "loc_y",
+      "importance": 0.0059880949556827545
+    },
+    {
+      "feature": "position_guard",
+      "importance": 0.005878825671970844
+    },
+    {
+      "feature": "defender_distance",
+      "importance": 0.0043399157002568245
+    },
+    {
+      "feature": "pressure_open",
+      "importance": 0.004227431025356054
+    },
+    {
+      "feature": "position_center",
+      "importance": 0.003592895809561014
+    },
+    {
+      "feature": "long_three",
+      "importance": 0.003568477462977171
+    },
+    {
+      "feature": "period",
+      "importance": 0.003264273749664426
+    },
+    {
+      "feature": "touch_time",
+      "importance": 0.0031488866079598665
+    },
+    {
+      "feature": "zone_mid_range",
+      "importance": 0.002898292848840356
+    },
+    {
+      "feature": "early_clock",
+      "importance": 0.0028671089094132185
+    },
+    {
+      "feature": "shot_value",
+      "importance": 0.002737194998189807
+    },
+    {
+      "feature": "shot_clock",
+      "importance": 0.001618614885956049
+    },
+    {
+      "feature": "loc_x",
+      "importance": 0.0014066655421629548
+    },
+    {
+      "feature": "pressure_very_open",
+      "importance": 0.0011531010968610644
+    },
+    {
+      "feature": "dribbles",
+      "importance": 0.0011508845491334796
+    },
+    {
+      "feature": "pressure_very_tight",
+      "importance": 0.0009981789626181126
+    },
+    {
+      "feature": "deep_two",
+      "importance": 0.0008402885869145393
+    },
+    {
+      "feature": "position_forward",
+      "importance": 0.0007816178840585053
+    },
+    {
+      "feature": "late_clock",
+      "importance": 0.00027730752481147647
+    },
+    {
+      "feature": "pressure_tight",
+      "importance": 0.0002362084633205086
+    },
+    {
+      "feature": "shot_angle",
+      "importance": 0.0
+    },
+    {
+      "feature": "is_home",
+      "importance": 0.0
+    },
+    {
+      "feature": "high_dribble",
+      "importance": 0.0
+    },
+    {
+      "feature": "zone_three_point",
+      "importance": 0.0
+    }
+  ],
+  "training_date": "2026-07-03T16:42:21.496204+00:00",
+  "notes": "Feature order is exactly the order in features_used and must match app.ml.feature_builder.MODEL_FEATURES during FastAPI inference. The backend rule-based fallback remains required when the model is missing, incompatible, or unable to predict safely."
+}

@@ -1,0 +1,43 @@
+ShotOptix data cleaning report
+
+Raw shape: (128069, 21)
+Cleaned shape: (4359023, 22)
+Rows added from extra shot datasets: 4230954
+
+Target column: shot_made
+Target meaning: 1 = made shot, 0 = missed shot
+
+Missing values after cleaning:
+game_id               0
+player_id             0
+player_name           0
+period                0
+shot_clock            0
+dribbles              0
+touch_time            0
+shot_distance         0
+shot_value            0
+shot_zone             0
+defender_distance     0
+pressure_level        0
+shot_result           0
+shot_made             0
+points                0
+loc_x                 0
+loc_y                 0
+game_clock_seconds    0
+is_home               0
+action_type           0
+shot_type             0
+position_group        0
+
+Made vs missed distribution:
+shot_made
+0    2364579
+1    1994444
+
+Shot zone distribution:
+shot_zone
+Paint          1867249
+Mid-Range      1251776
+Three Point    1239998

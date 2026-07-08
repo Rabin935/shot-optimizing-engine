@@ -1,0 +1,17 @@
+import type { Metadata } from "next";
+import { ShotZonePerformanceAnalytics } from "@/components/analytics/ShotZonePerformanceAnalytics";
+import { AppShell } from "@/components/layout/AppShell";
+
+export const metadata: Metadata = {
+  title: "Shot Zone Analytics | ShotOptix",
+  description: "ShotOptix zone performance charts for EPPS, probability, mechanics, and pressure.",
+};
+
+export default function ShotZoneAnalyticsPage() {
+  // The page is server-rendered shell with client charts mounted inside it.
+  return (
+    <AppShell>
+      <ShotZonePerformanceAnalytics />
+    </AppShell>
+  );
+}
