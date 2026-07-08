@@ -336,13 +336,9 @@ function SectionFrame({
     <Card>
       <CardHeader
         eyebrow={eyebrow}
+        icon={<Icon className="size-5" />}
         title={title}
-        className="flex-row items-start justify-start"
-      >
-        <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-orange-300/25 bg-orange-500/10 text-orange-100">
-          <Icon className="size-5" />
-        </span>
-      </CardHeader>
+      />
       {children}
     </Card>
   );

@@ -83,12 +83,14 @@ export function CardHeader({
   children,
   className,
   eyebrow,
+  icon,
   title,
 }: {
   action?: ReactNode;
   children?: ReactNode;
   className?: string;
   eyebrow?: string;
+  icon?: ReactNode;
   title: string;
 }) {
   // CardHeader standardizes page section hierarchy and optional actions.
@@ -99,10 +101,21 @@ export function CardHeader({
         className,
       )}
     >
-      <div className="min-w-0">
-        {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
-        <Heading level={2}>{title}</Heading>
-        {children ? <div className="mt-1 text-sm leading-6 text-slate-400">{children}</div> : null}
+      <div className="flex min-w-0 items-start gap-3">
+        {icon ? (
+          <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-primary/25 bg-primary-soft text-orange-100">
+            {icon}
+          </span>
+        ) : null}
+        <div className="min-w-0">
+          {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
+          <Heading level={2}>{title}</Heading>
+          {children ? (
+            <div className="mt-1 text-sm leading-6 text-slate-400">
+              {children}
+            </div>
+          ) : null}
+        </div>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>

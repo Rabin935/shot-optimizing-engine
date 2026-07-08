@@ -8,7 +8,7 @@ type AppShellProps = {
 export function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen bg-[#070807] text-foreground">
-      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(135deg,rgba(249,115,22,0.1)_0%,transparent_34%,rgba(34,197,94,0.08)_72%,transparent_100%),linear-gradient(180deg,#101318_0%,#070807_45%,#050505_100%)]" />
+      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(135deg,var(--color-primary-soft)_0%,transparent_34%,var(--color-success-soft)_72%,transparent_100%),linear-gradient(180deg,#101318_0%,#070807_45%,#050505_100%)]" />
       <div className="pointer-events-none fixed inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,0.16)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:54px_54px]" />
 
       <Sidebar />
