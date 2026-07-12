@@ -11,7 +11,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -49,7 +49,17 @@ import type {
   ZonePerformanceDatum,
 } from "@/types/charts";
 
+type ReportMode = "session" | "summary" | "trends" | "exports";
+
+const reportModes: Array<{ label: string; value: ReportMode }> = [
+  { label: "Session", value: "session" },
+  { label: "Summary", value: "summary" },
+  { label: "Trends", value: "trends" },
+  { label: "Exports", value: "exports" },
+];
+
 export function AnalyticsReportsDashboard() {
+  const [reportMode, setReportMode] = useState<ReportMode>("session");
   const shots = useFilteredAnalyticsShots();
   const optimizedShot = useShotStore((state) => state.optimizedShot);
   const trendRows = useMemo(() => buildTrendSeries(shots, "all"), [shots]);
@@ -70,15 +80,33 @@ export function AnalyticsReportsDashboard() {
     <section className="grid gap-6">
       <header className="flex flex-col gap-3 border-b border-white/10 pb-6">
         <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-300">
-          Analytics Dashboard
+          Reports
         </p>
         <h1 className="text-3xl font-black tracking-tight text-white sm:text-5xl">
-          ShotOptix performance command center
+          Report builder and analytics exports
         </h1>
         <p className="max-w-3xl text-base leading-7 text-slate-300">
-          A full replay-powered reporting workspace for prediction trends, EPPS,
-          mechanics, optimizer impact, pressure, shot zones, and recent sessions.
+          Build thesis-ready session reports, multi-shot summaries, trend
+          analysis, printable layouts, and exportable analytics snapshots.
         </p>
+        <div className="mt-2 flex flex-wrap gap-2" role="tablist" aria-label="Report view">
+          {reportModes.map((mode) => (
+            <button
+              key={mode.value}
+              type="button"
+              role="tab"
+              aria-selected={reportMode === mode.value}
+              onClick={() => setReportMode(mode.value)}
+              className={`min-h-10 rounded-lg border px-4 text-sm font-black transition ${
+                reportMode === mode.value
+                  ? "border-orange-300/40 bg-orange-500/15 text-orange-100"
+                  : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-white"
+              }`}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
       </header>
 
       <GlobalAnalyticsFilterBar />
