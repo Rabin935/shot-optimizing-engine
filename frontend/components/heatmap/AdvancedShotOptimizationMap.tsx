@@ -1,6 +1,6 @@
 "use client";
 
-import { Flame } from "lucide-react";
+import { Flame, Layers, SplitSquareHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   BASKET_LOCATION,
@@ -16,6 +16,15 @@ import { useShotStore } from "@/store/useShotStore";
 const SVG_WIDTH = 720;
 const SVG_HEIGHT = 620;
 type HeatmapPoint = ReturnType<typeof generateEppsMap>[number];
+type HeatmapLayer = "density" | "epps" | "probability" | "pressure" | "zone";
+
+const heatmapLayers: Array<{ label: string; value: HeatmapLayer }> = [
+  { label: "Shot Density", value: "density" },
+  { label: "EPPS", value: "epps" },
+  { label: "Make Probability", value: "probability" },
+  { label: "Pressure", value: "pressure" },
+  { label: "Zone", value: "zone" },
+];
 
 export function AdvancedShotOptimizationMap() {
   const activeDefenderCount = useShotStore((state) => state.activeDefenderCount);
@@ -28,6 +37,7 @@ export function AdvancedShotOptimizationMap() {
     () => generateEppsMap({ defenders: activeDefenders }),
     [activeDefenders],
   );
+  const [activeLayer, setActiveLayer] = useState<HeatmapLayer>("epps");
   const [preview, setPreview] = useState(mapPoints[0]);
 
   function handlePreview(point: HeatmapPoint) {
@@ -49,8 +59,40 @@ export function AdvancedShotOptimizationMap() {
         </p>
       </header>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <section className="overflow-hidden rounded-lg border border-white/10 bg-[#10160f] shadow-[0_28px_90px_rgba(0,0,0,0.34)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 p-4">
+            <div className="flex items-center gap-3">
+              <span className="grid size-10 place-items-center rounded-lg border border-green-300/25 bg-green-400/10 text-green-100">
+                <Layers className="size-5" />
+              </span>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+                  Layered Heatmap
+                </p>
+                <h2 className="text-lg font-black text-white">
+                  {heatmapLayers.find((layer) => layer.value === activeLayer)?.label}
+                </h2>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {heatmapLayers.map((layer) => (
+                <button
+                  key={layer.value}
+                  type="button"
+                  aria-pressed={activeLayer === layer.value}
+                  onClick={() => setActiveLayer(layer.value)}
+                  className={`min-h-9 rounded-lg border px-3 text-xs font-black transition ${
+                    activeLayer === layer.value
+                      ? "border-orange-300/40 bg-orange-500/15 text-orange-100"
+                      : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {layer.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <svg
             viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
             className="block h-[520px] w-full"
@@ -104,6 +146,23 @@ export function AdvancedShotOptimizationMap() {
         </section>
 
         <aside className="grid gap-4">
+          <article className="rounded-lg border border-white/10 bg-white/[0.045] p-4">
+            <div className="flex items-center gap-3">
+              <span className="grid size-10 place-items-center rounded-lg border border-sky-300/25 bg-sky-400/10 text-sky-100">
+                <SplitSquareHorizontal className="size-4" />
+              </span>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+                  Mode
+                </p>
+                <h2 className="text-lg font-black text-white">Single view</h2>
+              </div>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-400">
+              Switch layers to inspect density, expected points, make
+              probability, defensive pressure, or court zone behavior.
+            </p>
+          </article>
           <article className="rounded-lg border border-white/10 bg-white/[0.045] p-4">
             <div className="flex items-center gap-3">
               <span className="grid size-10 place-items-center rounded-lg border border-orange-300/25 bg-orange-500/10 text-orange-100">
