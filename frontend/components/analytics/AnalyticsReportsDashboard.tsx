@@ -5,6 +5,7 @@ import {
   Award,
   FileDown,
   Gauge,
+  Printer,
   Shield,
   Target,
   TrendingDown,
@@ -75,6 +76,7 @@ export function AnalyticsReportsDashboard() {
   const bestPressure = getBestPressure(pressureRows);
   const worstPressure = getWorstPressure(pressureRows);
   const recentShots = [...shots].slice(-6).reverse();
+  const printReport = () => window.print();
 
   return (
     <section className="grid gap-6">
@@ -89,7 +91,7 @@ export function AnalyticsReportsDashboard() {
           Build thesis-ready session reports, multi-shot summaries, trend
           analysis, printable layouts, and exportable analytics snapshots.
         </p>
-        <div className="mt-2 flex flex-wrap gap-2" role="tablist" aria-label="Report view">
+        <div className="mt-2 flex flex-wrap items-center gap-2" role="tablist" aria-label="Report view">
           {reportModes.map((mode) => (
             <button
               key={mode.value}
@@ -106,12 +108,20 @@ export function AnalyticsReportsDashboard() {
               {mode.label}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={printReport}
+            className="ml-auto inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-slate-300 transition hover:border-green-300/35 hover:text-green-100"
+          >
+            <Printer className="size-4" />
+            Print
+          </button>
         </div>
       </header>
 
       <GlobalAnalyticsFilterBar />
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section className="print-report grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={<Activity className="size-5" />} label="Replay Summary" value={`${summary.shotCount} shots`} />
         <StatCard icon={<Gauge className="size-5" />} label="Average EPPS" value={formatDecimal(summary.averageEpps)} tone="green" />
         <StatCard icon={<Target className="size-5" />} label="Average Make" value={formatPercent(summary.averageMakeProbability)} tone="orange" />

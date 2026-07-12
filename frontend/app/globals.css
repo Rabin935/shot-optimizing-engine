@@ -178,6 +178,32 @@ textarea {
   }
 }
 
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  aside,
+  nav,
+  button,
+  .print-hidden {
+    display: none !important;
+  }
+
+  main,
+  section,
+  article,
+  div {
+    box-shadow: none !important;
+  }
+
+  .print-report {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
 ::selection {
   background: rgba(249, 115, 22, 0.35);
   color: #ffffff;
