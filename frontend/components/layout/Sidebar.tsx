@@ -269,7 +269,7 @@ function SidebarContent({
           />
         ) : null}
 
-        <div className="mb-5">
+        <div className="mb-5" role="group" aria-label="Pinned navigation">
           <p className="mb-2 px-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
             Pinned
           </p>
@@ -310,7 +310,7 @@ function SidebarContent({
           onVisit={recordVisit}
         />
 
-        <div className="grid gap-3">
+        <div className="grid gap-3" role="group" aria-label="Navigation groups">
           {navigationGroups.map((group) => (
             <NavigationGroupSection
               key={group.id}
@@ -483,6 +483,7 @@ function SidebarLink({
         <span className="absolute left-0 top-2 h-[calc(100%-1rem)] w-1 rounded-r-full bg-orange-300" />
       ) : null}
       <Link
+        aria-current={active ? "page" : undefined}
         href={item.href}
         onClick={() => onVisit(item)}
         className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-3"
