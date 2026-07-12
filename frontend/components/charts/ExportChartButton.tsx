@@ -1,6 +1,7 @@
 "use client";
 
 import { FileJson, Sheet } from "lucide-react";
+import { showToast } from "@/components/layout/ToastViewport";
 import { Button } from "@/components/ui";
 
 type ExportChartButtonProps = {
@@ -21,6 +22,7 @@ export function ExportChartButton({ data, filename }: ExportChartButtonProps) {
     link.download = filename.endsWith(".json") ? filename : `${filename}.json`;
     link.click();
     URL.revokeObjectURL(url);
+    showToast("JSON export downloaded");
   };
 
   const exportCsv = () => {
@@ -55,6 +57,7 @@ export function ExportChartButton({ data, filename }: ExportChartButtonProps) {
     link.download = filename.endsWith(".csv") ? filename : `${filename}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+    showToast("CSV export downloaded");
   };
 
   return (
