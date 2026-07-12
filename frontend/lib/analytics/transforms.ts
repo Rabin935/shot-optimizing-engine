@@ -475,10 +475,9 @@ function groupBy<T>(items: T[], getKey: (item: T) => string) {
   return items.reduce<Record<string, T[]>>((groups, item) => {
     const key = getKey(item);
 
-    return {
-      ...groups,
-      [key]: [...(groups[key] ?? []), item],
-    };
+    groups[key] ??= [];
+    groups[key].push(item);
+    return groups;
   }, {});
 }
 
