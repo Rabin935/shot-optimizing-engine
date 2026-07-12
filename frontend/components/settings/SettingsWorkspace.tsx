@@ -2,6 +2,7 @@
 
 import {
   Bell,
+  CheckCircle2,
   Gauge,
   LineChart,
   MonitorCog,
@@ -26,6 +27,7 @@ import { useSettingsStore } from "@/store/useSettingsStore";
 
 export function SettingsWorkspace() {
   const { hydrated, resetSettings, settings, updateSettings } = useSettingsStore();
+  const savedLabel = hydrated ? "Saved locally" : "Loading preferences";
 
   const exportSettings = () => {
     const blob = new Blob([JSON.stringify(settings, null, 2)], {
@@ -58,6 +60,18 @@ export function SettingsWorkspace() {
               Tune ShotOptix for your court workflow, simulator defaults,
               analytics visuals, and notification behavior.
             </Text>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Badge tone="success">
+                <CheckCircle2 className="mr-1 size-3.5" />
+                {savedLabel}
+              </Badge>
+              <Badge tone={settings.highContrast ? "warning" : "neutral"}>
+                {settings.highContrast ? "High contrast" : "Standard contrast"}
+              </Badge>
+              <Badge tone={settings.reducedMotion ? "warning" : "neutral"}>
+                {settings.reducedMotion ? "Reduced motion" : "Motion enabled"}
+              </Badge>
+            </div>
           </div>
           <Button type="button" variant="outline" onClick={resetSettings}>
             <RotateCcw className="size-4" />
@@ -199,6 +213,29 @@ export function SettingsWorkspace() {
 
         <aside className="grid content-start gap-4">
           <Card>
+            <CardHeader eyebrow="Profile" title="Active setup" />
+            <div className="grid gap-2">
+              {[
+                ["Theme", settings.theme],
+                ["Court", settings.courtSurface],
+                ["Simulator", settings.defaultSimulator],
+                ["Charts", settings.chartTheme],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/25 px-3 py-2"
+                >
+                  <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                    {label}
+                  </span>
+                  <span className="text-sm font-black capitalize text-white">
+                    {value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+          <Card>
             <CardHeader
               eyebrow="Persistence"
               icon={<Bell className="size-5" />}
@@ -295,9 +332,10 @@ function ToggleSetting({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/25 px-3 text-sm font-bold text-slate-200">
+    <label className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/25 px-3 text-sm font-bold text-slate-200 transition hover:border-orange-300/35 hover:bg-orange-500/10">
       {label}
       <input
+        aria-label={label}
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
