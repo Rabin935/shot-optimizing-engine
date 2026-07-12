@@ -23,6 +23,19 @@ type LayeredHeatmapPoint = HeatmapPoint & {
   pressureScore: number;
 };
 type HeatmapLayer = "density" | "epps" | "probability" | "pressure" | "zone";
+type HeatmapFilters = {
+  maxPressure: number;
+  minEpps: number;
+  minProbability: number;
+  zone: string;
+};
+
+const defaultHeatmapFilters: HeatmapFilters = {
+  maxPressure: 1,
+  minEpps: 0,
+  minProbability: 0,
+  zone: "all",
+};
 
 const heatmapLayers: Array<{ label: string; value: HeatmapLayer }> = [
   { label: "Shot Density", value: "density" },
@@ -49,6 +62,22 @@ export function AdvancedShotOptimizationMap() {
     [activeDefenders, mapPoints],
   );
   const [activeLayer, setActiveLayer] = useState<HeatmapLayer>("epps");
+  const [filters, setFilters] = useState(defaultHeatmapFilters);
+  const filteredPoints = useMemo(
+    () =>
+      layeredPoints.filter(
+        (point) =>
+          point.epps >= filters.minEpps &&
+          point.makeProbability >= filters.minProbability &&
+          point.pressureScore <= filters.maxPressure &&
+          (filters.zone === "all" || point.zone === filters.zone),
+      ),
+    [filters, layeredPoints],
+  );
+  const availableZones = useMemo(
+    () => Array.from(new Set(layeredPoints.map((point) => point.zone))),
+    [layeredPoints],
+  );
   const [preview, setPreview] = useState<LayeredHeatmapPoint | undefined>(
     layeredPoints[0],
   );
@@ -120,7 +149,7 @@ export function AdvancedShotOptimizationMap() {
             </defs>
             <rect width={SVG_WIDTH} height={SVG_HEIGHT} fill="url(#heatmap-floor)" />
             <CourtLines />
-            {layeredPoints.map((point) => {
+            {filteredPoints.map((point) => {
               const pixel = pointToSvg(point);
               const radius = getLayerRadius(point, activeLayer);
 
@@ -176,6 +205,69 @@ export function AdvancedShotOptimizationMap() {
             <p className="mt-3 text-sm leading-6 text-slate-400">
               Switch layers to inspect density, expected points, make
               probability, defensive pressure, or court zone behavior.
+            </p>
+          </article>
+          <article className="rounded-lg border border-white/10 bg-black/30 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+                Heatmap Filters
+              </p>
+              <button
+                type="button"
+                onClick={() => setFilters(defaultHeatmapFilters)}
+                className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-xs font-black text-slate-300 transition hover:border-orange-300/35 hover:text-orange-100"
+              >
+                Reset
+              </button>
+            </div>
+            <div className="mt-3 grid gap-3">
+              <label className="grid gap-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                Zone
+                <select
+                  value={filters.zone}
+                  onChange={(event) =>
+                    setFilters((current) => ({ ...current, zone: event.target.value }))
+                  }
+                  className="min-h-10 rounded-lg border border-white/10 bg-[#111] px-3 text-sm font-bold normal-case tracking-normal text-white"
+                >
+                  <option value="all">All zones</option>
+                  {availableZones.map((zone) => (
+                    <option key={zone} value={zone}>
+                      {zone}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <RangeFilter
+                label="Min EPPS"
+                max={1.8}
+                step={0.05}
+                value={filters.minEpps}
+                onChange={(minEpps) =>
+                  setFilters((current) => ({ ...current, minEpps }))
+                }
+              />
+              <RangeFilter
+                label="Min Make"
+                max={0.85}
+                step={0.01}
+                value={filters.minProbability}
+                onChange={(minProbability) =>
+                  setFilters((current) => ({ ...current, minProbability }))
+                }
+              />
+              <RangeFilter
+                label="Max Pressure"
+                max={1}
+                step={0.05}
+                value={filters.maxPressure}
+                onChange={(maxPressure) =>
+                  setFilters((current) => ({ ...current, maxPressure }))
+                }
+              />
+            </div>
+            <p className="mt-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+              Showing {filteredPoints.length} / {layeredPoints.length} points
             </p>
           </article>
           <article className="rounded-lg border border-white/10 bg-white/[0.045] p-4">
@@ -319,6 +411,38 @@ function enrichHeatmapPoint(
     makeProbability,
     pressureScore,
   };
+}
+
+function RangeFilter({
+  label,
+  max,
+  onChange,
+  step,
+  value,
+}: {
+  label: string;
+  max: number;
+  onChange: (value: number) => void;
+  step: number;
+  value: number;
+}) {
+  return (
+    <label className="grid gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+      <span className="flex items-center justify-between gap-3">
+        {label}
+        <span className="text-slate-300">{value.toFixed(step < 0.05 ? 2 : 1)}</span>
+      </span>
+      <input
+        type="range"
+        min={0}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="accent-orange-400"
+      />
+    </label>
+  );
 }
 
 function getLayerColor(point: LayeredHeatmapPoint, layer: HeatmapLayer) {
