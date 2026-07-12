@@ -332,7 +332,7 @@ function SidebarContent({
             Phase 6: Product Polish
           </p>
           <div className="mt-3 flex items-center justify-between gap-3">
-            <span className="text-sm font-black text-white">Navigation upgrade</span>
+            <span className="text-sm font-black text-white">UX finalized</span>
             <span className="h-2.5 w-2.5 rounded-full bg-green-300 shadow-[0_0_18px_rgba(74,222,128,0.85)]" />
           </div>
         </div>
