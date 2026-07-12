@@ -87,6 +87,11 @@
   --color-neutral: #cbd5e1;
 }
 
+.shotoptix-high-contrast :focus-visible {
+  outline-color: #ffffff;
+  box-shadow: 0 0 0 7px rgba(255, 255, 255, 0.24);
+}
+
 body[data-chart-theme="contrast"] {
   --color-panel: rgba(255, 255, 255, 0.08);
   --color-panel-muted: rgba(0, 0, 0, 0.5);
@@ -161,8 +166,16 @@ textarea {
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-primary-strong);
+  outline: 3px solid var(--color-primary-strong);
   outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(249, 115, 22, 0.18);
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid CanvasText;
+    box-shadow: none;
+  }
 }
 
 ::selection {
