@@ -60,12 +60,14 @@ export function ChartContainer({
   return (
     <>
       <div
+        aria-label={title}
         className={cx(
           "rounded-lg border bg-black/25 p-3 transition",
           isActive
             ? "border-orange-300/45 shadow-[0_0_0_1px_rgba(253,186,116,0.18)]"
             : "border-white/10",
         )}
+        role="region"
         onBlur={() => setActiveDatum(chartId, null)}
         onFocus={() => setActiveDatum(chartId, title)}
         onMouseEnter={() => setActiveDatum(chartId, title)}

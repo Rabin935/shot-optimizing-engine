@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
 import { PageTransition } from "@/components/navigation/PageTransition";
+import { ScreenReaderStatus } from "@/components/layout/ScreenReaderStatus";
 
 type AppShellProps = {
   children: ReactNode;
@@ -18,6 +19,7 @@ export function AppShell({ children }: AppShellProps) {
       </a>
       <div className="pointer-events-none fixed inset-0 bg-[image:var(--app-shell-wash)]" />
       <div className="pointer-events-none fixed inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,0.16)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:54px_54px]" />
+      <ScreenReaderStatus />
 
       <Sidebar />
 
