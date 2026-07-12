@@ -1,10 +1,11 @@
 "use client";
 
-import { Maximize2, Minus, Plus, RotateCcw } from "lucide-react";
+import { Inspect, Maximize2, Minus, Plus, RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
 import { useId, useState } from "react";
 import { ResponsiveContainer } from "recharts";
 import { Button, Dialog, Tooltip } from "@/components/ui";
+import { useChartInteractionStore } from "@/lib/analytics/chart-interaction-store";
 import { cx } from "@/lib/design-system";
 
 type ChartContainerProps = {
@@ -23,9 +24,15 @@ export function ChartContainer({
   title = "Analytics chart",
 }: ChartContainerProps) {
   const dialogTitleId = useId();
+  const chartId = useId();
+  const activeChartId = useChartInteractionStore((state) => state.activeChartId);
+  const activeDatumLabel = useChartInteractionStore((state) => state.activeDatumLabel);
+  const setActiveDatum = useChartInteractionStore((state) => state.setActiveDatum);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [zoom, setZoom] = useState(1);
   const zoomPercent = Math.round(zoom * 100);
+  const isActive = activeChartId === chartId;
 
   const renderChart = (chartHeight: number | string) => (
     <div
@@ -52,12 +59,34 @@ export function ChartContainer({
   // Recharts needs a stable parent height before ResponsiveContainer can render.
   return (
     <>
-      <div className="rounded-lg border border-white/10 bg-black/25 p-3">
+      <div
+        className={cx(
+          "rounded-lg border bg-black/25 p-3 transition",
+          isActive
+            ? "border-orange-300/45 shadow-[0_0_0_1px_rgba(253,186,116,0.18)]"
+            : "border-white/10",
+        )}
+        onBlur={() => setActiveDatum(chartId, null)}
+        onFocus={() => setActiveDatum(chartId, title)}
+        onMouseEnter={() => setActiveDatum(chartId, title)}
+        onMouseLeave={() => setActiveDatum(chartId, null)}
+      >
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-            {zoomPercent}% zoom
+            {isActive ? activeDatumLabel : `${zoomPercent}% zoom`}
           </span>
           <div className="flex items-center gap-1">
+            <IconTool label="Drill down">
+              <button
+                type="button"
+                aria-pressed={showDetails}
+                aria-label="Toggle chart details"
+                onClick={() => setShowDetails((current) => !current)}
+                className={iconButtonClass}
+              >
+                <Inspect className="size-4" />
+              </button>
+            </IconTool>
             <IconTool label="Zoom out">
               <button
                 type="button"
@@ -101,6 +130,13 @@ export function ChartContainer({
           </div>
         </div>
         {renderChart(height)}
+        {showDetails ? (
+          <div className="mt-3 grid gap-2 rounded-lg border border-white/10 bg-black/30 p-3 text-xs font-bold text-slate-300 sm:grid-cols-3">
+            <span>Chart: {title}</span>
+            <span>Zoom: {zoomPercent}%</span>
+            <span>Mode: {isFullscreen ? "Fullscreen" : "Inline"}</span>
+          </div>
+        ) : null}
       </div>
 
       <Dialog
