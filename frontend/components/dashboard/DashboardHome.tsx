@@ -47,6 +47,8 @@ import {
   Text,
 } from "@/components/ui";
 import { cx, toneClasses } from "@/lib/design-system";
+import { simulatorRoutes } from "@/lib/settings-preferences";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { useShotStore } from "@/store/useShotStore";
 
 type QuickAction = {
@@ -102,6 +104,9 @@ const overviewPanels = [
 ];
 
 export function DashboardHome() {
+  const defaultSimulator = useSettingsStore(
+    (state) => state.settings.defaultSimulator,
+  );
   const replayHistory = useShotStore((state) => state.replayHistory);
   const epps = useShotStore((state) => state.epps);
   const makeProbability = useShotStore((state) => state.makeProbability);
@@ -126,6 +131,7 @@ export function DashboardHome() {
   return (
     <section className="grid gap-6">
       <WelcomeBanner
+        defaultSimulator={defaultSimulator}
         makeProbability={stats.averageMakeProbability}
         recommendation={recommendation}
         replayCount={stats.totalSimulations}
@@ -203,11 +209,13 @@ export function DashboardHome() {
 }
 
 function WelcomeBanner({
+  defaultSimulator,
   makeProbability,
   recommendation,
   replayCount,
   sessionEpps,
 }: {
+  defaultSimulator: keyof typeof simulatorRoutes;
   makeProbability: string;
   recommendation: string;
   replayCount: number;
@@ -239,8 +247,12 @@ function WelcomeBanner({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          {quickActions.map((action) => (
-            <QuickActionLink key={action.href} action={action} />
+            {prioritizeQuickActions(defaultSimulator).map((action) => (
+            <QuickActionLink
+              key={action.href}
+              action={action}
+              preferred={action.href === simulatorRoutes[defaultSimulator]}
+            />
           ))}
         </div>
       </div>
@@ -259,13 +271,24 @@ function SessionPill({ label, value }: { label: string; value: string }) {
   );
 }
 
-function QuickActionLink({ action }: { action: QuickAction }) {
+function QuickActionLink({
+  action,
+  preferred = false,
+}: {
+  action: QuickAction;
+  preferred?: boolean;
+}) {
   const Icon = action.icon;
 
   return (
     <Link
       href={action.href}
-      className="group flex min-h-20 items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/30 p-4 transition hover:border-orange-300/40 hover:bg-orange-500/15"
+      className={cx(
+        "group flex min-h-20 items-center justify-between gap-3 rounded-lg border p-4 transition hover:border-orange-300/40 hover:bg-orange-500/15",
+        preferred
+          ? "border-green-300/30 bg-green-400/10"
+          : "border-white/10 bg-black/30",
+      )}
     >
       <span className="flex min-w-0 items-center gap-3">
         <span className="grid size-11 shrink-0 place-items-center rounded-lg border border-green-300/25 bg-green-400/10 text-green-100">
@@ -275,6 +298,11 @@ function QuickActionLink({ action }: { action: QuickAction }) {
           <span className="block truncate text-sm font-black text-white">
             {action.label}
           </span>
+          {preferred ? (
+            <span className="mt-1 inline-flex rounded-md border border-green-300/25 bg-green-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-green-100">
+              Default
+            </span>
+          ) : null}
           <span className="mt-1 block truncate text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
             {action.description}
           </span>
@@ -283,6 +311,14 @@ function QuickActionLink({ action }: { action: QuickAction }) {
       <ArrowRight className="size-4 shrink-0 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-orange-200" />
     </Link>
   );
+}
+
+function prioritizeQuickActions(defaultSimulator: keyof typeof simulatorRoutes) {
+  const preferredHref = simulatorRoutes[defaultSimulator];
+  const preferred = quickActions.find((action) => action.href === preferredHref);
+  const remaining = quickActions.filter((action) => action.href !== preferredHref);
+
+  return preferred ? [preferred, ...remaining] : quickActions;
 }
 
 type DashboardStat = {

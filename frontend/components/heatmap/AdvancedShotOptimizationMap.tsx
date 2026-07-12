@@ -9,6 +9,8 @@ import {
   type CourtPoint,
 } from "@/utils/courtMath";
 import { generateEppsMap } from "@/lib/session-insights";
+import { formatDistanceByUnits } from "@/lib/settings-preferences";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { useShotStore } from "@/store/useShotStore";
 
 const SVG_WIDTH = 720;
@@ -20,6 +22,7 @@ export function AdvancedShotOptimizationMap() {
   const defenders = useShotStore((state) => state.defenders);
   const shooter = useShotStore((state) => state.shooter);
   const setShooterPosition = useShotStore((state) => state.setShooterPosition);
+  const units = useSettingsStore((state) => state.settings.units);
   const activeDefenders = defenders.slice(0, activeDefenderCount);
   const mapPoints = useMemo(
     () => generateEppsMap({ defenders: activeDefenders }),
@@ -118,7 +121,7 @@ export function AdvancedShotOptimizationMap() {
               <InfoRow label="Quality" value={preview?.quality ?? "Poor"} />
               <InfoRow
                 label="Court Position"
-                value={`${preview?.x.toFixed(1) ?? "0.0"}, ${preview?.y.toFixed(1) ?? "0.0"} ft`}
+                value={`${formatDistanceByUnits(preview?.x ?? 0, units)}, ${formatDistanceByUnits(preview?.y ?? 0, units)}`}
               />
             </div>
           </article>

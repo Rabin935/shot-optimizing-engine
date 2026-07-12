@@ -44,3 +44,15 @@ export const simulatorRoutes: Record<SimulatorPreference, string> = {
   sandbox: "/sandbox",
   simulator: "/simulator",
 };
+
+export function formatDistanceByUnits(valueInFeet: number, units: UnitPreference) {
+  if (!Number.isFinite(valueInFeet)) {
+    return "No defender";
+  }
+
+  if (units === "metric") {
+    return `${(valueInFeet * 0.3048).toFixed(1)} m`;
+  }
+
+  return `${valueInFeet.toFixed(1)} ft`;
+}
