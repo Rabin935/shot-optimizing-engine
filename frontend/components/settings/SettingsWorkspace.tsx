@@ -13,6 +13,7 @@ import {
 import type { ReactNode } from "react";
 import { Badge, Button, Card, CardHeader, Dropdown, FieldLabel, Heading, Text } from "@/components/ui";
 import {
+  SETTINGS_STORAGE_KEY,
   type AnimationSpeedPreference,
   type ChartThemePreference,
   type CourtSurfacePreference,
@@ -24,7 +25,25 @@ import {
 import { useSettingsStore } from "@/store/useSettingsStore";
 
 export function SettingsWorkspace() {
-  const { resetSettings, settings, updateSettings } = useSettingsStore();
+  const { hydrated, resetSettings, settings, updateSettings } = useSettingsStore();
+
+  const exportSettings = () => {
+    const blob = new Blob([JSON.stringify(settings, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "shotoptix-user-settings.json";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const clearLocalSettings = () => {
+    window.localStorage.removeItem(SETTINGS_STORAGE_KEY);
+    resetSettings();
+  };
 
   return (
     <section className="grid gap-6">
@@ -187,11 +206,25 @@ export function SettingsWorkspace() {
             >
               Preferences are kept in this browser and applied immediately.
             </CardHeader>
+            <div className="mb-3 flex flex-wrap gap-2">
+              <Badge tone={hydrated ? "success" : "warning"}>
+                {hydrated ? "Loaded" : "Loading"}
+              </Badge>
+              <Badge tone="neutral">localStorage</Badge>
+            </div>
             <div className="grid gap-2">
               <SummaryRow icon={<Palette className="size-4" />} label="Theme" value={settings.theme} />
               <SummaryRow icon={<Gauge className="size-4" />} label="Motion" value={settings.animationSpeed} />
               <SummaryRow icon={<MonitorCog className="size-4" />} label="Court" value={settings.courtSurface} />
               <SummaryRow icon={<Ruler className="size-4" />} label="Units" value={settings.units} />
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+              <Button type="button" variant="outline" onClick={exportSettings}>
+                Export
+              </Button>
+              <Button type="button" variant="subtle" onClick={clearLocalSettings}>
+                Clear Local
+              </Button>
             </div>
           </Card>
           <Card>

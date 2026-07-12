@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import {
   DEFAULT_USER_SETTINGS,
+  SETTINGS_STORAGE_KEY,
   type UserSettings,
 } from "@/lib/settings-preferences";
 
@@ -31,9 +32,13 @@ export const useSettingsStore = create<SettingsStore>()(
         })),
     }),
     {
-      name: "shotoptix-user-settings",
+      name: SETTINGS_STORAGE_KEY,
       onRehydrateStorage: () => (state) => state?.setHydrated(true),
+      partialize: (state) => ({
+        settings: state.settings,
+      }),
       storage: createJSONStorage(() => localStorage),
+      version: 1,
     },
   ),
 );

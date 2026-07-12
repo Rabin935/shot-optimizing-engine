@@ -19,6 +19,8 @@ export type UserSettings = {
   units: UnitPreference;
 };
 
+export const SETTINGS_STORAGE_KEY = "shotoptix-user-settings";
+
 export const DEFAULT_USER_SETTINGS: UserSettings = {
   animationSpeed: "normal",
   chartTheme: "arena",
