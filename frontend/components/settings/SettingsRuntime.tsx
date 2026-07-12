@@ -23,13 +23,18 @@ export function SettingsRuntime() {
   useEffect(() => {
     const root = document.documentElement;
     const body = document.body;
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
 
     root.classList.toggle("shotoptix-theme-light", resolvedTheme === "light");
     root.classList.toggle("shotoptix-theme-dark", resolvedTheme === "dark");
     root.classList.toggle("shotoptix-high-contrast", settings.highContrast);
     root.classList.toggle(
       "shotoptix-reduced-motion",
-      settings.reducedMotion || settings.animationSpeed === "reduced",
+      prefersReducedMotion ||
+        settings.reducedMotion ||
+        settings.animationSpeed === "reduced",
     );
     root.style.setProperty(
       "--shotoptix-motion-speed",
