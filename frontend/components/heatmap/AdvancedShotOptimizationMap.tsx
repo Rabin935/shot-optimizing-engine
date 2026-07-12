@@ -50,6 +50,8 @@ export function AdvancedShotOptimizationMap() {
   const defenders = useShotStore((state) => state.defenders);
   const shooter = useShotStore((state) => state.shooter);
   const setShooterPosition = useShotStore((state) => state.setShooterPosition);
+  const comparisonMode = useShotStore((state) => state.comparisonMode);
+  const setComparisonMode = useShotStore((state) => state.setComparisonMode);
   const units = useSettingsStore((state) => state.settings.units);
   const activeDefenders = defenders.slice(0, activeDefenderCount);
   const mapPoints = useMemo(
@@ -73,6 +75,23 @@ export function AdvancedShotOptimizationMap() {
           (filters.zone === "all" || point.zone === filters.zone),
       ),
     [filters, layeredPoints],
+  );
+  const comparisonPoints = useMemo(
+    () =>
+      generateEppsMap({ defenders: [] }).map((point) =>
+        enrichHeatmapPoint(point, []),
+      ),
+    [],
+  );
+  const comparisonByKey = useMemo(
+    () =>
+      new Map(
+        comparisonPoints.map((point) => [
+          `${point.x}-${point.y}`,
+          point,
+        ]),
+      ),
+    [comparisonPoints],
   );
   const availableZones = useMemo(
     () => Array.from(new Set(layeredPoints.map((point) => point.zone))),
@@ -152,6 +171,8 @@ export function AdvancedShotOptimizationMap() {
             {filteredPoints.map((point) => {
               const pixel = pointToSvg(point);
               const radius = getLayerRadius(point, activeLayer);
+              const comparisonPoint = comparisonByKey.get(`${point.x}-${point.y}`);
+              const delta = comparisonPoint ? point.epps - comparisonPoint.epps : 0;
 
               return (
                 <button
@@ -171,6 +192,19 @@ export function AdvancedShotOptimizationMap() {
                     strokeWidth="2"
                     className="transition-all duration-300"
                   />
+                  {comparisonMode ? (
+                    <circle
+                      cx={pixel.x}
+                      cy={pixel.y}
+                      r={radius + 6}
+                      fill="none"
+                      stroke={delta >= 0 ? "#86efac" : "#f87171"}
+                      strokeDasharray="5 4"
+                      strokeWidth="3"
+                      opacity="0.82"
+                      className="transition-all duration-300"
+                    />
+                  ) : null}
                   <text
                     x={pixel.x}
                     y={pixel.y + 4}
@@ -199,12 +233,27 @@ export function AdvancedShotOptimizationMap() {
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
                   Mode
                 </p>
-                <h2 className="text-lg font-black text-white">Single view</h2>
+                <h2 className="text-lg font-black text-white">
+                  {comparisonMode ? "Comparison mode" : "Single view"}
+                </h2>
               </div>
             </div>
+            <button
+              type="button"
+              aria-pressed={comparisonMode}
+              onClick={() => setComparisonMode(!comparisonMode, "simulator")}
+              className={`mt-4 min-h-10 w-full rounded-lg border px-3 text-sm font-black transition ${
+                comparisonMode
+                  ? "border-green-300/35 bg-green-400/15 text-green-100"
+                  : "border-white/10 bg-white/[0.04] text-slate-300 hover:text-white"
+              }`}
+            >
+              {comparisonMode ? "Disable comparison" : "Compare to open court"}
+            </button>
             <p className="mt-3 text-sm leading-6 text-slate-400">
-              Switch layers to inspect density, expected points, make
-              probability, defensive pressure, or court zone behavior.
+              {comparisonMode
+                ? "Rings show EPPS delta versus an open-court baseline."
+                : "Switch layers to inspect density, expected points, make probability, defensive pressure, or court zone behavior."}
             </p>
           </article>
           <article className="rounded-lg border border-white/10 bg-black/30 p-4">
