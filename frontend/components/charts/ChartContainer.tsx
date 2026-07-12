@@ -4,7 +4,7 @@ import { Inspect, Maximize2, Minus, Plus, RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
 import { useId, useState } from "react";
 import { ResponsiveContainer } from "recharts";
-import { Button, Dialog, Tooltip } from "@/components/ui";
+import { Button, Dialog, IconButton, Tooltip } from "@/components/ui";
 import { useChartInteractionStore } from "@/lib/analytics/chart-interaction-store";
 import { cx } from "@/lib/design-system";
 
@@ -79,55 +79,45 @@ export function ChartContainer({
           </span>
           <div className="flex flex-wrap items-center justify-end gap-1">
             <IconTool label="Drill down">
-              <button
-                type="button"
+              <IconButton
                 aria-pressed={showDetails}
                 aria-label="Toggle chart details"
                 onClick={() => setShowDetails((current) => !current)}
-                className={iconButtonClass}
               >
                 <Inspect className="size-4" />
-              </button>
+              </IconButton>
             </IconTool>
             <IconTool label="Zoom out">
-              <button
-                type="button"
+              <IconButton
                 aria-label="Zoom out chart"
                 onClick={() => setZoom((current) => Math.max(0.75, current - 0.15))}
-                className={iconButtonClass}
               >
                 <Minus className="size-4" />
-              </button>
+              </IconButton>
             </IconTool>
             <IconTool label="Zoom in">
-              <button
-                type="button"
+              <IconButton
                 aria-label="Zoom in chart"
                 onClick={() => setZoom((current) => Math.min(1.6, current + 0.15))}
-                className={iconButtonClass}
               >
                 <Plus className="size-4" />
-              </button>
+              </IconButton>
             </IconTool>
             <IconTool label="Reset zoom">
-              <button
-                type="button"
+              <IconButton
                 aria-label="Reset chart zoom"
                 onClick={() => setZoom(1)}
-                className={iconButtonClass}
               >
                 <RotateCcw className="size-4" />
-              </button>
+              </IconButton>
             </IconTool>
             <IconTool label="Full screen">
-              <button
-                type="button"
+              <IconButton
                 aria-label="Open chart full screen"
                 onClick={() => setIsFullscreen(true)}
-                className={iconButtonClass}
               >
                 <Maximize2 className="size-4" />
-              </button>
+              </IconButton>
             </IconTool>
           </div>
         </div>
@@ -165,7 +155,3 @@ export function ChartContainer({
 function IconTool({ children, label }: { children: ReactNode; label: string }) {
   return <Tooltip content={label}>{children}</Tooltip>;
 }
-
-const iconButtonClass = cx(
-  "grid size-8 place-items-center rounded-md border border-white/10 bg-white/[0.04] text-slate-300 transition hover:border-orange-300/35 hover:text-orange-100",
-);

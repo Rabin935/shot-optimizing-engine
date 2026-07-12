@@ -54,6 +54,26 @@ export function Button({
   );
 }
 
+export function IconButton({
+  children,
+  className,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      className={cx(
+        "grid size-8 shrink-0 place-items-center rounded-md border border-white/10 bg-white/[0.04] text-slate-300 transition hover:border-orange-300/35 hover:text-orange-100",
+        designTokens.focusRing,
+        className,
+      )}
+      type="button"
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function Card({
   children,
   className,
