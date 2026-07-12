@@ -26,10 +26,15 @@ export type ZoneSortMetric = "attempts" | "epps" | "probability";
 export type AnalyticsFilterState = {
   dateFrom: string;
   dateTo: string;
+  eppsMax: number;
+  eppsMin: number;
+  makeProbabilityMax: number;
+  makeProbabilityMin: number;
   mechanicsScoreMax: number;
   mechanicsScoreMin: number;
   predictionSource: "all" | PredictionSource;
   pressureLevel: "all" | AnalyticsPressureLevel;
+  searchQuery: string;
   sessionId: string;
   shotValue: "all" | "2" | "3";
   shotZone: "all" | AnalyticsShotZone;

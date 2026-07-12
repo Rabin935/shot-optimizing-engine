@@ -53,6 +53,11 @@ export function GlobalAnalyticsFilterBar() {
           <option key={session} value={session}>{session}</option>
         ))}
       </SelectControl>
+      <TextControl label="Search" value={filters.searchQuery} onChange={(value) => updateFilters({ searchQuery: value })} />
+      <NumberControl label="EPPS Min" value={filters.eppsMin} onChange={(value) => updateFilters({ eppsMin: value })} max={3} step={0.05} />
+      <NumberControl label="EPPS Max" value={filters.eppsMax} onChange={(value) => updateFilters({ eppsMax: value })} max={3} step={0.05} />
+      <NumberControl label="Make Min" value={filters.makeProbabilityMin} onChange={(value) => updateFilters({ makeProbabilityMin: value })} max={1} step={0.01} />
+      <NumberControl label="Make Max" value={filters.makeProbabilityMax} onChange={(value) => updateFilters({ makeProbabilityMax: value })} max={1} step={0.01} />
       <NumberControl label="Mech Min" value={filters.mechanicsScoreMin} onChange={(value) => updateFilters({ mechanicsScoreMin: value })} />
       <NumberControl label="Mech Max" value={filters.mechanicsScoreMax} onChange={(value) => updateFilters({ mechanicsScoreMax: value })} />
       <DateControl label="From" value={filters.dateFrom} onChange={(value) => updateFilters({ dateFrom: value })} />
@@ -96,11 +101,15 @@ function SelectControl({
 
 function NumberControl({
   label,
+  max = 100,
   onChange,
+  step = 1,
   value,
 }: {
   label: string;
+  max?: number;
   onChange: (value: number) => void;
+  step?: number;
   value: number;
 }) {
   return (
@@ -109,10 +118,34 @@ function NumberControl({
       <Input
         type="number"
         min={0}
-        max={100}
+        max={max}
+        step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         className="w-24 normal-case tracking-normal"
+      />
+    </FieldLabel>
+  );
+}
+
+function TextControl({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <FieldLabel className="grid gap-1 text-slate-500">
+      {label}
+      <Input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Zone, pressure, session"
+        className="w-48 normal-case tracking-normal"
       />
     </FieldLabel>
   );
