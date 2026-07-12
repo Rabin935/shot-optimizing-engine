@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { AnalyticsReportsDashboard } from "@/components/analytics/AnalyticsReportsDashboard";
 import { AppShell } from "@/components/layout/AppShell";
+import { LazyAnalyticsReportsDashboard } from "@/components/performance/LazyWorkspaces";
 
 export const metadata: Metadata = {
   title: "Reports | ShotOptix",
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function ReportsPage() {
   return (
     <AppShell>
-      <AnalyticsReportsDashboard />
+      <LazyAnalyticsReportsDashboard />
     </AppShell>
   );
 }
