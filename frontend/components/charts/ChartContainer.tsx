@@ -77,7 +77,7 @@ export function ChartContainer({
           <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
             {isActive ? activeDatumLabel : `${zoomPercent}% zoom`}
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center justify-end gap-1">
             <IconTool label="Drill down">
               <button
                 type="button"

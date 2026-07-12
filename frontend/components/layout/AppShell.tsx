@@ -30,7 +30,7 @@ export function AppShell({ children }: AppShellProps) {
         tabIndex={-1}
         className="relative z-10 min-h-screen lg:pl-72"
       >
-        <div className="mx-auto w-full max-w-[1520px] px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:py-8">
+        <div className="mx-auto w-full max-w-[1520px] px-3 pb-32 pt-5 sm:px-6 lg:px-8 lg:py-8">
           <Breadcrumbs />
           <PageTransition>{children}</PageTransition>
         </div>

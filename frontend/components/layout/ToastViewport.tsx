@@ -34,7 +34,7 @@ export function ToastViewport() {
 
   return (
     <div
-      className="fixed bottom-5 right-5 z-[80] flex max-w-sm items-center gap-3 rounded-lg border border-green-300/25 bg-[#07110b]/95 px-4 py-3 text-sm font-bold text-green-100 shadow-[0_20px_70px_rgba(0,0,0,0.45)] backdrop-blur"
+      className="fixed inset-x-3 bottom-20 z-[80] flex items-center gap-3 rounded-lg border border-green-300/25 bg-[#07110b]/95 px-4 py-3 text-sm font-bold text-green-100 shadow-[0_20px_70px_rgba(0,0,0,0.45)] backdrop-blur sm:bottom-5 sm:left-auto sm:right-5 sm:max-w-sm"
       role="status"
       aria-live="polite"
     >
