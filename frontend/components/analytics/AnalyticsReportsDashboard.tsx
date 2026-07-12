@@ -78,6 +78,34 @@ export function AnalyticsReportsDashboard() {
   const recentShots = [...shots].slice(-6).reverse();
   const printReport = () => window.print();
   const trendAnalysis = useMemo(() => buildTrendAnalysis(trendRows), [trendRows]);
+  const reportExport = useMemo(
+    () => ({
+      bestShot,
+      heatmapRegions,
+      mechanicsRows,
+      optimizedShot,
+      pressureRows,
+      recentShots,
+      summary,
+      trendAnalysis,
+      trendRows,
+      worstShot,
+      zoneRows,
+    }),
+    [
+      bestShot,
+      heatmapRegions,
+      mechanicsRows,
+      optimizedShot,
+      pressureRows,
+      recentShots,
+      summary,
+      trendAnalysis,
+      trendRows,
+      worstShot,
+      zoneRows,
+    ],
+  );
 
   return (
     <section className="grid gap-6">
@@ -117,6 +145,7 @@ export function AnalyticsReportsDashboard() {
             <Printer className="size-4" />
             Print
           </button>
+          <ExportChartButton data={reportExport} filename="shotoptix-full-report" />
         </div>
       </header>
 
