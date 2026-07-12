@@ -40,3 +40,11 @@ export const LazyAnalyticsReportsDashboard = dynamic(
     ),
   { loading: WorkspaceFallback, ssr: false },
 );
+
+export const LazySimulatorStateControls = dynamic(
+  () =>
+    import("@/components/simulator/SimulatorStateControls").then(
+      (mod) => mod.SimulatorStateControls,
+    ),
+  { loading: WorkspaceFallback, ssr: false },
+);

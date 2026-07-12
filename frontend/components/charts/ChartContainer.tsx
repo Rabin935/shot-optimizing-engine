@@ -46,7 +46,7 @@ export function ChartContainer({
       ) : (
         <div
           className="h-full min-w-full origin-center transition-transform"
-          style={{ transform: `scale(${zoom})` }}
+          style={{ transform: `scale(${zoom})`, willChange: "transform" }}
         >
           <ResponsiveContainer width="100%" height="100%">
             {children}

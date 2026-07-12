@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/AppShell";
-import { SimulatorStateControls } from "@/components/simulator/SimulatorStateControls";
+import { LazySimulatorStateControls } from "@/components/performance/LazyWorkspaces";
 
 export const metadata: Metadata = {
   // Route metadata for the future mechanics simulator workspace.
@@ -27,7 +27,7 @@ export default function SimulatorPage() {
           </p>
         </header>
 
-        <SimulatorStateControls />
+        <LazySimulatorStateControls />
       </section>
     </AppShell>
   );
