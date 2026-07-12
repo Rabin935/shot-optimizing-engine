@@ -168,6 +168,18 @@ export function AdvancedShotOptimizationMap() {
             </defs>
             <rect width={SVG_WIDTH} height={SVG_HEIGHT} fill="url(#heatmap-floor)" />
             <CourtLines />
+            {!filteredPoints.length ? (
+              <text
+                x={SVG_WIDTH / 2}
+                y={SVG_HEIGHT / 2}
+                fill="#94a3b8"
+                fontSize="18"
+                fontWeight="900"
+                textAnchor="middle"
+              >
+                No heatmap points match the current filters
+              </text>
+            ) : null}
             {filteredPoints.map((point) => {
               const pixel = pointToSvg(point);
               const radius = getLayerRadius(point, activeLayer);
@@ -350,12 +362,18 @@ export function AdvancedShotOptimizationMap() {
           </article>
           <article className="rounded-lg border border-white/10 bg-black/30 p-4">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-              Legend
+              Layer Legend
             </p>
             <div className="mt-3 grid gap-2">
-              <Legend color="#4ade80" label="Excellent" />
-              <Legend color="#facc15" label="Good" />
-              <Legend color="#f87171" label="Poor" />
+              {getLayerLegend(activeLayer).map((item) => (
+                <Legend key={item.label} color={item.color} label={item.label} />
+              ))}
+              {comparisonMode ? (
+                <>
+                  <Legend color="#86efac" label="Positive comparison delta" />
+                  <Legend color="#f87171" label="Negative comparison delta" />
+                </>
+              ) : null}
             </div>
           </article>
         </aside>
@@ -460,6 +478,41 @@ function enrichHeatmapPoint(
     makeProbability,
     pressureScore,
   };
+}
+
+function getLayerLegend(layer: HeatmapLayer) {
+  if (layer === "density") {
+    return [
+      { color: "rgba(251,146,60,0.86)", label: "Larger circles: higher shot density" },
+      { color: "rgba(251,146,60,0.48)", label: "Smaller circles: lower density" },
+    ];
+  }
+
+  if (layer === "probability") {
+    return [
+      { color: "#86efac", label: "High make probability" },
+      { color: "#facc15", label: "Medium make probability" },
+      { color: "#f87171", label: "Low make probability" },
+    ];
+  }
+
+  if (layer === "pressure") {
+    return [
+      { color: "#f87171", label: "High pressure" },
+      { color: "#facc15", label: "Medium pressure" },
+      { color: "#86efac", label: "Low pressure" },
+    ];
+  }
+
+  if (layer === "zone") {
+    return Object.entries(zoneColor).map(([label, color]) => ({ color, label }));
+  }
+
+  return [
+    { color: "#4ade80", label: "Excellent EPPS" },
+    { color: "#facc15", label: "Good EPPS" },
+    { color: "#f87171", label: "Poor EPPS" },
+  ];
 }
 
 function RangeFilter({
