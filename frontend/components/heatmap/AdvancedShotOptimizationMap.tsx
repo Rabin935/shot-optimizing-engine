@@ -6,6 +6,7 @@ import {
   BASKET_LOCATION,
   COURT_LENGTH_FT,
   COURT_WIDTH_FT,
+  calculateDistance,
   type CourtPoint,
 } from "@/utils/courtMath";
 import { generateEppsMap } from "@/lib/session-insights";
@@ -16,6 +17,11 @@ import { useShotStore } from "@/store/useShotStore";
 const SVG_WIDTH = 720;
 const SVG_HEIGHT = 620;
 type HeatmapPoint = ReturnType<typeof generateEppsMap>[number];
+type LayeredHeatmapPoint = HeatmapPoint & {
+  density: number;
+  makeProbability: number;
+  pressureScore: number;
+};
 type HeatmapLayer = "density" | "epps" | "probability" | "pressure" | "zone";
 
 const heatmapLayers: Array<{ label: string; value: HeatmapLayer }> = [
@@ -37,10 +43,17 @@ export function AdvancedShotOptimizationMap() {
     () => generateEppsMap({ defenders: activeDefenders }),
     [activeDefenders],
   );
+  const layeredPoints = useMemo(
+    () =>
+      mapPoints.map((point) => enrichHeatmapPoint(point, activeDefenders)),
+    [activeDefenders, mapPoints],
+  );
   const [activeLayer, setActiveLayer] = useState<HeatmapLayer>("epps");
-  const [preview, setPreview] = useState(mapPoints[0]);
+  const [preview, setPreview] = useState<LayeredHeatmapPoint | undefined>(
+    layeredPoints[0],
+  );
 
-  function handlePreview(point: HeatmapPoint) {
+  function handlePreview(point: LayeredHeatmapPoint) {
     setPreview(point);
   }
 
@@ -107,8 +120,9 @@ export function AdvancedShotOptimizationMap() {
             </defs>
             <rect width={SVG_WIDTH} height={SVG_HEIGHT} fill="url(#heatmap-floor)" />
             <CourtLines />
-            {mapPoints.map((point) => {
+            {layeredPoints.map((point) => {
               const pixel = pointToSvg(point);
+              const radius = getLayerRadius(point, activeLayer);
 
               return (
                 <button
@@ -121,11 +135,12 @@ export function AdvancedShotOptimizationMap() {
                   <circle
                     cx={pixel.x}
                     cy={pixel.y}
-                    r={16}
-                    fill={qualityColor[point.quality]}
-                    opacity="0.78"
+                    r={radius}
+                    fill={getLayerColor(point, activeLayer)}
+                    opacity={activeLayer === "density" ? 0.62 + point.density * 0.28 : 0.82}
                     stroke="rgba(255,255,255,0.28)"
                     strokeWidth="2"
+                    className="transition-all duration-300"
                   />
                   <text
                     x={pixel.x}
@@ -135,7 +150,7 @@ export function AdvancedShotOptimizationMap() {
                     fontWeight="900"
                     textAnchor="middle"
                   >
-                    {point.epps.toFixed(1)}
+                    {formatLayerLabel(point, activeLayer)}
                   </text>
                 </button>
               );
@@ -177,6 +192,14 @@ export function AdvancedShotOptimizationMap() {
             </div>
             <div className="mt-4 grid gap-2">
               <InfoRow label="EPPS" value={preview?.epps.toFixed(2) ?? "0.00"} />
+              <InfoRow
+                label="Make Probability"
+                value={`${Math.round((preview?.makeProbability ?? 0) * 100)}%`}
+              />
+              <InfoRow
+                label="Pressure"
+                value={`${Math.round((preview?.pressureScore ?? 0) * 100)} / 100`}
+              />
               <InfoRow label="Quality" value={preview?.quality ?? "Poor"} />
               <InfoRow
                 label="Court Position"
@@ -265,3 +288,104 @@ const qualityColor: Record<string, string> = {
   Good: "#facc15",
   Poor: "#f87171",
 };
+
+const zoneColor: Record<string, string> = {
+  "Above Break Three": "#60a5fa",
+  "Corner Three": "#38bdf8",
+  "Mid-Range": "#fbbf24",
+  Paint: "#86efac",
+};
+
+function enrichHeatmapPoint(
+  point: HeatmapPoint,
+  defenders: CourtPoint[],
+): LayeredHeatmapPoint {
+  const nearestDefender = defenders.reduce(
+    (nearest, defender) =>
+      Math.min(nearest, calculateDistance(point, defender)),
+    Number.POSITIVE_INFINITY,
+  );
+  const distanceToRim = calculateDistance(point, BASKET_LOCATION);
+  const shotValue = distanceToRim >= 22 || point.zone.includes("Three") ? 3 : 2;
+  const makeProbability = Math.min(point.epps / shotValue, 0.82);
+  const pressureScore = Number.isFinite(nearestDefender)
+    ? Math.max(0, 1 - Math.min(nearestDefender, 10) / 10)
+    : 0;
+  const density = Math.max(0.15, 1 - Math.min(distanceToRim, 32) / 36);
+
+  return {
+    ...point,
+    density,
+    makeProbability,
+    pressureScore,
+  };
+}
+
+function getLayerColor(point: LayeredHeatmapPoint, layer: HeatmapLayer) {
+  if (layer === "density") {
+    return "rgba(251,146,60,0.86)";
+  }
+
+  if (layer === "probability") {
+    return interpolateColor(point.makeProbability, [
+      [0.25, "#f87171"],
+      [0.5, "#facc15"],
+      [0.75, "#86efac"],
+    ]);
+  }
+
+  if (layer === "pressure") {
+    return interpolateColor(point.pressureScore, [
+      [0.2, "#86efac"],
+      [0.55, "#facc15"],
+      [0.9, "#f87171"],
+    ]);
+  }
+
+  if (layer === "zone") {
+    return zoneColor[point.zone] ?? "#c084fc";
+  }
+
+  return qualityColor[point.quality];
+}
+
+function getLayerRadius(point: LayeredHeatmapPoint, layer: HeatmapLayer) {
+  if (layer === "density") {
+    return 10 + point.density * 14;
+  }
+
+  if (layer === "pressure") {
+    return 10 + point.pressureScore * 12;
+  }
+
+  return 16;
+}
+
+function formatLayerLabel(point: LayeredHeatmapPoint, layer: HeatmapLayer) {
+  if (layer === "probability") {
+    return `${Math.round(point.makeProbability * 100)}`;
+  }
+
+  if (layer === "pressure") {
+    return `${Math.round(point.pressureScore * 10)}`;
+  }
+
+  if (layer === "density") {
+    return `${Math.round(point.density * 10)}`;
+  }
+
+  if (layer === "zone") {
+    return point.zone.slice(0, 1);
+  }
+
+  return point.epps.toFixed(1);
+}
+
+function interpolateColor(
+  value: number,
+  stops: Array<[number, string]>,
+) {
+  const match = stops.find(([stop]) => value <= stop);
+
+  return match?.[1] ?? stops[stops.length - 1][1];
+}
