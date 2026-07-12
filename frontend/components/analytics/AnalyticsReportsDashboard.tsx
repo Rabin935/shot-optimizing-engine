@@ -26,6 +26,7 @@ import {
 } from "recharts";
 import { GlobalAnalyticsFilterBar } from "@/components/analytics/GlobalAnalyticsFilterBar";
 import { AnalyticsCard, ChartContainer, ExportChartButton, StatCard } from "@/components/charts";
+import { EmptyState } from "@/components/ui";
 import { formatDecimal, formatPercent, formatScore } from "@/lib/analytics/formatters";
 import {
   buildHeatmapRegions,
@@ -120,36 +121,47 @@ export function AnalyticsReportsDashboard() {
           Build thesis-ready session reports, multi-shot summaries, trend
           analysis, printable layouts, and exportable analytics snapshots.
         </p>
-        <div className="mt-2 flex flex-wrap items-center gap-2" role="tablist" aria-label="Report view">
-          {reportModes.map((mode) => (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Report view">
+            {reportModes.map((mode) => (
+              <button
+                key={mode.value}
+                type="button"
+                role="tab"
+                aria-selected={reportMode === mode.value}
+                onClick={() => setReportMode(mode.value)}
+                className={`min-h-10 rounded-lg border px-4 text-sm font-black transition ${
+                  reportMode === mode.value
+                    ? "border-orange-300/40 bg-orange-500/15 text-orange-100"
+                    : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-white"
+                }`}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
             <button
-              key={mode.value}
               type="button"
-              role="tab"
-              aria-selected={reportMode === mode.value}
-              onClick={() => setReportMode(mode.value)}
-              className={`min-h-10 rounded-lg border px-4 text-sm font-black transition ${
-                reportMode === mode.value
-                  ? "border-orange-300/40 bg-orange-500/15 text-orange-100"
-                  : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-white"
-              }`}
+              onClick={printReport}
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-slate-300 transition hover:border-green-300/35 hover:text-green-100"
             >
-              {mode.label}
+              <Printer className="size-4" />
+              Print
             </button>
-          ))}
-          <button
-            type="button"
-            onClick={printReport}
-            className="ml-auto inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-slate-300 transition hover:border-green-300/35 hover:text-green-100"
-          >
-            <Printer className="size-4" />
-            Print
-          </button>
-          <ExportChartButton data={reportExport} filename="shotoptix-full-report" />
+            <ExportChartButton data={reportExport} filename="shotoptix-full-report" />
+          </div>
         </div>
       </header>
 
       <GlobalAnalyticsFilterBar />
+
+      {!shots.length ? (
+        <EmptyState title="No report data matches the current filters">
+          Adjust the global analytics filters or save simulator replays to build
+          a richer report.
+        </EmptyState>
+      ) : null}
 
       <section className="print-report grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={<Activity className="size-5" />} label="Replay Summary" value={`${summary.shotCount} shots`} />
