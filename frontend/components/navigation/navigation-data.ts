@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LineChart,
   ScanSearch,
+  Settings,
   SlidersHorizontal,
   Target,
   TrendingUp,
@@ -147,6 +148,13 @@ export const navigationGroups: NavigationGroup[] = [
         id: "reports",
         label: "Reports",
         shortcut: "R",
+      },
+      {
+        description: "User preferences and persistence",
+        href: "/settings",
+        icon: Settings,
+        id: "settings",
+        label: "Settings",
       },
       {
         description: "Product overview and context",
