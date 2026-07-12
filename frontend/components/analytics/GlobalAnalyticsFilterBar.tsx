@@ -2,10 +2,11 @@
 
 import { RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { FilterBar } from "@/components/charts";
-import { Button, Dropdown, FieldLabel, Input } from "@/components/ui";
+import { Badge, Button, Dropdown, FieldLabel, Input } from "@/components/ui";
 import { ANALYTICS_PRESSURE_ORDER, ANALYTICS_ZONE_ORDER } from "@/lib/analytics/transforms";
-import { useAnalyticsFilterStore } from "@/lib/analytics/filter-store";
+import { DEFAULT_ANALYTICS_FILTERS, useAnalyticsFilterStore } from "@/lib/analytics/filter-store";
 import { useAnalyticsSessions } from "@/lib/analytics/useFilteredAnalyticsShots";
 import type { AnalyticsFilterState } from "@/types/charts";
 
@@ -22,9 +23,22 @@ export function GlobalAnalyticsFilterBar() {
   const updateFilters = useAnalyticsFilterStore((state) => state.updateFilters);
   const resetFilters = useAnalyticsFilterStore((state) => state.resetFilters);
   const sessions = useAnalyticsSessions();
+  const activeFilterCount = useMemo(
+    () =>
+      Object.entries(filters).filter(
+        ([key, value]) =>
+          value !== DEFAULT_ANALYTICS_FILTERS[key as keyof AnalyticsFilterState],
+      ).length,
+    [filters],
+  );
 
   return (
     <FilterBar title="Global Analytics Filters">
+      <div className="flex min-h-10 items-center">
+        <Badge tone={activeFilterCount ? "success" : "neutral"}>
+          {activeFilterCount} active
+        </Badge>
+      </div>
       <SelectControl label="Zone" value={filters.shotZone} onChange={(value) => updateFilters({ shotZone: value as AnalyticsFilterState["shotZone"] })}>
         <option value="all">All Zones</option>
         {ANALYTICS_ZONE_ORDER.map((zone) => (
@@ -65,6 +79,7 @@ export function GlobalAnalyticsFilterBar() {
       <Button
         type="button"
         onClick={resetFilters}
+        disabled={!activeFilterCount}
         variant="outline"
       >
         <RotateCcw className="size-4" />
