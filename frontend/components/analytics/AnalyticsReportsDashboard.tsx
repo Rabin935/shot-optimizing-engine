@@ -77,6 +77,7 @@ export function AnalyticsReportsDashboard() {
   const worstPressure = getWorstPressure(pressureRows);
   const recentShots = [...shots].slice(-6).reverse();
   const printReport = () => window.print();
+  const trendAnalysis = useMemo(() => buildTrendAnalysis(trendRows), [trendRows]);
 
   return (
     <section className="grid gap-6">
@@ -126,6 +127,25 @@ export function AnalyticsReportsDashboard() {
         <StatCard icon={<Gauge className="size-5" />} label="Average EPPS" value={formatDecimal(summary.averageEpps)} tone="green" />
         <StatCard icon={<Target className="size-5" />} label="Average Make" value={formatPercent(summary.averageMakeProbability)} tone="orange" />
         <StatCard icon={<Award className="size-5" />} label="Best Shot" value={bestShot ? `#${bestShot.shotNumber}` : "No data"} />
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <AnalyticsCard eyebrow="Multi-shot Summary" title="Session report snapshot">
+          <div className="grid gap-3 md:grid-cols-2">
+            <SummaryRow icon={<Target className="size-4" />} label="Shot sample" value={`${summary.shotCount} filtered attempts`} />
+            <SummaryRow icon={<Award className="size-4" />} label="Best zone" value={bestZone?.zone ?? "No zone data"} />
+            <SummaryRow icon={<Shield className="size-4" />} label="Pressure mode" value={mostCommonPressure?.pressure ?? "No pressure data"} />
+            <SummaryRow icon={<Gauge className="size-4" />} label="Mechanics average" value={formatScore(average(mechanicsRows.map((row) => row.score)))} />
+          </div>
+        </AnalyticsCard>
+
+        <AnalyticsCard eyebrow="Trend Analysis" title="Direction and consistency">
+          <div className="grid gap-3 md:grid-cols-3">
+            <SummaryRow icon={<TrendingUp className="size-4" />} label="EPPS trend" value={trendAnalysis.eppsTrend} />
+            <SummaryRow icon={<Target className="size-4" />} label="Make trend" value={trendAnalysis.makeTrend} />
+            <SummaryRow icon={<Activity className="size-4" />} label="Consistency" value={trendAnalysis.consistency} />
+          </div>
+        </AnalyticsCard>
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
@@ -382,4 +402,44 @@ function describeShot(shot: AnalyticsShot | null) {
   }
 
   return `#${shot.shotNumber} ${shot.zone}, ${formatDecimal(shot.epps)} EPPS`;
+}
+
+function buildTrendAnalysis(rows: TrendPoint[]) {
+  if (rows.length < 2) {
+    return {
+      consistency: "Needs more shots",
+      eppsTrend: "No trend",
+      makeTrend: "No trend",
+    };
+  }
+
+  const first = rows[0];
+  const last = rows[rows.length - 1];
+  const eppsDelta = last.epps - first.epps;
+  const makeDelta = last.makeProbability - first.makeProbability;
+  const eppsValues = rows.map((row) => row.epps);
+  const spread = Math.max(...eppsValues) - Math.min(...eppsValues);
+
+  return {
+    consistency:
+      spread < 0.16 ? "Stable" : spread < 0.32 ? "Variable" : "Volatile",
+    eppsTrend: formatTrend(eppsDelta, " EPPS"),
+    makeTrend: formatTrend(makeDelta * 100, "%"),
+  };
+}
+
+function formatTrend(value: number, suffix: string) {
+  const sign = value >= 0 ? "+" : "";
+
+  return `${sign}${value.toFixed(suffix === "%" ? 1 : 2)}${suffix}`;
+}
+
+function average(values: number[]) {
+  const validValues = values.filter(Number.isFinite);
+
+  if (!validValues.length) {
+    return 0;
+  }
+
+  return validValues.reduce((sum, value) => sum + value, 0) / validValues.length;
 }
