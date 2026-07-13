@@ -51,7 +51,7 @@ const hyperparameters = [
   ["eval_metric", "logloss"],
 ];
 
-const featureImportance = [
+const featureImportance: Array<[string, number]> = [
   ["is_dunk", 0.5529],
   ["distance_pressure_interaction", 0.1576],
   ["shot_distance", 0.0383],
