@@ -21,6 +21,14 @@ class ShotPredictionRequest(BaseModel):
     loc_y: float = 0.0
     game_clock_seconds: float = Field(default=12.0, ge=0)
     is_home: int = Field(default=0, ge=0, le=1)
+    player_height_inches: float = Field(default=79.0, ge=48, le=96)
+    player_weight: float = Field(default=215.0, ge=100, le=400)
+    player_season_exp: float = Field(default=4.0, ge=0, le=30)
+    player_draft_number: float = Field(default=60.0, ge=0, le=100)
+    defender_height_wo_shoes_in: float = Field(default=79.0, ge=48, le=96)
+    defender_wingspan_in: float = Field(default=82.0, ge=48, le=100)
+    defender_wingspan_diff_in: float = Field(default=3.0, ge=-10, le=20)
+    defender_d_dpm: float = Field(default=0.0, ge=-10, le=10)
     action_type: str = ""
     shot_type: str = ""
     position_group: str = ""
@@ -47,6 +55,14 @@ class ShotPredictionRequest(BaseModel):
                 "loc_y": 30.5,
                 "game_clock_seconds": 626,
                 "is_home": 0,
+                "player_height_inches": 75,
+                "player_weight": 190,
+                "player_season_exp": 6,
+                "player_draft_number": 7,
+                "defender_height_wo_shoes_in": 78,
+                "defender_wingspan_in": 82,
+                "defender_wingspan_diff_in": 4,
+                "defender_d_dpm": 0.8,
                 "action_type": "Pullup Jump shot",
                 "shot_type": "3PT Field Goal",
                 "position_group": "G",

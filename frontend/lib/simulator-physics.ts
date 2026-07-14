@@ -16,6 +16,7 @@ export type ShotOutcomeKind =
 export type BallVisualState = {
   ball: StagePoint;
   backboardFlash: boolean;
+  hasContact: boolean;
   impactOffset: StagePoint;
   label: string;
   rimPulse: boolean;
@@ -89,6 +90,7 @@ export function getBallVisualState({
   releaseAngle,
   releasePoint,
   rim,
+  scoreRim = rim,
   shotDistance,
   blockPoint,
   blockProgress,
@@ -100,49 +102,90 @@ export function getBallVisualState({
   releaseAngle: number;
   releasePoint: StagePoint;
   rim: StagePoint;
+  scoreRim?: StagePoint;
   shotDistance: number;
 }): BallVisualState {
   const flightProgress = Math.min(Math.max((progress - 57) / 43, 0), 1);
-  const blockFlightProgress = Math.max(blockProgress ?? 0.5, 0.08);
-  const target = outcome === "block" ? rim : getOutcomeTarget(outcome, rim);
-  const pathProgress =
-    outcome === "block"
-      ? Math.min(flightProgress, blockFlightProgress)
-      : flightProgress;
+  const blockFlightProgress = Math.min(Math.max(blockProgress ?? 0.5, 0.08), 0.94);
+
+  if (outcome === "block" && blockPoint) {
+    const contactProgress = Math.min(flightProgress, blockFlightProgress);
+    const control = getArcControlPoint({
+      releaseAngle,
+      releasePoint,
+      rim: blockPoint,
+      shotDistance,
+    });
+    const contactPoint = getBezierPoint(
+      releasePoint,
+      control,
+      blockPoint,
+      contactProgress / blockFlightProgress,
+    );
+    const deflectionProgress = Math.min(
+      Math.max((flightProgress - blockFlightProgress) / (1 - blockFlightProgress), 0),
+      1,
+    );
+    const ball =
+      flightProgress >= blockFlightProgress
+        ? {
+            x: blockPoint.x - 88 * deflectionProgress,
+            y:
+              blockPoint.y +
+              34 * deflectionProgress +
+              84 * deflectionProgress * deflectionProgress,
+          }
+        : contactPoint;
+
+    return {
+      ball,
+      backboardFlash: false,
+      hasContact: flightProgress >= blockFlightProgress,
+      impactOffset: {
+        x: ball.x - contactPoint.x,
+        y: ball.y - contactPoint.y,
+      },
+      label: getOutcomeLabel(outcome),
+      rimPulse: false,
+      swish: false,
+    };
+  }
+
+  if (outcome === "backboard") {
+    return getBackboardBankVisualState({
+      contactPoint: rim,
+      flightProgress,
+      releaseAngle,
+      releasePoint,
+      scoreRim,
+      shotDistance,
+    });
+  }
+
+  const target = getOutcomeTarget(outcome, rim);
   const control = getArcControlPoint({
     releaseAngle,
     releasePoint,
     rim: target,
     shotDistance,
   });
-  const baseBall =
-    outcome === "block" && blockPoint && flightProgress >= blockFlightProgress
-      ? blockPoint
-      : getBezierPoint(releasePoint, control, target, pathProgress);
-  const blockImpactProgress =
-    outcome === "block"
-      ? Math.min(
-          Math.max((flightProgress - blockFlightProgress) / (1 - blockFlightProgress), 0),
-          1,
-        )
-      : pathProgress;
-  const impactOffset = getImpactOffset(
-    outcome,
-    outcome === "block" ? 0.82 + blockImpactProgress * 0.18 : pathProgress,
-  );
+  const baseBall = getBezierPoint(releasePoint, control, target, flightProgress);
+  const impactOffset = getImpactOffset(outcome, flightProgress);
   const ball = {
     x: baseBall.x + impactOffset.x,
     y: baseBall.y + impactOffset.y,
   };
+  const hasContact = flightProgress > getContactProgress(outcome);
 
   return {
     ball,
-    backboardFlash: outcome === "backboard" && flightProgress > 0.78,
+    backboardFlash: false,
+    hasContact,
     impactOffset,
     label: getOutcomeLabel(outcome),
     rimPulse:
-      (outcome === "rim-bounce" || outcome === "make") && flightProgress > 0.82,
-    swish: outcome === "swish" && flightProgress > 0.86,
+      (outcome === "rim-bounce" || outcome === "make") && hasContact,
+    swish: outcome === "swish" && hasContact,
   };
 }
 
@@ -191,11 +234,11 @@ export function getArcControlPoint({
   shotDistance: number;
 }) {
   const distanceLift = Math.min(Math.max(shotDistance, 8), 32) * 3.8;
-  const angleLift = (releaseAngle - 20) * 2.1;
+  const angleLift = (releaseAngle - 20) * 2.85;
 
   return {
     x: (releasePoint.x + rim.x) / 2,
-    y: Math.min(releasePoint.y, rim.y) - 48 - distanceLift - angleLift,
+    y: Math.min(releasePoint.y, rim.y) - 58 - distanceLift - angleLift,
   };
 }
 
@@ -228,41 +271,49 @@ function getOutcomeTarget(outcome: ShotOutcomeKind, rim: StagePoint) {
   }
 
   if (outcome === "backboard") {
-    return { x: rim.x + 38, y: rim.y - 48 };
+    return rim;
   }
 
   if (outcome === "miss") {
-    return { x: rim.x + 52, y: rim.y + 46 };
+    return rim;
   }
 
   if (outcome === "rim-bounce") {
-    return { x: rim.x + 22, y: rim.y - 5 };
+    return rim;
   }
 
-  return { x: rim.x, y: rim.y + 4 };
+  return { x: rim.x, y: rim.y };
 }
 
 function getImpactOffset(outcome: ShotOutcomeKind, progress: number): StagePoint {
-  if (progress < 0.82) {
+  const contactProgress = getContactProgress(outcome);
+
+  if (progress < contactProgress) {
     return { x: 0, y: 0 };
   }
 
-  const impact = (progress - 0.82) / 0.18;
+  const impact = Math.min(
+    Math.max((progress - contactProgress) / (1 - contactProgress), 0),
+    1,
+  );
 
   if (outcome === "rim-bounce") {
-    return { x: Math.sin(impact * Math.PI * 3) * 18, y: -Math.sin(impact * Math.PI) * 24 };
+    return {
+      x: -72 * impact,
+      y: -Math.sin(impact * Math.PI) * 44 + impact * 88,
+    };
   }
 
   if (outcome === "backboard") {
-    return { x: -impact * 42, y: impact * 58 };
+    return { x: -impact * 24, y: impact * 36 };
   }
 
   if (outcome === "miss") {
-    return { x: impact * 46, y: impact * 34 };
+    return { x: impact * 38, y: impact * 92 };
   }
 
   if (outcome === "make") {
-    return { x: Math.sin(impact * Math.PI * 2) * 8, y: impact * 38 };
+    return { x: Math.sin(impact * Math.PI * 2) * 5, y: impact * 58 };
   }
 
   if (outcome === "block") {
@@ -272,17 +323,109 @@ function getImpactOffset(outcome: ShotOutcomeKind, progress: number): StagePoint
   return { x: 0, y: impact * 46 };
 }
 
+function getBackboardBankVisualState({
+  contactPoint,
+  flightProgress,
+  releaseAngle,
+  releasePoint,
+  scoreRim,
+  shotDistance,
+}: {
+  contactPoint: StagePoint;
+  flightProgress: number;
+  releaseAngle: number;
+  releasePoint: StagePoint;
+  scoreRim: StagePoint;
+  shotDistance: number;
+}): BallVisualState {
+  const contactProgress = getContactProgress("backboard");
+  const flightControl = getArcControlPoint({
+    releaseAngle,
+    releasePoint,
+    rim: contactPoint,
+    shotDistance,
+  });
+  const contactBall = getBezierPoint(
+    releasePoint,
+    flightControl,
+    contactPoint,
+    Math.min(flightProgress / contactProgress, 1),
+  );
+
+  if (flightProgress < contactProgress) {
+    return {
+      ball: contactBall,
+      backboardFlash: false,
+      hasContact: false,
+      impactOffset: { x: 0, y: 0 },
+      label: getOutcomeLabel("backboard"),
+      rimPulse: false,
+      swish: false,
+    };
+  }
+
+  const postContact = Math.min(
+    Math.max((flightProgress - contactProgress) / (1 - contactProgress), 0),
+    1,
+  );
+  const rimEntry = { x: scoreRim.x + 1, y: scoreRim.y + 2 };
+  const bankProgress = Math.min(postContact / 0.56, 1);
+  const bankControl = {
+    x: (contactPoint.x + rimEntry.x) / 2 + 8,
+    y: Math.min(contactPoint.y, rimEntry.y) - 36,
+  };
+  const bankBall = getBezierPoint(
+    contactPoint,
+    bankControl,
+    rimEntry,
+    bankProgress,
+  );
+  const netProgress = Math.min(Math.max((postContact - 0.56) / 0.44, 0), 1);
+  const ball =
+    postContact <= 0.56
+      ? bankBall
+      : {
+          x: rimEntry.x + Math.sin(netProgress * Math.PI * 2) * 4,
+          y: rimEntry.y + netProgress * 64,
+        };
+
+  return {
+    ball,
+    backboardFlash: true,
+    hasContact: true,
+    impactOffset: {
+      x: ball.x - contactPoint.x,
+      y: ball.y - contactPoint.y,
+    },
+    label: getOutcomeLabel("backboard"),
+    rimPulse: postContact > 0.45,
+    swish: postContact > 0.56,
+  };
+}
+
+function getContactProgress(outcome: ShotOutcomeKind) {
+  if (outcome === "swish") {
+    return 0.9;
+  }
+
+  if (outcome === "miss") {
+    return 0.76;
+  }
+
+  return 0.82;
+}
+
 function getOutcomeLabel(outcome: ShotOutcomeKind) {
   if (outcome === "block") {
-    return "Block";
+    return "Blocked";
   }
 
   if (outcome === "swish") {
-    return "Swish";
+    return "Score";
   }
 
   if (outcome === "make") {
-    return "Make";
+    return "Score";
   }
 
   if (outcome === "rim-bounce") {
@@ -290,7 +433,7 @@ function getOutcomeLabel(outcome: ShotOutcomeKind) {
   }
 
   if (outcome === "backboard") {
-    return "Backboard hit";
+    return "Bank score";
   }
 
   return "Miss";

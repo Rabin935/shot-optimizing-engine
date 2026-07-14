@@ -17,6 +17,16 @@
     "game_clock_seconds",
     "is_home",
     "shot_value",
+    "player_height_inches",
+    "player_weight",
+    "player_season_exp",
+    "player_draft_number",
+    "defender_height_wo_shoes_in",
+    "defender_wingspan_in",
+    "defender_wingspan_diff_in",
+    "defender_d_dpm",
+    "defender_length_pressure",
+    "defender_height_pressure",
     "distance_pressure_interaction",
     "late_clock",
     "early_clock",
@@ -44,151 +54,187 @@
     "pressure_very_open"
   ],
   "training_dataset": "data/processed/shotoptix_ml_training.csv",
-  "training_rows": 3487218,
-  "test_rows": 871805,
+  "training_rows": 7244740,
+  "test_rows": 1811186,
   "metrics": {
-    "accuracy": 0.6295387156531563,
-    "precision": 0.6588256952899779,
-    "recall": 0.3947464081486328,
-    "f1_score": 0.49369013466271616,
-    "roc_auc": 0.6539309495705381
+    "accuracy": 0.6247232476399442,
+    "precision": 0.6475783550534948,
+    "recall": 0.38847393929561214,
+    "f1_score": 0.485626673406962,
+    "roc_auc": 0.6414513794425876
   },
   "feature_importance": [
     {
       "feature": "is_dunk",
-      "importance": 0.5528688430786133
-    },
-    {
-      "feature": "distance_pressure_interaction",
-      "importance": 0.1576070785522461
+      "importance": 0.38166067004203796
     },
     {
       "feature": "shot_distance",
-      "importance": 0.03833016753196716
+      "importance": 0.1487964391708374
     },
     {
-      "feature": "is_driving",
-      "importance": 0.03145391494035721
-    },
-    {
-      "feature": "is_jump_shot",
-      "importance": 0.02794218435883522
-    },
-    {
-      "feature": "is_pullup",
-      "importance": 0.02676641382277012
-    },
-    {
-      "feature": "zone_paint",
-      "importance": 0.019317885860800743
-    },
-    {
-      "feature": "is_hook",
-      "importance": 0.01711697317659855
-    },
-    {
-      "feature": "is_tip",
-      "importance": 0.01695936731994152
-    },
-    {
-      "feature": "quick_touch",
-      "importance": 0.014827344566583633
-    },
-    {
-      "feature": "is_fadeaway",
-      "importance": 0.014186851680278778
+      "feature": "distance_pressure_interaction",
+      "importance": 0.14463616907596588
     },
     {
       "feature": "game_clock_seconds",
-      "importance": 0.012415008619427681
+      "importance": 0.025784224271774292
     },
     {
-      "feature": "is_layup",
-      "importance": 0.011214565485715866
+      "feature": "is_hook",
+      "importance": 0.025778282433748245
     },
     {
-      "feature": "abs_loc_x",
-      "importance": 0.008019202388823032
+      "feature": "is_pullup",
+      "importance": 0.022781522944569588
     },
     {
-      "feature": "loc_y",
-      "importance": 0.0059880949556827545
+      "feature": "is_driving",
+      "importance": 0.020814498886466026
     },
     {
-      "feature": "position_guard",
-      "importance": 0.005878825671970844
-    },
-    {
-      "feature": "defender_distance",
-      "importance": 0.0043399157002568245
-    },
-    {
-      "feature": "pressure_open",
-      "importance": 0.004227431025356054
-    },
-    {
-      "feature": "position_center",
-      "importance": 0.003592895809561014
+      "feature": "is_fadeaway",
+      "importance": 0.017287736758589745
     },
     {
       "feature": "long_three",
-      "importance": 0.003568477462977171
+      "importance": 0.01712925173342228
     },
     {
-      "feature": "period",
-      "importance": 0.003264273749664426
+      "feature": "is_jump_shot",
+      "importance": 0.016106298193335533
     },
     {
-      "feature": "touch_time",
-      "importance": 0.0031488866079598665
+      "feature": "is_tip",
+      "importance": 0.015355225652456284
     },
     {
-      "feature": "zone_mid_range",
-      "importance": 0.002898292848840356
+      "feature": "zone_three_point",
+      "importance": 0.013923012651503086
     },
     {
-      "feature": "early_clock",
-      "importance": 0.0028671089094132185
+      "feature": "loc_y",
+      "importance": 0.01373271830379963
     },
     {
-      "feature": "shot_value",
-      "importance": 0.002737194998189807
+      "feature": "is_layup",
+      "importance": 0.012833240441977978
     },
     {
-      "feature": "shot_clock",
-      "importance": 0.001618614885956049
+      "feature": "position_guard",
+      "importance": 0.011974330991506577
+    },
+    {
+      "feature": "zone_paint",
+      "importance": 0.010588353499770164
     },
     {
       "feature": "loc_x",
-      "importance": 0.0014066655421629548
+      "importance": 0.010465685278177261
     },
     {
-      "feature": "pressure_very_open",
-      "importance": 0.0011531010968610644
+      "feature": "abs_loc_x",
+      "importance": 0.009387760423123837
     },
     {
-      "feature": "dribbles",
-      "importance": 0.0011508845491334796
+      "feature": "pressure_open",
+      "importance": 0.008719217963516712
     },
     {
-      "feature": "pressure_very_tight",
-      "importance": 0.0009981789626181126
+      "feature": "period",
+      "importance": 0.007555348798632622
     },
     {
-      "feature": "deep_two",
-      "importance": 0.0008402885869145393
+      "feature": "touch_time",
+      "importance": 0.007125630509108305
+    },
+    {
+      "feature": "defender_distance",
+      "importance": 0.006671779323369265
+    },
+    {
+      "feature": "quick_touch",
+      "importance": 0.005670350976288319
+    },
+    {
+      "feature": "player_season_exp",
+      "importance": 0.005136304069310427
+    },
+    {
+      "feature": "player_height_inches",
+      "importance": 0.004801460541784763
+    },
+    {
+      "feature": "defender_height_pressure",
+      "importance": 0.004177182912826538
+    },
+    {
+      "feature": "player_weight",
+      "importance": 0.0036642225459218025
+    },
+    {
+      "feature": "player_draft_number",
+      "importance": 0.0032078044023364782
+    },
+    {
+      "feature": "shot_clock",
+      "importance": 0.0031699289102107286
+    },
+    {
+      "feature": "defender_length_pressure",
+      "importance": 0.0030337644275277853
+    },
+    {
+      "feature": "shot_value",
+      "importance": 0.002828759839758277
     },
     {
       "feature": "position_forward",
-      "importance": 0.0007816178840585053
+      "importance": 0.0026931571774184704
     },
     {
-      "feature": "late_clock",
-      "importance": 0.00027730752481147647
+      "feature": "zone_mid_range",
+      "importance": 0.002283903304487467
+    },
+    {
+      "feature": "position_center",
+      "importance": 0.002209001686424017
+    },
+    {
+      "feature": "deep_two",
+      "importance": 0.0014455995988100767
+    },
+    {
+      "feature": "early_clock",
+      "importance": 0.001216626144014299
+    },
+    {
+      "feature": "defender_wingspan_in",
+      "importance": 0.0009765169816091657
+    },
+    {
+      "feature": "dribbles",
+      "importance": 0.0009168421966023743
+    },
+    {
+      "feature": "defender_d_dpm",
+      "importance": 0.0008012489997781813
+    },
+    {
+      "feature": "pressure_very_open",
+      "importance": 0.0007875575684010983
+    },
+    {
+      "feature": "defender_height_wo_shoes_in",
+      "importance": 0.0007022160571068525
     },
     {
       "feature": "pressure_tight",
-      "importance": 0.0002362084633205086
+      "importance": 0.0006386315217241645
+    },
+    {
+      "feature": "defender_wingspan_diff_in",
+      "importance": 0.0005314890877343714
     },
     {
       "feature": "shot_angle",
@@ -199,14 +245,18 @@
       "importance": 0.0
     },
     {
+      "feature": "late_clock",
+      "importance": 0.0
+    },
+    {
       "feature": "high_dribble",
       "importance": 0.0
     },
     {
-      "feature": "zone_three_point",
+      "feature": "pressure_very_tight",
       "importance": 0.0
     }
   ],
-  "training_date": "2026-07-03T16:42:21.496204+00:00",
+  "training_date": "2026-07-13T13:28:25.405575+00:00",
   "notes": "Feature order is exactly the order in features_used and must match app.ml.feature_builder.MODEL_FEATURES during FastAPI inference. The backend rule-based fallback remains required when the model is missing, incompatible, or unable to predict safely."
 }

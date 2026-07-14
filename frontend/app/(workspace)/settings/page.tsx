@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { AppShell } from "@/components/layout/AppShell";
 import { SettingsWorkspace } from "@/components/settings/SettingsWorkspace";
 
 export const metadata: Metadata = {
@@ -10,8 +9,6 @@ export const metadata: Metadata = {
 
 export default function SettingsPage() {
   return (
-    <AppShell>
       <SettingsWorkspace />
-    </AppShell>
   );
 }

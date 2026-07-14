@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { AppShell } from "@/components/layout/AppShell";
 import { LazySimulatorStateControls } from "@/components/performance/LazyWorkspaces";
 
 export const metadata: Metadata = {
@@ -12,8 +11,7 @@ export const metadata: Metadata = {
 export default function SimulatorPage() {
   // Render the Phase 5 prototype that consumes the shared shot store.
   return (
-    <AppShell>
-      <section className="mx-auto flex w-full max-w-7xl flex-col gap-7">
+      <section className="mx-auto flex w-full max-w-[96rem] flex-col gap-7">
         <header className="flex flex-col gap-3 border-b border-white/10 pb-6">
           <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-300">
             Phase 5 Shared State
@@ -29,6 +27,5 @@ export default function SimulatorPage() {
 
         <LazySimulatorStateControls />
       </section>
-    </AppShell>
   );
 }

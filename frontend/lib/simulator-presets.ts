@@ -9,6 +9,13 @@ export type PosePreset = {
   shooterPose: Partial<ShooterPoseState>;
 };
 
+export type DefenderPosePreset = {
+  description: string;
+  id: string;
+  name: string;
+  pose: Partial<DefenderPoseState>;
+};
+
 export const PROFESSIONAL_POSE_PRESETS: PosePreset[] = [
   {
     category: "pro",
@@ -235,6 +242,105 @@ export const PROFESSIONAL_POSE_PRESETS: PosePreset[] = [
       shootingArmAngle: 76,
       torsoAngle: 0,
       verticalOffset: 0.9,
+    },
+  },
+];
+
+export const DEFENDER_POSE_PRESETS: DefenderPosePreset[] = [
+  {
+    description: "Chest square, low center of gravity, close pressure stance.",
+    id: "close-defense",
+    name: "Close Defense",
+    pose: {
+      armRaise: 72,
+      contestHeight: 9.2,
+      isAirborne: false,
+      jumpHeight: 0,
+      kneeBend: 30,
+      leanAngle: -5,
+      stanceWidth: 3.6,
+      torsoAngle: -4,
+      verticalOffset: 0,
+    },
+  },
+  {
+    description: "Wide feet and bent knees for containing a drive.",
+    id: "low-stance",
+    name: "Low Stance",
+    pose: {
+      armRaise: 48,
+      contestHeight: 7.8,
+      isAirborne: false,
+      jumpHeight: 0,
+      kneeBend: 42,
+      leanAngle: 0,
+      stanceWidth: 4.5,
+      torsoAngle: 5,
+      verticalOffset: 0,
+    },
+  },
+  {
+    description: "Both hands active with upright posture to bother vision.",
+    id: "hands-up",
+    name: "Hands Up",
+    pose: {
+      armRaise: 92,
+      contestHeight: 10.4,
+      isAirborne: false,
+      jumpHeight: 0,
+      kneeBend: 18,
+      leanAngle: 0,
+      stanceWidth: 2.8,
+      torsoAngle: -2,
+      verticalOffset: 0,
+    },
+  },
+  {
+    description: "Straight-up jump contest with high release obstruction.",
+    id: "vertical-contest",
+    name: "Vertical Contest",
+    pose: {
+      armRaise: 100,
+      contestHeight: 11.2,
+      isAirborne: true,
+      jumpHeight: 8.4,
+      kneeBend: 7,
+      leanAngle: 0,
+      stanceWidth: 2.7,
+      torsoAngle: 0,
+      verticalOffset: 1.2,
+    },
+  },
+  {
+    description: "Recovering from behind with forward lean and late hand.",
+    id: "late-recovery",
+    name: "Late Recovery",
+    pose: {
+      armRaise: 68,
+      contestHeight: 8.4,
+      isAirborne: false,
+      jumpHeight: 0,
+      kneeBend: 22,
+      leanAngle: 16,
+      stanceWidth: 2.2,
+      torsoAngle: 12,
+      verticalOffset: 0,
+    },
+  },
+  {
+    description: "Balanced no-foul posture with controlled hand pressure.",
+    id: "verticality",
+    name: "Verticality",
+    pose: {
+      armRaise: 86,
+      contestHeight: 10,
+      isAirborne: false,
+      jumpHeight: 0,
+      kneeBend: 20,
+      leanAngle: 0,
+      stanceWidth: 3,
+      torsoAngle: 0,
+      verticalOffset: 0,
     },
   },
 ];

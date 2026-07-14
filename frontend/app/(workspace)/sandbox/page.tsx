@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Gauge } from "lucide-react";
-import { AppShell } from "@/components/layout/AppShell";
 import { SandboxExperience } from "@/components/sandbox/SandboxExperience";
 
 export const metadata: Metadata = {
@@ -11,7 +10,6 @@ export const metadata: Metadata = {
 
 export default function SandboxPage() {
   return (
-    <AppShell>
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-7">
         <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -41,6 +39,5 @@ export default function SandboxPage() {
 
         <SandboxExperience />
       </section>
-    </AppShell>
   );
 }

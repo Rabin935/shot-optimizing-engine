@@ -28,7 +28,7 @@ export function AppShell({ children }: AppShellProps) {
       <main
         id="main-content"
         tabIndex={-1}
-        className="relative z-10 min-h-screen lg:pl-72"
+        className="relative z-10 min-h-screen lg:pl-56"
       >
         <div className="mx-auto w-full max-w-[1520px] px-3 pb-32 pt-5 sm:px-6 lg:px-8 lg:py-8">
           <Breadcrumbs />

@@ -71,16 +71,20 @@ import {
   type ShotReplayEntry,
 } from "@/store/useShotStore";
 
-const STAGE_WIDTH = 920;
-const STAGE_HEIGHT = 520;
-const FLOOR_Y = 418;
-const RIM = { x: 792, y: 178 };
+const STAGE_WIDTH = 1080;
+const STAGE_HEIGHT = 640;
+const FLOOR_Y = 538;
+const RIM = { x: 976, y: 298 };
+const LEGACY_RIM_TARGETS: StagePoint[] = [
+  { x: 792, y: 298 },
+  { x: 792, y: 178 },
+];
 const STAGE_COURT_MIN_X = 118;
 const STAGE_COURT_MAX_X = 678;
 const STAGE_COURT_MIN_Y = FLOOR_Y - 58;
 const STAGE_COURT_MAX_Y = FLOOR_Y;
-const SHOOTER_PEAK_ELEVATION = { jumpHeight: 9.2, verticalOffset: 1.45 };
-const DEFENDER_PEAK_ELEVATION = { jumpHeight: 8.4, verticalOffset: 1.2 };
+const SHOOTER_PEAK_ELEVATION = { jumpHeight: 8.2, verticalOffset: 1.28 };
+const DEFENDER_PEAK_ELEVATION = { jumpHeight: 11.2, verticalOffset: 1.78 };
 
 const FALLBACK_DEFENDER_POSE: DefenderPoseState = {
   armRaise: 64,
@@ -93,6 +97,8 @@ const FALLBACK_DEFENDER_POSE: DefenderPoseState = {
   torsoAngle: 0,
   verticalOffset: 0,
 };
+
+type BlockInfo = { point: StagePoint; progress: number };
 
 export function SimulatorStateControls() {
   // This component is the Phase 5 simulator shell that consumes shared shot state.
@@ -161,6 +167,11 @@ export function SimulatorStateControls() {
     () => sharedSimulatorContext,
   );
   const [shotAimTarget, setShotAimTarget] = useState<StagePoint>(RIM);
+  const [aimTargetWasEdited, setAimTargetWasEdited] = useState(false);
+  const [latchedBlockInfo, setLatchedBlockInfo] = useState<BlockInfo | null>(
+    null,
+  );
+  const [timelinePreviewEnabled, setTimelinePreviewEnabled] = useState(false);
   const previousSharedContext = useRef(sharedSimulatorContext);
 
   useEffect(() => {
@@ -168,20 +179,36 @@ export function SimulatorStateControls() {
       return;
     }
 
-    // Timeline playback is stored globally so the optimizer, replay view, and
-    // simulator controls stay on the same animation frame.
-    const intervalId = window.setInterval(() => {
-      const current = useShotStore.getState().animationProgress;
-      const nextProgress = Math.min(current + 1, 100);
+    const startProgress = useShotStore.getState().animationProgress;
+    const startedAt = performance.now();
+    const duration = slowMotion ? 5200 : 2600;
+    let lastWrittenProgress = Math.round(startProgress);
+    let frameId = 0;
 
-      setAnimationProgress(nextProgress, "simulator");
+    const tick = (now: number) => {
+      const elapsed = now - startedAt;
+      const nextProgress = Math.min(
+        startProgress + (elapsed / duration) * (100 - startProgress),
+        100,
+      );
+      const roundedProgress = Math.round(nextProgress);
+
+      if (roundedProgress !== lastWrittenProgress) {
+        lastWrittenProgress = roundedProgress;
+        setAnimationProgress(roundedProgress, "simulator");
+      }
 
       if (nextProgress >= 100) {
         setAnimationPlaying(false, "simulator");
+        return;
       }
-    }, slowMotion ? 120 : 45);
 
-    return () => window.clearInterval(intervalId);
+      frameId = window.requestAnimationFrame(tick);
+    };
+
+    frameId = window.requestAnimationFrame(tick);
+
+    return () => window.cancelAnimationFrame(frameId);
   }, [animationPlaying, setAnimationPlaying, setAnimationProgress, slowMotion]);
 
   useEffect(() => {
@@ -217,6 +244,33 @@ export function SimulatorStateControls() {
   const primaryDefenderPose =
     defenderPoses[activePrimaryDefender?.id ?? "d1"] ??
     FALLBACK_DEFENDER_POSE;
+  const timelinePoseActive = animationPlaying || timelinePreviewEnabled;
+  const displayedShooterPose = useMemo(
+    () => {
+      if (!timelinePoseActive) {
+        return shooterPose;
+      }
+
+      const timelinePose = interpolateShooterPose(animationProgress);
+
+      return {
+        ...timelinePose,
+        handHeight: Math.max(timelinePose.handHeight, shooterPose.handHeight),
+        releaseAngle: shooterPose.releaseAngle,
+      };
+    },
+    [animationProgress, shooterPose, timelinePoseActive],
+  );
+  const displayedDefenderPose = useMemo(
+    () =>
+      timelinePoseActive
+        ? {
+            ...primaryDefenderPose,
+            ...interpolateDefenderPose(animationProgress),
+          }
+        : primaryDefenderPose,
+    [animationProgress, primaryDefenderPose, timelinePoseActive],
+  );
   const activeFrameIndex = getTimelineFrameIndex(animationProgress);
   const recommendedPose = useMemo(
     () => getRecommendedShooterPose(shooterPose),
@@ -308,22 +362,6 @@ export function SimulatorStateControls() {
   );
 
   useEffect(() => {
-    // Scrubbing or autoplay interpolates reusable keyframes, then writes the
-    // current body pose back into the shared store for every other panel.
-    updateShooterPose(interpolateShooterPose(animationProgress), "simulator");
-    updateDefenderPose(
-      activePrimaryDefender?.id ?? "d1",
-      interpolateDefenderPose(animationProgress),
-      "simulator",
-    );
-  }, [
-    activePrimaryDefender?.id,
-    animationProgress,
-    updateDefenderPose,
-    updateShooterPose,
-  ]);
-
-  useEffect(() => {
     if (animationProgress >= 100 && !savedCurrentCompletion.current) {
       saveCurrentReplay();
       savedCurrentCompletion.current = true;
@@ -351,35 +389,63 @@ export function SimulatorStateControls() {
     [mappedDraft.defender.x, mappedDraft.defender.y],
   );
   const releasePoint = useMemo(
-    () => getReleasePoint({ shooterPose, shooterStage }),
-    [shooterPose, shooterStage],
+    () => getReleasePoint({ shooterPose: displayedShooterPose, shooterStage }),
+    [displayedShooterPose, shooterStage],
+  );
+  const effectiveAimTarget = useMemo(
+    () =>
+      isLegacyRimTarget(shotAimTarget) ||
+      (!aimTargetWasEdited && distanceBetweenPoints(shotAimTarget, RIM) > 96)
+        ? RIM
+        : shotAimTarget,
+    [aimTargetWasEdited, shotAimTarget],
   );
   const blockInfo = useMemo(
     () =>
       findBlockPoint({
-        defenderPose: primaryDefenderPose,
+        defenderPose: displayedDefenderPose,
         defenderStage,
-        releaseAngle: shooterPose.releaseAngle,
+        releaseAngle: displayedShooterPose.releaseAngle,
         releasePoint,
         shotDistance,
-        target: shotAimTarget,
+        target: effectiveAimTarget,
       }),
     [
       defenderStage,
-      primaryDefenderPose,
+      displayedDefenderPose,
+      displayedShooterPose.releaseAngle,
+      effectiveAimTarget,
       releasePoint,
-      shooterPose.releaseAngle,
-      shotAimTarget,
       shotDistance,
     ],
   );
-  const aimMissesRim =
-    distanceBetweenPoints(shotAimTarget, RIM) > 42 && !blockInfo;
-  const effectiveShotOutcome: ShotOutcomeKind = blockInfo
-    ? "block"
-    : aimMissesRim
-      ? "miss"
-      : shotOutcome;
+  const shotFlightProgress = Math.min(
+    Math.max((animationProgress - 57) / 43, 0),
+    1,
+  );
+  useEffect(() => {
+    if (
+      (!animationPlaying && !timelinePreviewEnabled) ||
+      !blockInfo ||
+      shotFlightProgress < blockInfo.progress
+    ) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      setLatchedBlockInfo((current) => current ?? blockInfo);
+    }, 0);
+
+    return () => window.clearTimeout(timerId);
+  }, [animationPlaying, blockInfo, shotFlightProgress, timelinePreviewEnabled]);
+
+  const effectiveBlockInfo = latchedBlockInfo;
+  const effectiveShotOutcome: ShotOutcomeKind = resolveAimedShotOutcome({
+    blockPoint: effectiveBlockInfo?.point ?? null,
+    fallbackOutcome: shotOutcome,
+    makeProbability,
+    target: effectiveAimTarget,
+  });
   const sendPositionDraftToSandbox = useCallback(() => {
     // Commit all mapped values together from the user's perspective. Each store
     // action is marked as simulator-originated for traceability.
@@ -435,44 +501,84 @@ export function SimulatorStateControls() {
             );
 
       setAnimationPlaying(false, "simulator");
+      setTimelinePreviewEnabled(false);
+      setLatchedBlockInfo(null);
+      clearQueuedTimers(shooterJumpTimers);
+      clearQueuedTimers(defenderJumpTimers);
+      setAnimationProgress(0, "simulator");
+      updateShooterPose(
+        { isAirborne: false, jumpHeight: 0, verticalOffset: 0 },
+        "simulator",
+      );
+      updateDefenderPose(
+        activePrimaryDefender?.id ?? "d1",
+        { isAirborne: false, jumpHeight: 0, verticalOffset: 0 },
+        "simulator",
+      );
       commitSimulatorContext(nextContext);
     },
     [
+      activePrimaryDefender?.id,
       commitSimulatorContext,
       mappedDraft.defender,
       mappedDraft.shooter,
       positionDraft.defenderCount,
       setAnimationPlaying,
+      setAnimationProgress,
+      updateDefenderPose,
+      updateShooterPose,
     ],
   );
   const playTimeline = useCallback(() => {
+    setLatchedBlockInfo(null);
+
     if (animationProgress >= 100) {
       setAnimationProgress(0, "simulator");
     }
 
+    setTimelinePreviewEnabled(true);
     setAnimationPlaying(true, "simulator");
-  }, [animationProgress, setAnimationPlaying, setAnimationProgress]);
+  }, [
+    animationProgress,
+    setAnimationPlaying,
+    setAnimationProgress,
+  ]);
   const replayTimeline = useCallback(() => {
+    setLatchedBlockInfo(null);
+    setTimelinePreviewEnabled(true);
     setAnimationProgress(0, "simulator");
     setAnimationPlaying(true, "simulator");
   }, [setAnimationPlaying, setAnimationProgress]);
+  const showTimelinePreview = useCallback(
+    (progress: number) => {
+      setTimelinePreviewEnabled(true);
+      setAnimationProgress(progress, "simulator");
+    },
+    [setAnimationProgress],
+  );
+  const leaveTimelinePreview = useCallback(() => {
+    setTimelinePreviewEnabled(false);
+    setLatchedBlockInfo(null);
+  }, []);
   const changeShotArcHeight = useCallback(
     (point: StagePoint) => {
       const distanceLift = Math.min(Math.max(shotDistance, 8), 32) * 3.8;
-      const targetY = Math.min(releasePoint.y, shotAimTarget.y);
+      const targetY = Math.min(releasePoint.y, effectiveAimTarget.y);
       const nextReleaseAngle =
         (targetY - point.y - 48 - distanceLift) / 2.1 + 20;
 
       setAnimationPlaying(false, "simulator");
+      setTimelinePreviewEnabled(false);
+      setLatchedBlockInfo(null);
       updateShooterPose(
-        { releaseAngle: clampValue(nextReleaseAngle, 20, 75) },
+        { releaseAngle: clampValue(nextReleaseAngle, 20, 92) },
         "simulator",
       );
     },
     [
       releasePoint.y,
+      effectiveAimTarget.y,
       setAnimationPlaying,
-      shotAimTarget.y,
       shotDistance,
       updateShooterPose,
     ],
@@ -480,9 +586,12 @@ export function SimulatorStateControls() {
   const changeShotAimTarget = useCallback(
     (point: StagePoint) => {
       setAnimationPlaying(false, "simulator");
+      setTimelinePreviewEnabled(false);
+      setLatchedBlockInfo(null);
+      setAimTargetWasEdited(true);
       setShotAimTarget({
-        x: clampValue(point.x, RIM.x - 125, RIM.x + 105),
-        y: clampValue(point.y, RIM.y - 90, RIM.y + 105),
+        x: clampValue(point.x, STAGE_COURT_MIN_X, STAGE_WIDTH - 58),
+        y: clampValue(point.y, 72, FLOOR_Y - 26),
       });
     },
     [setAnimationPlaying],
@@ -490,6 +599,8 @@ export function SimulatorStateControls() {
   const handlePosePointDrag = useCallback(
     (drag: StickmanPoseDrag) => {
       setAnimationPlaying(false, "simulator");
+      setTimelinePreviewEnabled(false);
+      setLatchedBlockInfo(null);
 
       if (drag.type === "shooter") {
         updateShooterPose(
@@ -518,6 +629,10 @@ export function SimulatorStateControls() {
     // Zustand writes synchronously, so reload the reset coordinates into the
     // simulator draft immediately after resetting the shared shot.
     resetShot("simulator");
+    setTimelinePreviewEnabled(false);
+    setLatchedBlockInfo(null);
+    setAimTargetWasEdited(false);
+    setShotAimTarget(RIM);
     const resetState = useShotStore.getState();
     setPositionDraft(
       courtStateToSimulatorContext(
@@ -532,11 +647,13 @@ export function SimulatorStateControls() {
     // It writes to the same Zustand pose state that the sliders control.
     clearQueuedTimers(shooterJumpTimers);
     setAnimationPlaying(false, "simulator");
+    setTimelinePreviewEnabled(false);
+    setLatchedBlockInfo(null);
     setAnimationProgress(47, "simulator");
     updateShooterPose(
       {
         isAirborne: true,
-        jumpHeight: 4.5,
+        jumpHeight: 3.8,
         kneeBend: 18,
         verticalOffset: 0.45,
       },
@@ -583,15 +700,18 @@ export function SimulatorStateControls() {
     // Defender contest uses the same elevation sequence, with a raised hand
     // and contest height emphasized at the hang point.
     clearQueuedTimers(defenderJumpTimers);
+    setAnimationPlaying(false, "simulator");
+    setTimelinePreviewEnabled(false);
+    setLatchedBlockInfo(null);
     updateDefenderPose(
       activePrimaryDefender?.id ?? "d1",
-      {
-        armRaise: 78,
-        isAirborne: true,
-        jumpHeight: 3.8,
-        kneeBend: 14,
-        verticalOffset: 0.35,
-      },
+        {
+          armRaise: 78,
+          isAirborne: true,
+          jumpHeight: 5.2,
+          kneeBend: 14,
+          verticalOffset: 0.54,
+        },
       "simulator",
     );
     queueElevationStep(defenderJumpTimers, 220, () => {
@@ -614,9 +734,9 @@ export function SimulatorStateControls() {
         {
           armRaise: 80,
           isAirborne: true,
-          jumpHeight: 3.2,
+          jumpHeight: 5,
           kneeBend: 16,
-          verticalOffset: 0.3,
+          verticalOffset: 0.52,
         },
         "simulator",
       );
@@ -632,12 +752,15 @@ export function SimulatorStateControls() {
         "simulator",
       );
     });
-  }, [activePrimaryDefender?.id, updateDefenderPose]);
+  }, [activePrimaryDefender?.id, setAnimationPlaying, updateDefenderPose]);
 
   const resetElevation = useCallback(() => {
     // Reset elevation only lands the players; it leaves user-tuned angles intact.
     clearQueuedTimers(shooterJumpTimers);
     clearQueuedTimers(defenderJumpTimers);
+    setAnimationPlaying(false, "simulator");
+    setTimelinePreviewEnabled(false);
+    setLatchedBlockInfo(null);
     updateShooterPose(
       { isAirborne: false, jumpHeight: 0, verticalOffset: 0 },
       "simulator",
@@ -647,10 +770,15 @@ export function SimulatorStateControls() {
       { isAirborne: false, jumpHeight: 0, verticalOffset: 0 },
       "simulator",
     );
-  }, [activePrimaryDefender?.id, updateDefenderPose, updateShooterPose]);
+  }, [
+    activePrimaryDefender?.id,
+    setAnimationPlaying,
+    updateDefenderPose,
+    updateShooterPose,
+  ]);
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_370px]">
       <section className="min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.045] shadow-[0_28px_90px_rgba(0,0,0,0.34)] backdrop-blur-xl xl:sticky xl:top-5 xl:self-start">
         <div className="flex flex-col gap-3 border-b border-white/10 bg-black/25 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
@@ -675,36 +803,32 @@ export function SimulatorStateControls() {
             isSlowMotion={slowMotion}
             timeline={animationProgress}
             onNextFrame={() =>
-              setAnimationProgress(
+              showTimelinePreview(
                 nextFrameProgress(animationProgress),
-                "simulator",
               )
             }
             onPause={() => setAnimationPlaying(false, "simulator")}
             onPlay={playTimeline}
             onPreviousFrame={() =>
-              setAnimationProgress(
+              showTimelinePreview(
                 previousFrameProgress(animationProgress),
-                "simulator",
               )
             }
             onReset={() => {
               replayTimeline();
             }}
-            onTimelineChange={(progress) =>
-              setAnimationProgress(progress, "simulator")
-            }
+            onTimelineChange={showTimelinePreview}
             onToggleSlowMotion={() => setSlowMotion(!slowMotion, "simulator")}
           />
         </div>
 
         <SimulatorStage
           comparisonMode={comparisonMode}
-          defenderPose={primaryDefenderPose}
+          defenderPose={displayedDefenderPose}
           defenderStage={defenderStage}
-          aimTarget={shotAimTarget}
-          blockPoint={blockInfo?.point ?? null}
-          blockProgress={blockInfo?.progress}
+          aimTarget={effectiveAimTarget}
+          blockPoint={effectiveBlockInfo?.point ?? null}
+          blockProgress={effectiveBlockInfo?.progress}
           makeProbability={makeProbability}
           effectiveOutcome={effectiveShotOutcome}
           epps={epps}
@@ -713,7 +837,7 @@ export function SimulatorStateControls() {
           onPosePointDrag={handlePosePointDrag}
           recommendation={recommendation}
           recommendedPose={recommendedPose}
-          shooterPose={shooterPose}
+          shooterPose={displayedShooterPose}
           shooterStage={shooterStage}
           shotDistance={shotDistance}
           shotQuality={shotQuality}
@@ -754,6 +878,7 @@ export function SimulatorStateControls() {
       <aside className="grid gap-4 xl:sticky xl:top-5 xl:max-h-[calc(100vh-2.5rem)] xl:self-start xl:overflow-y-auto xl:pr-1">
         <PoseControls
           onDefenderContestJump={runDefenderContestJump}
+          onManualPoseEdit={leaveTimelinePreview}
           onResetElevation={resetElevation}
           onShooterJump={runShooterJump}
         />
@@ -771,6 +896,8 @@ export function SimulatorStateControls() {
           onDeleteReplay={(replayId) => deleteReplay(replayId, "simulator")}
           onLoadReplay={(replayId) => {
             loadReplay(replayId, "replay");
+            setLatchedBlockInfo(null);
+            setTimelinePreviewEnabled(true);
             setAnimationProgress(0, "replay");
             setAnimationPlaying(true, "replay");
           }}
@@ -809,7 +936,10 @@ export function SimulatorStateControls() {
           onDraftChange={setPositionDraft}
           onResetShot={resetSharedShot}
           onSendToSandbox={sendPositionDraftToSandbox}
-          resetPoses={resetPoses}
+          resetPoses={(source) => {
+            leaveTimelinePreview();
+            resetPoses(source);
+          }}
         />
       </aside>
     </div>
@@ -907,7 +1037,7 @@ function SimulatorStage({
     <div className="relative bg-[#10160f]">
       <svg
         ref={stageRef}
-        className="block h-[360px] w-full sm:h-[460px] xl:h-[560px]"
+        className="block h-[440px] w-full sm:h-[560px] xl:h-[680px] 2xl:h-[740px]"
         viewBox={`0 0 ${STAGE_WIDTH} ${STAGE_HEIGHT}`}
         role="img"
         aria-label="2D stickman basketball simulator with shooter, defender, rim, and ball arc"
@@ -1111,19 +1241,19 @@ function CourtBackground() {
       <rect
         x="44"
         y={FLOOR_Y}
-        width="832"
+        width={STAGE_WIDTH - 88}
         height="54"
         rx="8"
         fill="rgba(190,123,61,0.58)"
         stroke="rgba(255,255,255,0.14)"
       />
       <path
-        d={`M 74 ${FLOOR_Y}H846M160 ${FLOOR_Y}v54M460 ${FLOOR_Y}v54M760 ${FLOOR_Y}v54`}
+        d={`M 74 ${FLOOR_Y}H${STAGE_WIDTH - 74}M160 ${FLOOR_Y}v54M460 ${FLOOR_Y}v54M760 ${FLOOR_Y}v54M960 ${FLOOR_Y}v54`}
         stroke="rgba(255,255,255,0.16)"
         strokeWidth="2"
       />
       <path
-        d="M80 362C226 322 358 326 496 360S730 400 852 358"
+        d={`M80 ${FLOOR_Y - 56}C226 ${FLOOR_Y - 96} 358 ${FLOOR_Y - 92} 496 ${FLOOR_Y - 58}S730 ${FLOOR_Y - 18} 852 ${FLOOR_Y - 60}S990 ${FLOOR_Y - 88} ${STAGE_WIDTH - 70} ${FLOOR_Y - 50}`}
         fill="none"
         stroke="rgba(255,255,255,0.08)"
         strokeDasharray="9 16"
@@ -1139,8 +1269,8 @@ function CrowdBlurBackground() {
   // distracting from the mechanics stage.
   return (
     <g opacity="0.34" filter="url(#sim-green-glow)">
-      <rect x="34" y="46" width="820" height="74" rx="18" fill="rgba(15,23,42,0.72)" />
-      {Array.from({ length: 18 }).map((_, index) => (
+      <rect x="34" y="46" width={STAGE_WIDTH - 68} height="74" rx="18" fill="rgba(15,23,42,0.72)" />
+      {Array.from({ length: 22 }).map((_, index) => (
         <circle
           key={`crowd-${index}`}
           cx={70 + index * 45}
@@ -1175,17 +1305,17 @@ function Basket() {
   return (
     <g>
       <line
-        x1="828"
-        x2="828"
-        y1="88"
-        y2="211"
+        x1={RIM.x + 36}
+        x2={RIM.x + 36}
+        y1={RIM.y - 90}
+        y2={RIM.y + 33}
         stroke="rgba(255,255,255,0.82)"
         strokeLinecap="round"
         strokeWidth="8"
       />
       <rect
-        x="790"
-        y="110"
+        x={RIM.x - 2}
+        y={RIM.y - 68}
         width="70"
         height="48"
         rx="4"
@@ -1833,7 +1963,7 @@ function getShooterPosePatchFromDrag(
   if (handle === "primaryHand") {
     return {
       handHeight: clampValue(pose.handHeight - delta.y * 0.025, 5, 12),
-      releaseAngle: clampValue(pose.releaseAngle - delta.y * 0.16, 20, 75),
+      releaseAngle: clampValue(pose.releaseAngle - delta.y * 0.16, 20, 92),
       shootingArmAngle: clampValue(
         pose.shootingArmAngle + delta.x * 0.14 - delta.y * 0.12,
         10,
@@ -1986,6 +2116,52 @@ function findBlockPoint({
   return null;
 }
 
+function resolveAimedShotOutcome({
+  blockPoint,
+  fallbackOutcome,
+  makeProbability,
+  target,
+}: {
+  blockPoint: StagePoint | null;
+  fallbackOutcome: ShotOutcomeKind;
+  makeProbability: number;
+  target: StagePoint;
+}): ShotOutcomeKind {
+  if (blockPoint) {
+    return "block";
+  }
+
+  const rimDistance = distanceBetweenPoints(target, RIM);
+  const bankTarget = { x: RIM.x + 36, y: RIM.y - 44 };
+  const bankDistance = distanceBetweenPoints(target, bankTarget);
+  const isBackboardAim =
+    bankDistance <= 45 ||
+    (target.x >= RIM.x + 12 &&
+      target.x <= RIM.x + 76 &&
+      target.y >= RIM.y - 78 &&
+      target.y <= RIM.y - 12);
+
+  if (isBackboardAim) {
+    return "backboard";
+  }
+
+  if (rimDistance <= 18) {
+    return fallbackOutcome === "swish" || makeProbability >= 0.62
+      ? "swish"
+      : "make";
+  }
+
+  if (rimDistance <= 38) {
+    return makeProbability >= 0.54 ? "make" : "rim-bounce";
+  }
+
+  if (rimDistance <= 58) {
+    return "rim-bounce";
+  }
+
+  return "miss";
+}
+
 function doesBallHitDefender(
   ball: StagePoint,
   defenderGeometry: StickmanHitGeometry,
@@ -2036,6 +2212,12 @@ function clampValue(value: number, min: number, max: number) {
 
 function distanceBetweenPoints(first: StagePoint, second: StagePoint) {
   return Math.hypot(first.x - second.x, first.y - second.y);
+}
+
+function isLegacyRimTarget(point: StagePoint) {
+  return LEGACY_RIM_TARGETS.some(
+    (legacyTarget) => distanceBetweenPoints(point, legacyTarget) < 18,
+  );
 }
 
 function distancePointToSegment(

@@ -97,11 +97,11 @@ export const SHOOTING_ANIMATION_KEYFRAMES: ShootingAnimationKeyframe[] = [
     },
     defenderPose: {
       armRaise: 80,
-      contestHeight: 9.6,
+      contestHeight: 10.2,
       isAirborne: true,
-      jumpHeight: 4.2,
+      jumpHeight: 7.6,
       kneeBend: 12,
-      verticalOffset: 0.45,
+      verticalOffset: 0.92,
     },
     ball: { visible: true, xOffset: 34, yOffset: -128 },
   },
@@ -124,11 +124,11 @@ export const SHOOTING_ANIMATION_KEYFRAMES: ShootingAnimationKeyframe[] = [
     },
     defenderPose: {
       armRaise: 94,
-      contestHeight: 10.7,
+      contestHeight: 11.8,
       isAirborne: true,
-      jumpHeight: 7,
+      jumpHeight: 11.4,
       kneeBend: 7,
-      verticalOffset: 1,
+      verticalOffset: 1.82,
     },
     ball: { visible: true, xOffset: 56, yOffset: -166 },
   },
@@ -153,9 +153,9 @@ export const SHOOTING_ANIMATION_KEYFRAMES: ShootingAnimationKeyframe[] = [
     defenderPose: {
       armRaise: 82,
       isAirborne: true,
-      jumpHeight: 3.5,
+      jumpHeight: 7.2,
       kneeBend: 13,
-      verticalOffset: 0.38,
+      verticalOffset: 0.86,
     },
     ball: { visible: false, xOffset: 84, yOffset: -178 },
   },
@@ -260,7 +260,10 @@ export function interpolateDefenderPose(progress: number): Partial<DefenderPoseS
   return {
     armRaise: lerpNumber(from.defenderPose.armRaise, to.defenderPose.armRaise, localProgress),
     contestHeight: lerpNumber(from.defenderPose.contestHeight, to.defenderPose.contestHeight, localProgress),
-    isAirborne: localProgress < 0.5 ? from.defenderPose.isAirborne : to.defenderPose.isAirborne,
+    isAirborne:
+      (localProgress < 0.5
+        ? from.defenderPose.isAirborne
+        : to.defenderPose.isAirborne) ?? false,
     jumpHeight: lerpNumber(from.defenderPose.jumpHeight, to.defenderPose.jumpHeight, localProgress),
     kneeBend: lerpNumber(from.defenderPose.kneeBend, to.defenderPose.kneeBend, localProgress),
     leanAngle: lerpNumber(from.defenderPose.leanAngle, to.defenderPose.leanAngle, localProgress),

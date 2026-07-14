@@ -117,6 +117,12 @@ def add_derived_features(features: pd.DataFrame) -> None:
         (features["shot_value"] == 2) & (features["shot_distance"] >= 16)
     ).astype(int)
     features["abs_loc_x"] = features["loc_x"].abs()
+    features["defender_length_pressure"] = (
+        features["defender_wingspan_in"] / safe_defender_distance
+    )
+    features["defender_height_pressure"] = (
+        features["defender_height_wo_shoes_in"] / safe_defender_distance
+    )
 
 
 def add_action_features(features: pd.DataFrame, df: pd.DataFrame) -> None:
@@ -161,6 +167,14 @@ def build_features_for_model(df: pd.DataFrame, feature_names: list[str]) -> pd.D
         "game_clock_seconds",
         "is_home",
         "shot_value",
+        "player_height_inches",
+        "player_weight",
+        "player_season_exp",
+        "player_draft_number",
+        "defender_height_wo_shoes_in",
+        "defender_wingspan_in",
+        "defender_wingspan_diff_in",
+        "defender_d_dpm",
     ]:
         add_numeric_feature(features, df, column)
 

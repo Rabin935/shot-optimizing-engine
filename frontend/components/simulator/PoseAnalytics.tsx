@@ -146,7 +146,7 @@ function InsightCard({
         </span>
       </div>
       <p className="mt-3 text-sm leading-6 text-slate-200">{description}</p>
-      <p className="mt-3 rounded-md border border-white/10 bg-black/25 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-white">
+      <p className={`mt-3 rounded-md border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] ${indicatorClasses[tone]}`}>
         {scoreLabel}
       </p>
     </article>
@@ -329,7 +329,16 @@ function scoreRange(value: number, idealMin: number, idealMax: number, falloff: 
 }
 
 const toneClasses = {
-  green: "border-green-300/25 bg-green-400/10 text-green-100",
-  orange: "border-orange-300/25 bg-orange-500/10 text-orange-100",
-  red: "border-red-300/25 bg-red-500/10 text-red-100",
+  green:
+    "border-green-300/35 bg-gradient-to-br from-green-400/18 via-green-400/8 to-black/35 text-green-100",
+  orange:
+    "border-orange-300/35 bg-gradient-to-br from-orange-400/20 via-amber-400/10 to-black/35 text-orange-100",
+  red:
+    "border-red-300/35 bg-gradient-to-br from-red-500/22 via-orange-500/10 to-black/35 text-red-100",
+};
+
+const indicatorClasses = {
+  green: "border-green-300/25 bg-green-300/15 text-green-50",
+  orange: "border-orange-300/25 bg-orange-300/15 text-orange-50",
+  red: "border-red-300/25 bg-red-400/15 text-red-50",
 };

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { ShotZonePerformanceAnalytics } from "@/components/analytics/ShotZonePerformanceAnalytics";
-import { AppShell } from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
   title: "Shot Zone Analytics | ShotOptix",
@@ -10,8 +9,6 @@ export const metadata: Metadata = {
 export default function ShotZoneAnalyticsPage() {
   // The page is server-rendered shell with client charts mounted inside it.
   return (
-    <AppShell>
       <ShotZonePerformanceAnalytics />
-    </AppShell>
   );
 }

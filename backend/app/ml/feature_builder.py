@@ -14,6 +14,16 @@ MODEL_FEATURES = [
     "game_clock_seconds",
     "is_home",
     "shot_value",
+    "player_height_inches",
+    "player_weight",
+    "player_season_exp",
+    "player_draft_number",
+    "defender_height_wo_shoes_in",
+    "defender_wingspan_in",
+    "defender_wingspan_diff_in",
+    "defender_d_dpm",
+    "defender_length_pressure",
+    "defender_height_pressure",
     "distance_pressure_interaction",
     "late_clock",
     "early_clock",
@@ -62,6 +72,14 @@ NUMERIC_DEFAULTS = {
     "game_clock_seconds": 12.0,
     "is_home": 0,
     "shot_value": 2,
+    "player_height_inches": 79.0,
+    "player_weight": 215.0,
+    "player_season_exp": 4.0,
+    "player_draft_number": 60.0,
+    "defender_height_wo_shoes_in": 79.0,
+    "defender_wingspan_in": 82.0,
+    "defender_wingspan_diff_in": 3.0,
+    "defender_d_dpm": 0.0,
 }
 
 DEFAULT_SHOT_ZONE = "Mid-Range"
@@ -167,6 +185,12 @@ def add_derived_features(features: pd.DataFrame) -> None:
         (features["shot_value"] == 2) & (features["shot_distance"] >= 16)
     ).astype(int)
     features["abs_loc_x"] = features["loc_x"].abs()
+    features["defender_length_pressure"] = (
+        features["defender_wingspan_in"] / safe_defender_distance
+    )
+    features["defender_height_pressure"] = (
+        features["defender_height_wo_shoes_in"] / safe_defender_distance
+    )
 
 
 def add_action_features(features: pd.DataFrame, action_type: pd.Series) -> None:
@@ -215,6 +239,14 @@ def build_features_from_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         "game_clock_seconds",
         "is_home",
         "shot_value",
+        "player_height_inches",
+        "player_weight",
+        "player_season_exp",
+        "player_draft_number",
+        "defender_height_wo_shoes_in",
+        "defender_wingspan_in",
+        "defender_wingspan_diff_in",
+        "defender_d_dpm",
     ]:
         features[column] = numeric_feature(df, column)
 
@@ -286,6 +318,46 @@ def build_features_from_request(request) -> pd.DataFrame:
             NUMERIC_DEFAULTS["touch_time"],
         ),
         "shot_value": getattr(request, "shot_value", NUMERIC_DEFAULTS["shot_value"]),
+        "player_height_inches": getattr(
+            request,
+            "player_height_inches",
+            NUMERIC_DEFAULTS["player_height_inches"],
+        ),
+        "player_weight": getattr(
+            request,
+            "player_weight",
+            NUMERIC_DEFAULTS["player_weight"],
+        ),
+        "player_season_exp": getattr(
+            request,
+            "player_season_exp",
+            NUMERIC_DEFAULTS["player_season_exp"],
+        ),
+        "player_draft_number": getattr(
+            request,
+            "player_draft_number",
+            NUMERIC_DEFAULTS["player_draft_number"],
+        ),
+        "defender_height_wo_shoes_in": getattr(
+            request,
+            "defender_height_wo_shoes_in",
+            NUMERIC_DEFAULTS["defender_height_wo_shoes_in"],
+        ),
+        "defender_wingspan_in": getattr(
+            request,
+            "defender_wingspan_in",
+            NUMERIC_DEFAULTS["defender_wingspan_in"],
+        ),
+        "defender_wingspan_diff_in": getattr(
+            request,
+            "defender_wingspan_diff_in",
+            NUMERIC_DEFAULTS["defender_wingspan_diff_in"],
+        ),
+        "defender_d_dpm": getattr(
+            request,
+            "defender_d_dpm",
+            NUMERIC_DEFAULTS["defender_d_dpm"],
+        ),
         "shot_zone": getattr(request, "shot_zone", DEFAULT_SHOT_ZONE),
         "pressure_level": getattr(request, "pressure_level", DEFAULT_PRESSURE_LEVEL),
         "action_type": getattr(request, "action_type", DEFAULT_ACTION_TYPE),

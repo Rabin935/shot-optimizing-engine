@@ -4,8 +4,10 @@ import { ChevronDown, RotateCcw, Shield, Target } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import {
+  DEFENDER_POSE_PRESETS,
   PROFESSIONAL_POSE_PRESETS,
   createCustomPosePreset,
+  type DefenderPosePreset,
   type PosePreset,
 } from "@/lib/simulator-presets";
 import {
@@ -16,6 +18,7 @@ import {
 
 type PoseControlsProps = {
   onDefenderContestJump: () => void;
+  onManualPoseEdit?: () => void;
   onResetElevation: () => void;
   onShooterJump: () => void;
 };
@@ -28,8 +31,8 @@ type SliderConfig<T> = {
   step: number;
 };
 
-const SHOOTER_PEAK_ELEVATION = { jumpHeight: 9.2, verticalOffset: 1.45 };
-const DEFENDER_PEAK_ELEVATION = { jumpHeight: 8.4, verticalOffset: 1.2 };
+const SHOOTER_PEAK_ELEVATION = { jumpHeight: 8.2, verticalOffset: 1.28 };
+const DEFENDER_PEAK_ELEVATION = { jumpHeight: 11.2, verticalOffset: 1.78 };
 
 const SHOOTER_SLIDERS: SliderConfig<ShooterPoseState>[] = [
   { key: "torsoAngle", label: "Torso Angle", max: 35, min: -35, step: 1 },
@@ -39,7 +42,7 @@ const SHOOTER_SLIDERS: SliderConfig<ShooterPoseState>[] = [
   { key: "shootingArmAngle", label: "Shooting Arm", max: 95, min: 10, step: 1 },
   { key: "guideHandAngle", label: "Guide Hand", max: 70, min: 0, step: 1 },
   { key: "handHeight", label: "Hand Height", max: 12, min: 5, step: 0.1 },
-  { key: "releaseAngle", label: "Release Angle", max: 75, min: 20, step: 1 },
+  { key: "releaseAngle", label: "Release Angle", max: 92, min: 20, step: 1 },
   { key: "jumpHeight", label: "Jump Height", max: 12, min: 0, step: 0.1 },
 ];
 
@@ -55,11 +58,12 @@ const DEFENDER_SLIDERS: SliderConfig<DefenderPoseState>[] = [
 
 export function PoseControls({
   onDefenderContestJump,
+  onManualPoseEdit,
   onResetElevation,
   onShooterJump,
 }: PoseControlsProps) {
-  const [isShooterOpen, setIsShooterOpen] = useState(true);
-  const [isDefenderOpen, setIsDefenderOpen] = useState(true);
+  const [isShooterOpen, setIsShooterOpen] = useState(false);
+  const [isDefenderOpen, setIsDefenderOpen] = useState(false);
   const [customPresetName, setCustomPresetName] = useState("My Shot Form");
   const activeDefenderCount = useShotStore((state) => state.activeDefenderCount);
   const addCustomPosePreset = useShotStore((state) => state.addCustomPosePreset);
@@ -80,6 +84,7 @@ export function PoseControls({
   function updateShooterSlider(key: keyof ShooterPoseState, value: number) {
     // Jump height controls should also flip airborne state so the SVG body
     // immediately floats when the slider leaves the ground.
+    onManualPoseEdit?.();
     updateShooterPose(
       key === "jumpHeight"
         ? {
@@ -94,6 +99,7 @@ export function PoseControls({
   function updateDefenderSlider(key: keyof DefenderPoseState, value: number) {
     // Defender sliders patch only the active defender's pose, preserving the
     // independent pose state for any secondary defender.
+    onManualPoseEdit?.();
     updateDefenderPose(
       primaryDefenderId,
       key === "jumpHeight"
@@ -109,6 +115,7 @@ export function PoseControls({
   function applyPosePreset(preset: PosePreset) {
     // Presets patch the shared shooter and defender pose stores together, so
     // the stage, analytics, comparison, and export panels see one synchronized form.
+    onManualPoseEdit?.();
     updateShooterPose(preset.shooterPose, "simulator");
 
     if (preset.defenderPose) {
@@ -116,7 +123,13 @@ export function PoseControls({
     }
   }
 
+  function applyDefenderPosePreset(preset: DefenderPosePreset) {
+    onManualPoseEdit?.();
+    updateDefenderPose(primaryDefenderId, preset.pose, "simulator");
+  }
+
   function saveCustomPreset() {
+    onManualPoseEdit?.();
     addCustomPosePreset(
       createCustomPosePreset({
         defenderPose,
@@ -140,7 +153,10 @@ export function PoseControls({
         </div>
         <button
           type="button"
-          onClick={() => resetPoses("simulator")}
+          onClick={() => {
+            onManualPoseEdit?.();
+            resetPoses("simulator");
+          }}
           className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-black text-slate-200 transition hover:border-orange-300/35 hover:text-orange-100"
         >
           <RotateCcw className="size-4" />
@@ -177,6 +193,8 @@ export function PoseControls({
         onSaveCustomPreset={saveCustomPreset}
       />
 
+      <DefenderPoseLibrary onApplyPreset={applyDefenderPosePreset} />
+
       <div className="mt-5 grid gap-3">
         <CollapsibleSection
           isOpen={isShooterOpen}
@@ -200,7 +218,8 @@ export function PoseControls({
             <ToggleRow
               active={shooterPose.isAirborne}
               label="Shooter Airborne"
-              onToggle={() =>
+              onToggle={() => {
+                onManualPoseEdit?.();
                 updateShooterPose(
                   {
                     isAirborne: !shooterPose.isAirborne,
@@ -212,8 +231,8 @@ export function PoseControls({
                       : SHOOTER_PEAK_ELEVATION.verticalOffset,
                   },
                   "simulator",
-                )
-              }
+                );
+              }}
             />
           </div>
         </CollapsibleSection>
@@ -240,7 +259,8 @@ export function PoseControls({
             <ToggleRow
               active={defenderPose.isAirborne}
               label="Defender Airborne"
-              onToggle={() =>
+              onToggle={() => {
+                onManualPoseEdit?.();
                 updateDefenderPose(
                   primaryDefenderId,
                   {
@@ -253,8 +273,8 @@ export function PoseControls({
                       : DEFENDER_PEAK_ELEVATION.verticalOffset,
                   },
                   "simulator",
-                )
-              }
+                );
+              }}
             />
           </div>
         </CollapsibleSection>
@@ -459,6 +479,42 @@ function PoseLibrary({
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function DefenderPoseLibrary({
+  onApplyPreset,
+}: {
+  onApplyPreset: (preset: DefenderPosePreset) => void;
+}) {
+  return (
+    <div className="mt-3 grid gap-3 rounded-lg border border-green-300/15 bg-green-400/[0.045] p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-green-100/75">
+            Defender Pose Library
+          </p>
+          <p className="mt-1 text-sm font-black text-white">
+            Defensive posture presets
+          </p>
+        </div>
+        <span className="rounded-md border border-green-300/25 bg-green-400/10 px-2 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-green-100">
+          {DEFENDER_POSE_PRESETS.length} poses
+        </span>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {DEFENDER_POSE_PRESETS.map((preset) => (
+          <PresetButton
+            key={preset.id}
+            description={preset.description}
+            label={preset.name}
+            tone="green"
+            onClick={() => onApplyPreset(preset)}
+          />
+        ))}
+      </div>
     </div>
   );
 }
