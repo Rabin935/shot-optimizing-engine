@@ -26,9 +26,34 @@ PLAYER_INFO_PATH = (
     / "csv"
     / "common_player_info.csv"
 )
+SCHEDULE_METRICS_PATH = (
+    ROOT_DIR
+    / "data"
+    / "raw"
+    / "github_public_sport_science_datasets"
+    / "NBA Schedule Metrics"
+    / "NBA_schedule_metrics.csv"
+)
 PROCESSED_DIR = ROOT_DIR / "data" / "processed"
 CLEANED_DATA_PATH = PROCESSED_DIR / "cleaned_shot_logs.csv"
 REPORT_PATH = PROCESSED_DIR / "cleaning_report.txt"
+
+SCHEDULE_CONTEXT_COLUMNS = {
+    "Rest": "team_rest_days",
+    "Distance": "team_travel_distance",
+    "win_pct": "team_win_pct",
+    "Streak": "team_streak",
+    "Opp_Rest": "opp_rest_days",
+    "opp_win_pct": "opp_win_pct",
+}
+SCHEDULE_CONTEXT_DEFAULTS = {
+    "team_rest_days": 1.3,
+    "team_travel_distance": 533.0,
+    "team_win_pct": 0.5,
+    "team_streak": 0.0,
+    "opp_rest_days": 1.3,
+    "opp_win_pct": 0.5,
+}
 
 
 def assign_shot_zone(row: pd.Series) -> str:
@@ -269,7 +294,59 @@ def enrich_defender_metadata(cleaned_df: pd.DataFrame) -> pd.DataFrame:
     return cleaned_df
 
 
-def clean_nba_shot_dataset_file(path: Path) -> pd.DataFrame:
+def load_schedule_metrics_lookup() -> dict[tuple[str, str], dict[str, float]]:
+    # Team rest/travel/streak/win-pct context, keyed by (team name, ISO date).
+    # NBA_schedule_metrics.csv already carries the opponent's Rest/win_pct on
+    # the same row, so no separate opponent lookup or abbreviation mapping
+    # is needed.
+    if not SCHEDULE_METRICS_PATH.exists():
+        return {}
+
+    raw = pd.read_csv(SCHEDULE_METRICS_PATH, low_memory=False)
+    raw = raw.drop_duplicates(subset=["Team", "Date"], keep="first")
+    dates = pd.to_datetime(raw["Date"], errors="coerce")
+
+    lookup: dict[tuple[str, str], dict[str, float]] = {}
+    for row, date in zip(raw.itertuples(index=False), dates):
+        if pd.isna(date) or pd.isna(row.Team):
+            continue
+        key = (str(row.Team), date.strftime("%Y-%m-%d"))
+        lookup[key] = {
+            project_name: getattr(row, source_name)
+            for source_name, project_name in SCHEDULE_CONTEXT_COLUMNS.items()
+        }
+
+    return lookup
+
+
+def attach_schedule_context(
+    cleaned: pd.DataFrame,
+    team_name: pd.Series,
+    game_date: pd.Series,
+    schedule_lookup: dict[tuple[str, str], dict[str, float]],
+) -> None:
+    # Fill schedule columns in place; rows with no lookup match keep defaults
+    # applied later in clean_project_columns.
+    if not schedule_lookup:
+        return
+
+    parsed_dates = pd.to_datetime(game_date, errors="coerce")
+    keys = list(zip(team_name.astype(str), parsed_dates.dt.strftime("%Y-%m-%d")))
+    matches = [schedule_lookup.get(key) for key in keys]
+
+    for project_name in SCHEDULE_CONTEXT_COLUMNS.values():
+        cleaned[project_name] = [
+            match[project_name] if match is not None else None for match in matches
+        ]
+    cleaned["has_real_schedule_context"] = [
+        1 if match is not None else 0 for match in matches
+    ]
+
+
+def clean_nba_shot_dataset_file(
+    path: Path,
+    schedule_lookup: dict[tuple[str, str], dict[str, float]],
+) -> pd.DataFrame:
     # Normalize one season file from the richer NBA shot-location dataset.
     raw = pd.read_csv(path)
     cleaned = pd.DataFrame(
@@ -303,6 +380,7 @@ def clean_nba_shot_dataset_file(path: Path) -> pd.DataFrame:
             "position_group": raw["POSITION_GROUP"],
         }
     )
+    attach_schedule_context(cleaned, raw["TEAM_NAME"], raw["GAME_DATE"], schedule_lookup)
 
     return clean_project_columns(cleaned)
 
@@ -390,9 +468,10 @@ def load_added_shot_datasets() -> list[pd.DataFrame]:
         return []
 
     season_files = sorted(NBA_SHOT_DATASET_DIR.glob("NBA_*_Shots.csv"))
+    schedule_lookup = load_schedule_metrics_lookup()
     cleaned_seasons = []
     for path in season_files:
-        cleaned = clean_nba_shot_dataset_file(path)
+        cleaned = clean_nba_shot_dataset_file(path, schedule_lookup)
         if not cleaned.empty:
             cleaned_seasons.append(cleaned)
 
@@ -439,6 +518,8 @@ def clean_project_columns(cleaned: pd.DataFrame) -> pd.DataFrame:
         "defender_wingspan_in": 82.0,
         "defender_wingspan_diff_in": 3.0,
         "defender_d_dpm": 0.0,
+        "has_real_schedule_context": 0,
+        **SCHEDULE_CONTEXT_DEFAULTS,
     }
     for column, default in defaults.items():
         if column not in cleaned.columns:
@@ -471,6 +552,8 @@ def clean_project_columns(cleaned: pd.DataFrame) -> pd.DataFrame:
         "defender_wingspan_in",
         "defender_wingspan_diff_in",
         "defender_d_dpm",
+        "has_real_schedule_context",
+        *SCHEDULE_CONTEXT_COLUMNS.values(),
     ]
     for column in numeric_columns:
         cleaned[column] = pd.to_numeric(cleaned[column], errors="coerce")
@@ -535,6 +618,8 @@ FINAL_COLUMNS = [
     "defender_wingspan_in",
     "defender_wingspan_diff_in",
     "defender_d_dpm",
+    "has_real_schedule_context",
+    *SCHEDULE_CONTEXT_COLUMNS.values(),
 ]
 
 
