@@ -46,6 +46,7 @@ import {
   TableHead,
   Text,
 } from "@/components/ui";
+import { useChartPalette } from "@/lib/chart-theme";
 import { cx, toneClasses } from "@/lib/design-system";
 import { simulatorRoutes } from "@/lib/settings-preferences";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -444,16 +445,17 @@ function DashboardCharts({
   trendRows: TrendRow[];
   zoneRows: ZoneRow[];
 }) {
+  const palette = useChartPalette();
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_1fr_0.9fr]">
       <ChartPanel title="EPPS Trend">
         <ChartContainer height={260}>
           <LineChart data={trendRows} margin={{ bottom: 8, left: -18, right: 10, top: 12 }}>
-            <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-            <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 700 }} tickLine={false} />
-            <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 700 }} tickLine={false} />
+            <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+            <XAxis dataKey="name" stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 700 }} tickLine={false} />
+            <YAxis stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 700 }} tickLine={false} />
             <Tooltip content={<TrendTooltip metric="epps" />} />
-            <Line type="monotone" dataKey="epps" stroke="#86efac" strokeWidth={3} dot={{ fill: "#86efac", r: 3 }} />
+            <Line type="monotone" dataKey="epps" stroke={palette.series2} strokeWidth={3} dot={{ fill: palette.series2, r: 3 }} />
           </LineChart>
         </ChartContainer>
       </ChartPanel>
@@ -461,11 +463,11 @@ function DashboardCharts({
       <ChartPanel title="Make Probability Trend">
         <ChartContainer height={260}>
           <LineChart data={trendRows} margin={{ bottom: 8, left: -18, right: 10, top: 12 }}>
-            <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-            <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 700 }} tickLine={false} />
-            <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 700 }} tickLine={false} />
+            <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+            <XAxis dataKey="name" stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 700 }} tickLine={false} />
+            <YAxis stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 700 }} tickLine={false} />
             <Tooltip content={<TrendTooltip metric="makeProbability" />} />
-            <Line type="monotone" dataKey="makeProbability" stroke="#fb923c" strokeWidth={3} dot={{ fill: "#fb923c", r: 3 }} />
+            <Line type="monotone" dataKey="makeProbability" stroke={palette.series1} strokeWidth={3} dot={{ fill: palette.series1, r: 3 }} />
           </LineChart>
         </ChartContainer>
       </ChartPanel>
@@ -473,9 +475,9 @@ function DashboardCharts({
       <ChartPanel title="Shot Zone Distribution">
         <ChartContainer height={260}>
           <BarChart data={zoneRows} margin={{ bottom: 8, left: -18, right: 10, top: 12 }}>
-            <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-            <XAxis dataKey="zone" stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 800 }} tickLine={false} />
-            <YAxis allowDecimals={false} stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 700 }} tickLine={false} />
+            <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+            <XAxis dataKey="zone" stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 800 }} tickLine={false} />
+            <YAxis allowDecimals={false} stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 700 }} tickLine={false} />
             <Tooltip content={<ZoneTooltip />} />
             <Bar dataKey="attempts" radius={[6, 6, 0, 0]}>
               {zoneRows.map((row) => (

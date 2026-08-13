@@ -20,20 +20,29 @@ export function AnalyticsCard({
   const chartTheme = useSettingsStore((state) => state.settings.chartTheme);
   const combinedAction = (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      <Badge tone={chartTheme === "contrast" ? "warning" : "neutral"}>
+      <Badge
+        tone={
+          chartTheme === "contrast"
+            ? "warning"
+            : chartTheme === "print"
+              ? "secondary"
+              : "neutral"
+        }
+      >
         {chartTheme}
       </Badge>
       {action}
     </div>
   );
 
-  // Shared analytics cards now delegate structure to the design system.
   return (
-    <Card>
+    <Card data-chart-theme={chartTheme}>
       <CardHeader action={combinedAction} eyebrow={eyebrow} title={title}>
         {description}
       </CardHeader>
-      <div className="mt-4">{children}</div>
+      <div className="mt-4" data-chart-theme={chartTheme}>
+        {children}
+      </div>
     </Card>
   );
 }

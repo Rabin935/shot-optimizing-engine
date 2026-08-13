@@ -1,5 +1,6 @@
 "use client";
 
+import { useChartPalette } from '@/lib/chart-theme';
 import { Activity, Gauge, Target, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
@@ -106,29 +107,30 @@ function TrendLineChart({
   domain: [number, number | "auto"];
   tickFormatter: (value: number) => string;
 }) {
+  const palette = useChartPalette();
   return (
     <ChartContainer empty={!data.length}>
       <LineChart data={data} margin={{ bottom: 10, left: 0, right: 16, top: 16 }}>
-        <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
+        <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
         <XAxis
           dataKey="shotNumber"
-          stroke="#94a3b8"
+          stroke={palette.axis}
           tickLine={false}
-          tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 700 }}
+          tick={{ fill: palette.axis, fontSize: 12, fontWeight: 700 }}
         />
         <YAxis
           domain={domain}
-          stroke="#94a3b8"
+          stroke={palette.axis}
           tickFormatter={tickFormatter}
           tickLine={false}
-          tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 700 }}
+          tick={{ fill: palette.axis, fontSize: 12, fontWeight: 700 }}
         />
-        <Tooltip content={<TrendTooltip />} cursor={{ stroke: "#fb923c", strokeWidth: 1 }} />
+        <Tooltip content={<TrendTooltip />} cursor={{ stroke: palette.series1, strokeWidth: 1 }} />
         <Line
           type="monotone"
           dataKey={dataKey}
-          dot={{ fill: "#fdba74", r: 4, stroke: "#111827", strokeWidth: 2 }}
-          stroke={dataKey === "epps" ? "#86efac" : "#fdba74"}
+          dot={{ fill: palette.series1, r: 4, stroke: "#111827", strokeWidth: 2 }}
+          stroke={dataKey === "epps" ? palette.series2 : palette.series1}
           strokeWidth={3}
         />
       </LineChart>

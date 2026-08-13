@@ -1,5 +1,6 @@
 "use client";
 
+import { useChartPalette } from '@/lib/chart-theme';
 import {
   Activity,
   Award,
@@ -61,6 +62,7 @@ const reportModes: Array<{ label: string; value: ReportMode }> = [
 ];
 
 export function AnalyticsReportsDashboard() {
+  const palette = useChartPalette();
   const [reportMode, setReportMode] = useState<ReportMode>("session");
   const shots = useFilteredAnalyticsShots();
   const optimizedShot = useShotStore((state) => state.optimizedShot);
@@ -197,12 +199,12 @@ export function AnalyticsReportsDashboard() {
         >
           <ChartContainer empty={!trendRows.length} height={360}>
             <LineChart data={trendRows} margin={{ bottom: 12, left: 0, right: 16, top: 16 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-              <XAxis dataKey="shotNumber" stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 700 }} tickLine={false} />
-              <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 700 }} tickLine={false} />
+              <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+              <XAxis dataKey="shotNumber" stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 12, fontWeight: 700 }} tickLine={false} />
+              <YAxis stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 12, fontWeight: 700 }} tickLine={false} />
               <Tooltip content={<TrendTooltip />} />
-              <Line type="monotone" dataKey="epps" name="EPPS" stroke="#86efac" strokeWidth={3} dot={false} />
-              <Line type="monotone" dataKey="makeProbability" name="Make Probability" stroke="#fb923c" strokeWidth={3} dot={false} />
+              <Line type="monotone" dataKey="epps" name="EPPS" stroke={palette.series2} strokeWidth={3} dot={false} />
+              <Line type="monotone" dataKey="makeProbability" name="Make Probability" stroke={palette.series1} strokeWidth={3} dot={false} />
             </LineChart>
           </ChartContainer>
         </AnalyticsCard>
@@ -229,9 +231,9 @@ export function AnalyticsReportsDashboard() {
         >
           <ChartContainer empty={!shots.length}>
             <BarChart data={zoneRows} margin={{ bottom: 12, left: 0, right: 16, top: 16 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-              <XAxis dataKey="zone" interval={0} stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 800 }} tickLine={false} />
-              <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 700 }} tickLine={false} />
+              <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+              <XAxis dataKey="zone" interval={0} stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 800 }} tickLine={false} />
+              <YAxis stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 12, fontWeight: 700 }} tickLine={false} />
               <Tooltip content={<ZoneTooltip />} />
               <Bar dataKey="averageEpps" name="Average EPPS" radius={[6, 6, 0, 0]}>
                 {zoneRows.map((row) => (
@@ -250,9 +252,9 @@ export function AnalyticsReportsDashboard() {
         >
           <ChartContainer empty={!shots.length}>
             <BarChart data={pressureRows} margin={{ bottom: 12, left: 0, right: 16, top: 16 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-              <XAxis dataKey="pressure" stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 800 }} tickLine={false} />
-              <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 700 }} tickLine={false} />
+              <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+              <XAxis dataKey="pressure" stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 800 }} tickLine={false} />
+              <YAxis stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 12, fontWeight: 700 }} tickLine={false} />
               <Tooltip content={<PressureTooltip />} />
               <Bar dataKey="averageEpps" name="Average EPPS" fill="#60a5fa" radius={[6, 6, 0, 0]} />
             </BarChart>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useChartPalette } from '@/lib/chart-theme';
 import {
   Area,
   AreaChart,
@@ -114,6 +115,7 @@ const modelComparison = [
 ];
 
 export function MlEvaluationDashboard() {
+  const palette = useChartPalette();
   return (
     <section className="mx-auto grid w-full max-w-7xl gap-6">
       <header className="border-b border-white/10 pb-6">
@@ -170,11 +172,11 @@ export function MlEvaluationDashboard() {
           </CardHeader>
           <ChartContainer height={310} title="ROC curve">
             <ReLineChart data={rocCurve} margin={{ bottom: 8, left: -10, right: 18, top: 16 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-              <XAxis dataKey="fpr" stroke="#94a3b8" tickFormatter={formatAxis} />
-              <YAxis stroke="#94a3b8" tickFormatter={formatAxis} />
+              <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+              <XAxis dataKey="fpr" stroke={palette.axis} tickFormatter={formatAxis} />
+              <YAxis stroke={palette.axis} tickFormatter={formatAxis} />
               <Tooltip content={<CurveTooltip xLabel="False positive rate" yLabel="True positive rate" />} />
-              <Line dataKey="tpr" dot={{ fill: "#86efac", r: 3 }} stroke="#86efac" strokeWidth={3} type="monotone" />
+              <Line dataKey="tpr" dot={{ fill: "#86efac", r: 3 }} stroke={palette.series2} strokeWidth={3} type="monotone" />
             </ReLineChart>
           </ChartContainer>
         </Card>
@@ -189,11 +191,11 @@ export function MlEvaluationDashboard() {
           />
           <ChartContainer height={300} title="Precision recall curve">
             <AreaChart data={precisionRecallCurve} margin={{ bottom: 8, left: -10, right: 18, top: 16 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-              <XAxis dataKey="recall" stroke="#94a3b8" tickFormatter={formatAxis} />
-              <YAxis dataKey="precision" stroke="#94a3b8" tickFormatter={formatAxis} />
+              <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+              <XAxis dataKey="recall" stroke={palette.axis} tickFormatter={formatAxis} />
+              <YAxis dataKey="precision" stroke={palette.axis} tickFormatter={formatAxis} />
               <Tooltip content={<CurveTooltip xLabel="Recall" yLabel="Precision" />} />
-              <Area dataKey="precision" fill="#fb923c33" stroke="#fb923c" strokeWidth={3} type="monotone" />
+              <Area dataKey="precision" fill="#fb923c33" stroke={palette.series1} strokeWidth={3} type="monotone" />
             </AreaChart>
           </ChartContainer>
         </Card>
@@ -206,9 +208,9 @@ export function MlEvaluationDashboard() {
           />
           <ChartContainer height={300} title="Feature importance">
             <BarChart data={featureImportance} layout="vertical" margin={{ bottom: 8, left: 78, right: 18, top: 16 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-              <XAxis stroke="#94a3b8" type="number" tickFormatter={formatAxis} />
-              <YAxis dataKey="feature" stroke="#94a3b8" type="category" width={132} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 700 }} />
+              <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+              <XAxis stroke={palette.axis} type="number" tickFormatter={formatAxis} />
+              <YAxis dataKey="feature" stroke={palette.axis} type="category" width={132} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 700 }} />
               <Tooltip content={<ImportanceTooltip />} />
               <Bar dataKey="importance" radius={[0, 6, 6, 0]}>
                 {featureImportance.map((feature, index) => (

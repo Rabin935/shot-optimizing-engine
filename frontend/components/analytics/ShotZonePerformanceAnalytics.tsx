@@ -1,5 +1,6 @@
 "use client";
 
+import { useChartPalette } from '@/lib/chart-theme';
 import { Award, BarChart3, Gauge, Target } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
@@ -26,6 +27,7 @@ const sortOptions: Array<{ label: string; value: ZoneSortMetric }> = [
 ];
 
 export function ShotZonePerformanceAnalytics() {
+  const palette = useChartPalette();
   const [sortBy, setSortBy] = useState<ZoneSortMetric>("epps");
   const shots = useFilteredAnalyticsShots();
   const zoneRows = useMemo(
@@ -83,17 +85,17 @@ export function ShotZonePerformanceAnalytics() {
 
         <ChartContainer empty={!shots.length} height={390}>
           <BarChart data={zoneRows} margin={{ bottom: 12, left: 0, right: 16, top: 16 }}>
-            <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
+            <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
             <XAxis
               dataKey="zone"
               interval={0}
-              stroke="#94a3b8"
-              tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 800 }}
+              stroke={palette.axis}
+              tick={{ fill: palette.axis, fontSize: 11, fontWeight: 800 }}
               tickLine={false}
             />
-            <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 700 }} tickLine={false} />
+            <YAxis stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 12, fontWeight: 700 }} tickLine={false} />
             <Tooltip content={<ZoneTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-            <Legend wrapperStyle={{ color: "#cbd5e1", fontSize: 12, fontWeight: 800 }} />
+            <Legend wrapperStyle={{ color: palette.axis, fontSize: 12, fontWeight: 800 }} />
             <Bar dataKey="averageEpps" name="Avg EPPS" radius={[6, 6, 0, 0]}>
               {zoneRows.map((row) => (
                 <Cell key={`epps-${row.zone}`} fill={row.isBest ? "#86efac" : "#fb923c"} />
