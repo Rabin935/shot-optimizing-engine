@@ -49,8 +49,8 @@ export function SettingsWorkspace() {
 
   return (
     <section className="grid gap-6">
-      <header className="flex flex-col gap-3 border-b border-white/10 pb-6">
-        <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-300">
+      <header className="flex flex-col gap-3 border-b border-[color:var(--line)] pb-6">
+        <p className="text-sm font-bold uppercase tracking-[0.22em] text-success">
           User Preferences
         </p>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">

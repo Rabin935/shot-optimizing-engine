@@ -20,6 +20,8 @@ import {
   type SandboxStats,
   type ShotQuality,
 } from "@/lib/sandbox-metrics";
+import { formatCourtPointByUnits, formatDistanceByUnits } from "@/lib/settings-preferences";
+import { useSettingsStore } from "@/store/useSettingsStore";
 
 const SHOOTER_SIZE = 58;
 const DEFENDER_SIZE = 46;
@@ -47,6 +49,7 @@ export function SandboxCourt({
   showShotLine,
   stats: providedStats,
 }: SandboxCourtProps) {
+  const units = useSettingsStore((state) => state.settings.units);
   const courtRef = useRef<HTMLDivElement>(null);
   const [courtSize, setCourtSize] = useState<CourtSize>({
     height: 0,
@@ -155,12 +158,12 @@ export function SandboxCourt({
         <MetricPill
           label="Shooter Coordinates"
           tone="neutral"
-          value={`${shooter.x.toFixed(1)}, ${shooter.y.toFixed(1)} ft`}
+          value={formatCourtPointByUnits(shooter.x, shooter.y, units)}
         />
         <MetricPill
           label="Closest Defender"
           tone={stats.closestDefenderDistance <= 4 ? "red" : "neutral"}
-          value={formatDistance(stats.closestDefenderDistance)}
+          value={formatDistanceByUnits(stats.closestDefenderDistance, units)}
         />
         <MetricPill
           label="Live EPPS"
@@ -321,14 +324,6 @@ function MetricPill({
       <p className="mt-1 truncate font-black text-white">{value}</p>
     </div>
   );
-}
-
-function formatDistance(distance: number) {
-  if (!Number.isFinite(distance)) {
-    return "No defender";
-  }
-
-  return `${distance.toFixed(1)} ft`;
 }
 
 const courtFeedbackTone: Record<ShotQuality, "green" | "orange" | "red" | "sky"> = {

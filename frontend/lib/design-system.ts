@@ -13,8 +13,8 @@ export const designTokens = {
   radius: "rounded-lg",
   sectionGap: "gap-6",
   surface:
-    "rounded-lg border border-white/10 bg-panel shadow-[var(--shadow-panel)]",
-  surfaceMuted: "rounded-lg border border-white/10 bg-panel-muted",
+    "rounded-lg border border-[color:var(--line)] bg-panel shadow-[var(--shadow-panel)]",
+  surfaceMuted: "rounded-lg border border-[color:var(--line)] bg-panel-muted",
 };
 
 export const toneClasses: Record<
@@ -28,32 +28,32 @@ export const toneClasses: Record<
   danger: {
     border: "border-danger/25",
     soft: "bg-danger-soft",
-    text: "text-red-100",
+    text: "text-danger",
   },
   neutral: {
-    border: "border-white/10",
+    border: "border-[color:var(--line)]",
     soft: "bg-neutral-soft",
-    text: "text-slate-100",
+    text: "text-foreground",
   },
   primary: {
     border: "border-primary/30",
     soft: "bg-primary-soft",
-    text: "text-orange-100",
+    text: "text-primary-strong",
   },
   secondary: {
     border: "border-secondary/25",
     soft: "bg-secondary-soft",
-    text: "text-sky-100",
+    text: "text-secondary",
   },
   success: {
     border: "border-success/25",
     soft: "bg-success-soft",
-    text: "text-green-100",
+    text: "text-success",
   },
   warning: {
     border: "border-warning/25",
     soft: "bg-warning-soft",
-    text: "text-yellow-100",
+    text: "text-warning",
   },
 };
 

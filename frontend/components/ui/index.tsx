@@ -20,11 +20,16 @@ const buttonSizes: Record<Size, string> = {
 };
 
 const buttonVariants: Record<ButtonVariant, string> = {
-  ghost: "border-transparent bg-transparent text-slate-300 hover:bg-white/[0.055] hover:text-white",
-  outline: "border-white/10 bg-white/[0.035] text-slate-100 hover:border-primary/35 hover:bg-primary-soft",
-  primary: "border-primary/35 bg-primary-soft text-orange-100 hover:border-orange-200/55 hover:bg-orange-500/20",
-  secondary: "border-secondary/30 bg-secondary-soft text-sky-100 hover:border-sky-200/50 hover:bg-sky-400/20",
-  subtle: "border-white/10 bg-panel-muted text-slate-200 hover:border-white/20 hover:bg-white/[0.06]",
+  ghost:
+    "border-transparent bg-transparent text-muted-foreground hover:bg-[color:var(--sidebar-hover)] hover:text-foreground",
+  outline:
+    "border-[color:var(--line)] bg-panel text-foreground hover:border-primary/35 hover:bg-primary-soft",
+  primary:
+    "border-primary/35 bg-primary-soft text-primary-strong hover:border-orange-200/55 hover:bg-orange-500/20",
+  secondary:
+    "border-secondary/30 bg-secondary-soft text-secondary hover:border-sky-200/50 hover:bg-sky-400/20",
+  subtle:
+    "border-[color:var(--line)] bg-panel-muted text-foreground hover:border-[color:var(--line)] hover:bg-[color:var(--sidebar-hover)]",
 };
 
 export function Button({
@@ -62,7 +67,7 @@ export function IconButton({
   return (
     <button
       className={cx(
-        "grid size-8 shrink-0 place-items-center rounded-md border border-white/10 bg-white/[0.04] text-slate-300 transition hover:border-orange-300/35 hover:text-orange-100",
+        "grid size-8 shrink-0 place-items-center rounded-md border border-[color:var(--line)] bg-panel text-muted-foreground transition hover:border-orange-300/35 hover:text-primary-strong",
         designTokens.focusRing,
         className,
       )}
@@ -117,7 +122,7 @@ export function CardHeader({
   return (
     <div
       className={cx(
-        "mb-4 flex flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-start sm:justify-between",
+        "mb-4 flex flex-col gap-3 border-b border-[color:var(--line)] pb-4 sm:flex-row sm:items-start sm:justify-between",
         className,
       )}
     >
@@ -131,7 +136,7 @@ export function CardHeader({
           {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
           <Heading level={2}>{title}</Heading>
           {children ? (
-            <div className="mt-1 text-sm leading-6 text-slate-400">
+            <div className="mt-1 text-sm leading-6 text-muted-foreground">
               {children}
             </div>
           ) : null}
@@ -153,9 +158,9 @@ export function Heading({
 }) {
   const Tag = `h${level}` as const;
   const levelClasses = {
-    1: "text-[length:var(--text-title)] font-black tracking-tight text-white",
-    2: "text-xl font-black tracking-tight text-white",
-    3: "text-base font-black text-white",
+    1: "text-[length:var(--text-title)] font-black tracking-tight text-foreground",
+    2: "text-xl font-black tracking-tight text-foreground",
+    3: "text-base font-black text-foreground",
   };
 
   return <Tag className={cx(levelClasses[level], className)}>{children}</Tag>;
@@ -190,7 +195,13 @@ export function Text({
   muted?: boolean;
 }) {
   return (
-    <p className={cx("text-sm leading-6", muted ? "text-slate-400" : "text-slate-200", className)}>
+    <p
+      className={cx(
+        "text-sm leading-6",
+        muted ? "text-muted-foreground" : "text-foreground/90",
+        className,
+      )}
+    >
       {children}
     </p>
   );
@@ -254,7 +265,7 @@ export function DataTable({
   ...props
 }: TableHTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-white/10 bg-panel-muted">
+    <div className="overflow-x-auto rounded-lg border border-[color:var(--line)] bg-panel-muted">
       <table className={cx("w-full min-w-[640px] text-left text-sm", className)} {...props} />
     </div>
   );
@@ -266,7 +277,7 @@ export function TableHead({
 }: HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <thead
-      className={cx("text-xs font-bold uppercase tracking-[0.14em] text-slate-500", className)}
+      className={cx("text-xs font-bold uppercase tracking-[0.14em] text-subtle-foreground", className)}
       {...props}
     />
   );
@@ -285,7 +296,7 @@ export function FieldLabel({
 }: LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={cx("text-xs font-bold uppercase tracking-[0.14em] text-slate-400", className)}
+      className={cx("text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground", className)}
       {...props}
     />
   );
@@ -298,7 +309,7 @@ export function Input({
   return (
     <input
       className={cx(
-        "min-h-10 w-full rounded-lg border border-white/10 bg-panel-strong px-3 text-sm font-bold text-white transition placeholder:text-slate-600",
+        "min-h-10 w-full rounded-lg border border-[color:var(--line)] bg-panel-strong px-3 text-sm font-bold text-foreground transition placeholder:text-subtle-foreground",
         "focus:border-primary/45",
         designTokens.focusRing,
         className,
@@ -316,7 +327,7 @@ export function Dropdown({
   return (
     <select
       className={cx(
-        "min-h-10 w-full rounded-lg border border-white/10 bg-panel-strong px-3 text-sm font-bold text-white transition",
+        "min-h-10 w-full rounded-lg border border-[color:var(--line)] bg-panel-strong px-3 text-sm font-bold text-foreground transition",
         "focus:border-primary/45",
         designTokens.focusRing,
         className,
@@ -348,7 +359,7 @@ export function Dialog({
       <section
         aria-labelledby={labelledBy}
         aria-modal="true"
-        className={cx("w-full max-w-xl rounded-lg border border-white/10 bg-[#090909] p-5 shadow-[var(--shadow-elevated)]", className)}
+        className={cx("w-full max-w-xl rounded-lg border border-[color:var(--line)] bg-surface p-5 shadow-[var(--shadow-elevated)]", className)}
         role="dialog"
       >
         {children}
@@ -389,7 +400,7 @@ export function TabButton({
         designTokens.focusRing,
         active
           ? "border-primary/35 bg-primary-soft text-orange-100"
-          : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-white",
+          : "border-[color:var(--line)] bg-panel text-muted-foreground hover:text-foreground",
         className,
       )}
       role="tab"
@@ -412,7 +423,7 @@ export function Tooltip({
     <span className="group relative inline-flex">
       {children}
       <span
-        className="pointer-events-none absolute bottom-full left-1/2 z-40 mb-2 hidden max-w-56 -translate-x-1/2 rounded-md border border-white/10 bg-[#090909] px-2 py-1 text-xs font-bold text-slate-200 shadow-xl group-hover:block group-focus-within:block"
+        className="pointer-events-none absolute bottom-full left-1/2 z-40 mb-2 hidden max-w-56 -translate-x-1/2 rounded-md border border-[color:var(--line)] bg-surface px-2 py-1 text-xs font-bold text-foreground shadow-xl group-hover:block group-focus-within:block"
         role="tooltip"
       >
         {content}
@@ -480,7 +491,7 @@ export function Notification({
       )}
       role={tone === "danger" ? "alert" : "status"}
     >
-      <p className="text-sm font-black text-white">{title}</p>
+      <p className="text-sm font-black text-foreground">{title}</p>
       <Text className="mt-1" muted={false}>
         {children}
       </Text>

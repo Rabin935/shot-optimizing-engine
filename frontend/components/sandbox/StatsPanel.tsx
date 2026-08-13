@@ -23,6 +23,9 @@ import type {
 } from "@/lib/sandbox-metrics";
 import type { ShotPredictionConnectionStatus } from "@/hooks/useShotPrediction";
 import type { ShotPredictionResponse } from "@/lib/api/shotPrediction";
+import { formatDistanceByUnits } from "@/lib/settings-preferences";
+import { useSettingsStore } from "@/store/useSettingsStore";
+import { useMotionSettings } from "@/hooks/useMotionSettings";
 
 type StatsPanelProps = {
   backendStatus: ShotPredictionConnectionStatus;
@@ -41,6 +44,8 @@ export function StatsPanel({
   shooter,
   stats,
 }: StatsPanelProps) {
+  const units = useSettingsStore((state) => state.settings.units);
+  const { transition } = useMotionSettings();
   const displayQuality = normalizeShotQuality(
     prediction?.shot_quality,
     stats.shotQuality,
@@ -62,10 +67,10 @@ export function StatsPanel({
 
   return (
     <motion.aside
-      className="rounded-lg border border-white/10 bg-white/[0.055] p-4 shadow-[0_28px_80px_rgba(0,0,0,0.34)] backdrop-blur-xl sm:p-5 lg:sticky lg:top-5 lg:self-start"
+      className="rounded-lg border border-[color:var(--line)] bg-panel p-4 shadow-[var(--shadow-panel)] backdrop-blur-xl sm:p-5 lg:sticky lg:top-5 lg:self-start"
       initial={{ opacity: 0, x: 14 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.08, duration: 0.42, ease: "easeOut" }}
+      transition={{ delay: 0.08, ...transition(0.42) }}
     >
       <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-5">
         <div className="flex min-w-0 items-center gap-3">
@@ -167,13 +172,13 @@ export function StatsPanel({
           icon={<Ruler className="size-5" />}
           label="Distance to Basket"
           tone="neutral"
-          value={`${stats.distanceToBasket.toFixed(1)} ft`}
+          value={formatDistanceByUnits(stats.distanceToBasket, units)}
         />
         <StatTile
           icon={<Shield className="size-5" />}
           label="Closest Defender"
           tone={stats.closestDefenderDistance <= 4 ? "red" : "neutral"}
-          value={formatDistance(stats.closestDefenderDistance)}
+          value={formatDistanceByUnits(stats.closestDefenderDistance, units)}
         />
         <StatTile
           icon={<Layers className="size-5" />}
@@ -200,8 +205,8 @@ export function StatsPanel({
           Coordinates / Debug Info
         </summary>
         <div className="mt-4 grid gap-2">
-          <DebugRow label="Shooter X" value={`${shooter.x.toFixed(2)} ft`} />
-          <DebugRow label="Shooter Y" value={`${shooter.y.toFixed(2)} ft`} />
+          <DebugRow label="Shooter X" value={formatDistanceByUnits(shooter.x, units)} />
+          <DebugRow label="Shooter Y" value={formatDistanceByUnits(shooter.y, units)} />
           <DebugRow
             label="Base Probability"
             value={`${(stats.baseMakeProbability * 100).toFixed(1)}%`}
@@ -218,7 +223,7 @@ export function StatsPanel({
             <DebugRow
               key={defender.id}
               label={`${defender.label} (${defender.point.x.toFixed(1)}, ${defender.point.y.toFixed(1)})`}
-              value={`${defender.distance.toFixed(1)} ft`}
+              value={formatDistanceByUnits(defender.distance, units)}
             />
           ))}
         </div>
@@ -398,14 +403,6 @@ function DebugRow({ label, value }: { label: string; value: string }) {
       <span className="shrink-0 font-black text-white">{value}</span>
     </div>
   );
-}
-
-function formatDistance(distance: number) {
-  if (!Number.isFinite(distance)) {
-    return "No defender";
-  }
-
-  return `${distance.toFixed(1)} ft`;
 }
 
 const toneClasses = {

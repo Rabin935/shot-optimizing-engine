@@ -16,11 +16,11 @@ export function Breadcrumbs() {
 
   return (
     <nav aria-label="Breadcrumb" className="mb-5">
-      <ol className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-500">
+      <ol className="flex flex-wrap items-center gap-2 text-sm font-bold text-muted-foreground">
         <li>
           <Link
             href="/dashboard"
-            className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-slate-300 transition hover:border-orange-300/35 hover:text-orange-100"
+            className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-[color:var(--line)] bg-panel px-2.5 text-foreground transition hover:border-orange-300/35 hover:text-primary-strong"
           >
             <Home className="size-4" />
             Home
@@ -36,15 +36,15 @@ export function Breadcrumbs() {
 
           return (
             <li key={href} className="inline-flex items-center gap-2">
-              <ChevronRight className="size-4 text-slate-700" />
+              <ChevronRight className="size-4 text-subtle-foreground" />
               {isLast ? (
-                <span aria-current="page" className="text-orange-100">
+                <span className="rounded-lg border border-[color:var(--line)] bg-panel-muted px-2.5 py-1.5 text-foreground">
                   {label}
                 </span>
               ) : (
                 <Link
                   href={href}
-                  className="rounded-md px-1.5 py-1 text-slate-400 transition hover:text-white"
+                  className="rounded-lg px-2.5 py-1.5 text-muted-foreground transition hover:text-foreground"
                 >
                   {label}
                 </Link>

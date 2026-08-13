@@ -1,4 +1,8 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useId } from "react";
+import { useSettingsStore } from "@/store/useSettingsStore";
 
 type BasketballCourtProps = {
   children?: ReactNode;
@@ -8,6 +12,27 @@ type BasketballCourtProps = {
   showLines?: boolean;
 };
 
+const surfaceBase: Record<
+  "classic" | "pro" | "training",
+  { fill: string; shadow: string }
+> = {
+  classic: {
+    fill: "#be7b3d",
+    shadow:
+      "shadow-[0_30px_90px_rgba(0,0,0,0.38),inset_0_0_80px_rgba(0,0,0,0.28)]",
+  },
+  pro: {
+    fill: "#9a5a2e",
+    shadow:
+      "shadow-[0_30px_90px_rgba(0,0,0,0.45),inset_0_0_80px_rgba(0,0,0,0.32)]",
+  },
+  training: {
+    fill: "#6b7c8c",
+    shadow:
+      "shadow-[0_30px_90px_rgba(15,23,42,0.28),inset_0_0_80px_rgba(15,23,42,0.22)]",
+  },
+};
+
 export function BasketballCourt({
   children,
   className = "",
@@ -15,78 +40,125 @@ export function BasketballCourt({
   showLabels = true,
   showLines = true,
 }: BasketballCourtProps) {
+  const courtSurface = useSettingsStore((state) => state.settings.courtSurface);
+  const courtGrid = useSettingsStore((state) => state.settings.courtGrid);
+  const courtHotZones = useSettingsStore((state) => state.settings.courtHotZones);
+  const uid = useId().replace(/:/g, "");
+  const surface = surfaceBase[courtSurface];
+
   return (
     <div
-      className={`relative isolate aspect-[50/47] min-h-[320px] overflow-hidden rounded-lg border border-white/10 bg-[#be7b3d] shadow-[0_30px_90px_rgba(0,0,0,0.38),inset_0_0_80px_rgba(0,0,0,0.28)] sm:min-h-[430px] xl:min-h-[560px] ${feedbackGlow[feedbackTone]} ${className}`}
+      className={`relative isolate aspect-[50/47] min-h-[320px] overflow-hidden rounded-lg border border-[color:var(--line)] shadow-[var(--shadow-panel)] sm:min-h-[430px] xl:min-h-[560px] ${surface.shadow} ${feedbackGlow[feedbackTone]} ${className}`}
+      data-court-surface={courtSurface}
+      style={{ backgroundColor: surface.fill }}
     >
       <svg
         className="absolute inset-0 h-full w-full"
         viewBox="0 0 500 470"
         role="img"
-        aria-label="Detailed SVG NBA half-court"
+        aria-label={`${courtSurface} NBA half-court`}
         preserveAspectRatio="none"
       >
         <defs>
-          <linearGradient id="hardwood-base" x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0" stopColor="#f3c987" />
-            <stop offset="0.4" stopColor="#c88742" />
-            <stop offset="1" stopColor="#8a4d27" />
+          <linearGradient id={`hardwood-base-${uid}`} x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stopColor="var(--court-wood-1)" />
+            <stop offset="0.4" stopColor="var(--court-wood-2)" />
+            <stop offset="1" stopColor="var(--court-wood-3)" />
           </linearGradient>
           <pattern
-            id="hardwood-planks"
+            id={`hardwood-planks-${uid}`}
             width="500"
             height="42"
             patternUnits="userSpaceOnUse"
           >
             <rect width="500" height="42" fill="transparent" />
-            <path d="M0 0H500M0 42H500" stroke="#603315" strokeOpacity="0.3" strokeWidth="1.4" />
-            <path d="M64 0V42M151 0V42M263 0V42M361 0V42M452 0V42" stroke="#fff1c4" strokeOpacity="0.11" />
-            <path d="M16 11C82 2 142 22 209 12S326 3 484 17" stroke="#fff2c8" strokeOpacity="0.14" fill="none" />
-            <path d="M7 30C92 40 156 24 245 33S384 46 495 29" stroke="#4d2613" strokeOpacity="0.14" fill="none" />
+            <path
+              d="M0 0H500M0 42H500"
+              stroke="var(--court-plank)"
+              strokeOpacity="0.3"
+              strokeWidth="1.4"
+            />
+            <path
+              d="M64 0V42M151 0V42M263 0V42M361 0V42M452 0V42"
+              stroke="#fff1c4"
+              strokeOpacity="0.11"
+            />
+            <path
+              d="M16 11C82 2 142 22 209 12S326 3 484 17"
+              stroke="#fff2c8"
+              strokeOpacity="0.14"
+              fill="none"
+            />
+            <path
+              d="M7 30C92 40 156 24 245 33S384 46 495 29"
+              stroke="var(--court-plank)"
+              strokeOpacity="0.14"
+              fill="none"
+            />
           </pattern>
-          <radialGradient id="heat-paint" cx="50%" cy="16%" r="34%">
+          <radialGradient id={`heat-paint-${uid}`} cx="50%" cy="16%" r="34%">
             <stop offset="0" stopColor="#ef4444" stopOpacity="0.52" />
             <stop offset="0.45" stopColor="#f97316" stopOpacity="0.28" />
             <stop offset="1" stopColor="#f97316" stopOpacity="0" />
           </radialGradient>
-          <radialGradient id="heat-corner-left" cx="7%" cy="26%" r="22%">
-            <stop offset="0" stopColor="#22c55e" stopOpacity="0.42" />
-            <stop offset="1" stopColor="#22c55e" stopOpacity="0" />
+          <radialGradient id={`heat-corner-left-${uid}`} cx="7%" cy="26%" r="22%">
+            <stop offset="0" stopColor="var(--court-green)" stopOpacity="0.42" />
+            <stop offset="1" stopColor="var(--court-green)" stopOpacity="0" />
           </radialGradient>
-          <radialGradient id="heat-corner-right" cx="93%" cy="26%" r="22%">
-            <stop offset="0" stopColor="#22c55e" stopOpacity="0.42" />
-            <stop offset="1" stopColor="#22c55e" stopOpacity="0" />
+          <radialGradient id={`heat-corner-right-${uid}`} cx="93%" cy="26%" r="22%">
+            <stop offset="0" stopColor="var(--court-green)" stopOpacity="0.42" />
+            <stop offset="1" stopColor="var(--court-green)" stopOpacity="0" />
           </radialGradient>
-          <radialGradient id="heat-wing" cx="50%" cy="62%" r="46%">
+          <radialGradient id={`heat-wing-${uid}`} cx="50%" cy="62%" r="46%">
             <stop offset="0" stopColor="#38bdf8" stopOpacity="0.2" />
             <stop offset="0.58" stopColor="#f59e0b" stopOpacity="0.16" />
             <stop offset="1" stopColor="#f59e0b" stopOpacity="0" />
           </radialGradient>
-          <filter id="rim-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <filter id={`rim-glow-${uid}`} x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <filter id="paint-shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <filter id={`paint-shadow-${uid}`} x="-20%" y="-20%" width="140%" height="140%">
             <feDropShadow dx="0" dy="8" stdDeviation="7" floodColor="#1f1309" floodOpacity="0.24" />
           </filter>
+          <pattern
+            id={`court-grid-${uid}`}
+            width="25"
+            height="25"
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d="M25 0H0V25"
+              fill="none"
+              stroke="rgba(255,255,255,0.18)"
+              strokeWidth="1"
+            />
+          </pattern>
         </defs>
 
-        <rect width="500" height="470" fill="url(#hardwood-base)" />
-        <rect width="500" height="470" fill="url(#hardwood-planks)" />
-        <rect width="500" height="470" fill="url(#heat-wing)" />
-        <rect width="500" height="470" fill="url(#heat-paint)" />
-        <rect width="500" height="470" fill="url(#heat-corner-left)" />
-        <rect width="500" height="470" fill="url(#heat-corner-right)" />
+        <rect width="500" height="470" fill={`url(#hardwood-base-${uid})`} />
+        <rect width="500" height="470" fill={`url(#hardwood-planks-${uid})`} />
+        {courtHotZones ? (
+          <>
+            <rect width="500" height="470" fill={`url(#heat-wing-${uid})`} />
+            <rect width="500" height="470" fill={`url(#heat-paint-${uid})`} />
+            <rect width="500" height="470" fill={`url(#heat-corner-left-${uid})`} />
+            <rect width="500" height="470" fill={`url(#heat-corner-right-${uid})`} />
+          </>
+        ) : null}
+        {courtGrid ? (
+          <rect width="500" height="470" fill={`url(#court-grid-${uid})`} opacity="0.55" />
+        ) : null}
         <rect width="500" height="470" fill="rgba(58,32,13,0.12)" />
         <path
           d="M170 20V210H330V20Z"
           fill="rgba(15,23,42,0.18)"
           stroke="rgba(255,255,255,0.16)"
           strokeWidth="1"
-          filter="url(#paint-shadow)"
+          filter={`url(#paint-shadow-${uid})`}
         />
         <circle
           cx="250"
@@ -159,7 +231,7 @@ export function BasketballCourt({
                 cx="250"
                 cy="52.5"
                 r="14"
-                filter="url(#rim-glow)"
+                filter={`url(#rim-glow-${uid})`}
               />
               <path d="M236 56C241 73 259 73 264 56" stroke="rgba(255,255,255,0.38)" strokeWidth="2" />
               <path d="M241 58L245 72M250 59V74M259 58L255 72" stroke="rgba(255,255,255,0.32)" strokeWidth="1.5" />

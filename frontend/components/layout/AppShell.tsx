@@ -14,12 +14,12 @@ export function AppShell({ children }: AppShellProps) {
     <div className="min-h-screen bg-[var(--app-shell-bg)] text-foreground">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded-lg focus:border focus:border-orange-300/40 focus:bg-black focus:px-4 focus:py-3 focus:text-sm focus:font-black focus:text-orange-100"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded-lg focus:border focus:border-orange-300/40 focus:bg-surface focus:px-4 focus:py-3 focus:text-sm focus:font-black focus:text-primary-strong"
       >
         Skip to main content
       </a>
       <div className="pointer-events-none fixed inset-0 bg-[image:var(--app-shell-wash)]" />
-      <div className="pointer-events-none fixed inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,0.16)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:54px_54px]" />
+      <div className="pointer-events-none fixed inset-0 opacity-[0.06] [background-image:linear-gradient(var(--line)_1px,transparent_1px),linear-gradient(90deg,var(--line)_1px,transparent_1px)] [background-size:54px_54px]" />
       <ScreenReaderStatus />
       <ToastViewport />
 

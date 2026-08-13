@@ -58,3 +58,15 @@ export function formatDistanceByUnits(valueInFeet: number, units: UnitPreference
 
   return `${valueInFeet.toFixed(1)} ft`;
 }
+
+export function formatCourtPointByUnits(
+  xFeet: number,
+  yFeet: number,
+  units: UnitPreference,
+) {
+  if (units === "metric") {
+    return `${(xFeet * 0.3048).toFixed(1)}, ${(yFeet * 0.3048).toFixed(1)} m`;
+  }
+
+  return `${xFeet.toFixed(1)}, ${yFeet.toFixed(1)} ft`;
+}
