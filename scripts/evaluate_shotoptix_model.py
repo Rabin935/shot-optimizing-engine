@@ -26,7 +26,11 @@ PRESSURE_LEVELS = ["Very Tight", "Tight", "Open", "Very Open"]
 
 # Allow this script to import backend/app modules when run from the project root.
 sys.path.insert(0, str(BACKEND_DIR))
-from app.ml.feature_builder import MODEL_FEATURES as SHARED_MODEL_FEATURES  # noqa: E402
+from app.ml.feature_builder import (  # noqa: E402
+    MODEL_FEATURES as SHARED_MODEL_FEATURES,
+    build_features_from_dataframe,
+    compute_prior_rates,
+)
 
 
 def load_metadata() -> dict[str, Any]:
@@ -150,41 +154,14 @@ def add_position_features(features: pd.DataFrame, df: pd.DataFrame) -> None:
     features["position_center"] = position.str.contains("c").astype(int)
 
 
-def build_features_for_model(df: pd.DataFrame, feature_names: list[str]) -> pd.DataFrame:
-    # Create every known feature, then return only the model's expected order.
-    features = pd.DataFrame(index=df.index)
-
-    for column in [
-        "period",
-        "shot_clock",
-        "dribbles",
-        "touch_time",
-        "shot_distance",
-        "shot_angle",
-        "defender_distance",
-        "loc_x",
-        "loc_y",
-        "game_clock_seconds",
-        "is_home",
-        "shot_value",
-        "player_height_inches",
-        "player_weight",
-        "player_season_exp",
-        "player_draft_number",
-        "defender_height_wo_shoes_in",
-        "defender_wingspan_in",
-        "defender_wingspan_diff_in",
-        "defender_d_dpm",
-    ]:
-        add_numeric_feature(features, df, column)
-
-    add_derived_features(features)
-    add_action_features(features, df)
-    add_position_features(features, df)
-    add_zone_features(features, df)
-    add_pressure_features(features, df)
-
-    missing_features = [column for column in feature_names if column not in features]
+def build_features_for_model(
+    df: pd.DataFrame,
+    feature_names: list[str],
+    prior_rates: dict[str, Any] | None = None,
+) -> pd.DataFrame:
+    # Reuse the shared backend feature builder, then align to saved model columns.
+    features = build_features_from_dataframe(df, prior_rates=prior_rates)
+    missing_features = [column for column in feature_names if column not in features.columns]
     if missing_features:
         raise ValueError(f"Cannot build required features: {missing_features}")
 
@@ -464,16 +441,17 @@ def main() -> None:
 
     # Load data, build features, and recreate the deterministic held-out split.
     df = load_dataset()
-    X = build_features_for_model(df, feature_names)
     y = pd.to_numeric(df[TARGET_COLUMN], errors="coerce").astype(int)
-    _, X_test, _, y_test, _, df_test = train_test_split(
-        X,
-        y,
+    train_df, test_df, y_train, y_test = train_test_split(
         df,
+        y,
         test_size=TEST_SIZE,
         random_state=RANDOM_STATE,
         stratify=y,
     )
+    prior_rates = metadata.get("prior_rates") or compute_prior_rates(train_df)
+    X_test = build_features_for_model(test_df, feature_names, prior_rates=prior_rates)
+    df_test = test_df
 
     # Load the saved model and evaluate held-out predictions.
     model = joblib.load(MODEL_PATH)
