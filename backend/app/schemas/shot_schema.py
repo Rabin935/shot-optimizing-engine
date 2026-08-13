@@ -32,6 +32,7 @@ class ShotPredictionRequest(BaseModel):
     action_type: str = ""
     shot_type: str = ""
     position_group: str = ""
+    player_id: str = "unknown"
 
     # Example payload appears in the generated FastAPI docs.
     model_config = ConfigDict(
@@ -66,6 +67,7 @@ class ShotPredictionRequest(BaseModel):
                 "action_type": "Pullup Jump shot",
                 "shot_type": "3PT Field Goal",
                 "position_group": "G",
+                "player_id": "201939",
             }
         }
     )
