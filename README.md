@@ -555,14 +555,35 @@ ALLOWED_ORIGINS=http://localhost:3000
 ```powershell
 python scripts/clean_shot_logs.py
 python scripts/normalize_shotoptix_training_data.py
-python scripts/train_and_save_shotoptix_model.py
+python scripts/run_ml_experiments.py --sample-size 350000 --require-action-type --cv-folds 3
+python scripts/train_and_save_shotoptix_model.py --require-action-type --sample-size 1200000
 python scripts/evaluate_shotoptix_model.py
 ```
+
+Experiment notes and model comparison results are documented in
+`docs/ml-improvement-experiments.md`.
+
+### Collaborative stacking (push toward 70%)
+
+Train XGBoost + LightGBM + CatBoost + MLP together locally:
+
+```powershell
+python scripts/train_stacking_ensemble.py --require-action-type --sample-size 1500000 --cv-folds 3 --promote-if-better
+```
+
+Or run the GPU collaborative notebook in Google Colab:
+
+1. Upload the project (or `data/processed/shotoptix_ml_training.csv` + `backend/`) to Drive
+2. Open `notebooks/04_deep_learning_colab.ipynb`
+3. Runtime → GPU
+4. Run all cells — it trains tree models + deep MLP and stacks them
+5. Download `colab_ensemble_bundle.joblib` into `backend/trained_models/`
 
 ---
 
 ## Future Improvements
 
+- Hyperparameter / feature refresh cycles after richer tracking data arrives
 - Real NBA tracking data
 - 3D skeletal animation
 - Pose estimation
