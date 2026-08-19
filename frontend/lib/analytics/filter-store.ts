@@ -7,10 +7,15 @@ import type { AnalyticsFilterState } from "@/types/charts";
 export const DEFAULT_ANALYTICS_FILTERS: AnalyticsFilterState = {
   dateFrom: "",
   dateTo: "",
+  eppsMax: 3,
+  eppsMin: 0,
+  makeProbabilityMax: 1,
+  makeProbabilityMin: 0,
   mechanicsScoreMax: 100,
   mechanicsScoreMin: 0,
   predictionSource: "all",
   pressureLevel: "all",
+  searchQuery: "",
   sessionId: "",
   shotValue: "all",
   shotZone: "all",
@@ -37,8 +42,20 @@ export const useAnalyticsFilterStore = create<AnalyticsFilterStore>()(
         })),
     }),
     {
+      merge: (persisted, current) => {
+        const persistedState = persisted as Partial<AnalyticsFilterStore> | undefined;
+
+        return {
+          ...current,
+          filters: {
+            ...DEFAULT_ANALYTICS_FILTERS,
+            ...persistedState?.filters,
+          },
+        };
+      },
       name: "shotoptix-analytics-filters",
       storage: createJSONStorage(() => localStorage),
+      version: 2,
     },
   ),
 );

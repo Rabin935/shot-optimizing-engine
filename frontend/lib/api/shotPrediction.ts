@@ -31,24 +31,58 @@ type PredictShotOptions = {
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const CACHE_TTL_MS = 30_000;
+const responseCache = new Map<
+  string,
+  { expiresAt: number; value: ShotPredictionResponse }
+>();
+const pendingRequests = new Map<string, Promise<ShotPredictionResponse>>();
 
 export async function predictShot(
   data: ShotPredictionRequest,
   options: PredictShotOptions = {},
 ): Promise<ShotPredictionResponse> {
-  const response = await fetch(`${API_URL}/api/predict-shot`, {
-    body: JSON.stringify(data),
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    method: "POST",
-    signal: options.signal,
-  });
+  const cacheKey = JSON.stringify(data);
+  const cached = responseCache.get(cacheKey);
 
-  if (!response.ok) {
-    throw new Error(`Shot prediction failed with status ${response.status}`);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
   }
 
-  return response.json() as Promise<ShotPredictionResponse>;
+  const pending = pendingRequests.get(cacheKey);
+
+  if (pending) {
+    return pending;
+  }
+
+  const request = fetch(`${API_URL}/api/predict-shot`, {
+      body: JSON.stringify(data),
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+      signal: options.signal,
+    })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Shot prediction failed with status ${response.status}`);
+      }
+
+      const value = (await response.json()) as ShotPredictionResponse;
+
+      responseCache.set(cacheKey, {
+        expiresAt: Date.now() + CACHE_TTL_MS,
+        value,
+      });
+
+      return value;
+    })
+    .finally(() => {
+      pendingRequests.delete(cacheKey);
+    });
+
+  pendingRequests.set(cacheKey, request);
+
+  return request;
 }

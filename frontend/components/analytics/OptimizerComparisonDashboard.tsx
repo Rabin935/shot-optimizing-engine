@@ -14,11 +14,13 @@ import {
 import { AnalyticsCard, ChartContainer, ExportChartButton, StatCard } from "@/components/charts";
 import { formatDecimal, formatPercent, formatScore } from "@/lib/analytics/formatters";
 import { buildOptimizerComparison } from "@/lib/analytics/transforms";
+import { useChartPalette } from "@/lib/chart-theme";
 import { calculateMechanicsScore } from "@/lib/simulator-analysis";
 import { useShotStore, type DefenderPoseState } from "@/store/useShotStore";
 import type { OptimizerComparisonDatum } from "@/types/charts";
 
 export function OptimizerComparisonDashboard() {
+  const palette = useChartPalette();
   const state = useShotStore((store) => store);
   const primaryDefenderPose =
     state.defenderPoses[state.defenders[0]?.id ?? "d1"] ??
@@ -52,14 +54,14 @@ export function OptimizerComparisonDashboard() {
 
   return (
     <section className="grid gap-6">
-      <header className="flex flex-col gap-3 border-b border-white/10 pb-6">
-        <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-300">
+      <header className="flex flex-col gap-3 border-b border-[color:var(--line)] pb-6">
+        <p className="text-sm font-bold uppercase tracking-[0.22em] text-success">
           Optimizer Analytics
         </p>
-        <h1 className="text-3xl font-black tracking-tight text-white sm:text-5xl">
+        <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-5xl">
           Current shot vs recommendation
         </h1>
-        <p className="max-w-3xl text-base leading-7 text-slate-300">
+        <p className="max-w-3xl text-base leading-7 text-muted-foreground">
           Compare the current possession against the optimizer’s recommended
           shot across EPPS, make probability, mechanics, pressure, and distance.
         </p>
@@ -78,13 +80,13 @@ export function OptimizerComparisonDashboard() {
       >
         <ChartContainer height={390}>
           <BarChart data={comparisonRows} margin={{ bottom: 12, left: 0, right: 16, top: 16 }}>
-            <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-            <XAxis dataKey="metric" interval={0} stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 800 }} tickLine={false} />
-            <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 700 }} tickLine={false} />
+            <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+            <XAxis dataKey="metric" interval={0} stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 800 }} tickLine={false} />
+            <YAxis stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 12, fontWeight: 700 }} tickLine={false} />
             <Tooltip content={<OptimizerTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-            <Legend wrapperStyle={{ color: "#cbd5e1", fontSize: 12, fontWeight: 800 }} />
-            <Bar dataKey="current" fill="#fb923c" name="Current Shot" radius={[6, 6, 0, 0]} />
-            <Bar dataKey="recommendation" fill="#86efac" name="Optimizer Recommendation" radius={[6, 6, 0, 0]} />
+            <Legend wrapperStyle={{ color: palette.axis, fontSize: 12, fontWeight: 800 }} />
+            <Bar dataKey="current" fill={palette.series1} name="Current Shot" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="recommendation" fill={palette.series2} name="Optimizer Recommendation" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ChartContainer>
       </AnalyticsCard>

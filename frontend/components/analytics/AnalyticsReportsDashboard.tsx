@@ -1,17 +1,19 @@
 "use client";
 
+import { useChartPalette } from '@/lib/chart-theme';
 import {
   Activity,
   Award,
   FileDown,
   Gauge,
+  Printer,
   Shield,
   Target,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -25,6 +27,7 @@ import {
 } from "recharts";
 import { GlobalAnalyticsFilterBar } from "@/components/analytics/GlobalAnalyticsFilterBar";
 import { AnalyticsCard, ChartContainer, ExportChartButton, StatCard } from "@/components/charts";
+import { EmptyState } from "@/components/ui";
 import { formatDecimal, formatPercent, formatScore } from "@/lib/analytics/formatters";
 import {
   buildHeatmapRegions,
@@ -49,7 +52,18 @@ import type {
   ZonePerformanceDatum,
 } from "@/types/charts";
 
+type ReportMode = "session" | "summary" | "trends" | "exports";
+
+const reportModes: Array<{ label: string; value: ReportMode }> = [
+  { label: "Session", value: "session" },
+  { label: "Summary", value: "summary" },
+  { label: "Trends", value: "trends" },
+  { label: "Exports", value: "exports" },
+];
+
 export function AnalyticsReportsDashboard() {
+  const palette = useChartPalette();
+  const [reportMode, setReportMode] = useState<ReportMode>("session");
   const shots = useFilteredAnalyticsShots();
   const optimizedShot = useShotStore((state) => state.optimizedShot);
   const trendRows = useMemo(() => buildTrendSeries(shots, "all"), [shots]);
@@ -65,29 +79,116 @@ export function AnalyticsReportsDashboard() {
   const bestPressure = getBestPressure(pressureRows);
   const worstPressure = getWorstPressure(pressureRows);
   const recentShots = [...shots].slice(-6).reverse();
+  const printReport = () => window.print();
+  const trendAnalysis = useMemo(() => buildTrendAnalysis(trendRows), [trendRows]);
+  const reportExport = useMemo(
+    () => ({
+      bestShot,
+      heatmapRegions,
+      mechanicsRows,
+      optimizedShot,
+      pressureRows,
+      recentShots,
+      summary,
+      trendAnalysis,
+      trendRows,
+      worstShot,
+      zoneRows,
+    }),
+    [
+      bestShot,
+      heatmapRegions,
+      mechanicsRows,
+      optimizedShot,
+      pressureRows,
+      recentShots,
+      summary,
+      trendAnalysis,
+      trendRows,
+      worstShot,
+      zoneRows,
+    ],
+  );
 
   return (
     <section className="grid gap-6">
       <header className="flex flex-col gap-3 border-b border-white/10 pb-6">
         <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-300">
-          Analytics Dashboard
+          Reports
         </p>
         <h1 className="text-3xl font-black tracking-tight text-white sm:text-5xl">
-          ShotOptix performance command center
+          Report builder and analytics exports
         </h1>
         <p className="max-w-3xl text-base leading-7 text-slate-300">
-          A full replay-powered reporting workspace for prediction trends, EPPS,
-          mechanics, optimizer impact, pressure, shot zones, and recent sessions.
+          Build thesis-ready session reports, multi-shot summaries, trend
+          analysis, printable layouts, and exportable analytics snapshots.
         </p>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Report view">
+            {reportModes.map((mode) => (
+              <button
+                key={mode.value}
+                type="button"
+                role="tab"
+                aria-selected={reportMode === mode.value}
+                onClick={() => setReportMode(mode.value)}
+                className={`min-h-10 rounded-lg border px-4 text-sm font-black transition ${
+                  reportMode === mode.value
+                    ? "border-orange-300/40 bg-orange-500/15 text-orange-100"
+                    : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-white"
+                }`}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={printReport}
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-slate-300 transition hover:border-green-300/35 hover:text-green-100"
+            >
+              <Printer className="size-4" />
+              Print
+            </button>
+            <ExportChartButton data={reportExport} filename="shotoptix-full-report" />
+          </div>
+        </div>
       </header>
 
       <GlobalAnalyticsFilterBar />
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {!shots.length ? (
+        <EmptyState title="No report data matches the current filters">
+          Adjust the global analytics filters or save simulator replays to build
+          a richer report.
+        </EmptyState>
+      ) : null}
+
+      <section className="print-report grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={<Activity className="size-5" />} label="Replay Summary" value={`${summary.shotCount} shots`} />
         <StatCard icon={<Gauge className="size-5" />} label="Average EPPS" value={formatDecimal(summary.averageEpps)} tone="green" />
         <StatCard icon={<Target className="size-5" />} label="Average Make" value={formatPercent(summary.averageMakeProbability)} tone="orange" />
         <StatCard icon={<Award className="size-5" />} label="Best Shot" value={bestShot ? `#${bestShot.shotNumber}` : "No data"} />
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <AnalyticsCard eyebrow="Multi-shot Summary" title="Session report snapshot">
+          <div className="grid gap-3 md:grid-cols-2">
+            <SummaryRow icon={<Target className="size-4" />} label="Shot sample" value={`${summary.shotCount} filtered attempts`} />
+            <SummaryRow icon={<Award className="size-4" />} label="Best zone" value={bestZone?.zone ?? "No zone data"} />
+            <SummaryRow icon={<Shield className="size-4" />} label="Pressure mode" value={mostCommonPressure?.pressure ?? "No pressure data"} />
+            <SummaryRow icon={<Gauge className="size-4" />} label="Mechanics average" value={formatScore(average(mechanicsRows.map((row) => row.score)))} />
+          </div>
+        </AnalyticsCard>
+
+        <AnalyticsCard eyebrow="Trend Analysis" title="Direction and consistency">
+          <div className="grid gap-3 md:grid-cols-3">
+            <SummaryRow icon={<TrendingUp className="size-4" />} label="EPPS trend" value={trendAnalysis.eppsTrend} />
+            <SummaryRow icon={<Target className="size-4" />} label="Make trend" value={trendAnalysis.makeTrend} />
+            <SummaryRow icon={<Activity className="size-4" />} label="Consistency" value={trendAnalysis.consistency} />
+          </div>
+        </AnalyticsCard>
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
@@ -98,12 +199,12 @@ export function AnalyticsReportsDashboard() {
         >
           <ChartContainer empty={!trendRows.length} height={360}>
             <LineChart data={trendRows} margin={{ bottom: 12, left: 0, right: 16, top: 16 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-              <XAxis dataKey="shotNumber" stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 700 }} tickLine={false} />
-              <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 700 }} tickLine={false} />
+              <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+              <XAxis dataKey="shotNumber" stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 12, fontWeight: 700 }} tickLine={false} />
+              <YAxis stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 12, fontWeight: 700 }} tickLine={false} />
               <Tooltip content={<TrendTooltip />} />
-              <Line type="monotone" dataKey="epps" name="EPPS" stroke="#86efac" strokeWidth={3} dot={false} />
-              <Line type="monotone" dataKey="makeProbability" name="Make Probability" stroke="#fb923c" strokeWidth={3} dot={false} />
+              <Line type="monotone" dataKey="epps" name="EPPS" stroke={palette.series2} strokeWidth={3} dot={false} />
+              <Line type="monotone" dataKey="makeProbability" name="Make Probability" stroke={palette.series1} strokeWidth={3} dot={false} />
             </LineChart>
           </ChartContainer>
         </AnalyticsCard>
@@ -130,9 +231,9 @@ export function AnalyticsReportsDashboard() {
         >
           <ChartContainer empty={!shots.length}>
             <BarChart data={zoneRows} margin={{ bottom: 12, left: 0, right: 16, top: 16 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-              <XAxis dataKey="zone" interval={0} stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 800 }} tickLine={false} />
-              <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 700 }} tickLine={false} />
+              <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+              <XAxis dataKey="zone" interval={0} stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 800 }} tickLine={false} />
+              <YAxis stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 12, fontWeight: 700 }} tickLine={false} />
               <Tooltip content={<ZoneTooltip />} />
               <Bar dataKey="averageEpps" name="Average EPPS" radius={[6, 6, 0, 0]}>
                 {zoneRows.map((row) => (
@@ -151,9 +252,9 @@ export function AnalyticsReportsDashboard() {
         >
           <ChartContainer empty={!shots.length}>
             <BarChart data={pressureRows} margin={{ bottom: 12, left: 0, right: 16, top: 16 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-              <XAxis dataKey="pressure" stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 800 }} tickLine={false} />
-              <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 700 }} tickLine={false} />
+              <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+              <XAxis dataKey="pressure" stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 800 }} tickLine={false} />
+              <YAxis stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 12, fontWeight: 700 }} tickLine={false} />
               <Tooltip content={<PressureTooltip />} />
               <Bar dataKey="averageEpps" name="Average EPPS" fill="#60a5fa" radius={[6, 6, 0, 0]} />
             </BarChart>
@@ -344,4 +445,44 @@ function describeShot(shot: AnalyticsShot | null) {
   }
 
   return `#${shot.shotNumber} ${shot.zone}, ${formatDecimal(shot.epps)} EPPS`;
+}
+
+function buildTrendAnalysis(rows: TrendPoint[]) {
+  if (rows.length < 2) {
+    return {
+      consistency: "Needs more shots",
+      eppsTrend: "No trend",
+      makeTrend: "No trend",
+    };
+  }
+
+  const first = rows[0];
+  const last = rows[rows.length - 1];
+  const eppsDelta = last.epps - first.epps;
+  const makeDelta = last.makeProbability - first.makeProbability;
+  const eppsValues = rows.map((row) => row.epps);
+  const spread = Math.max(...eppsValues) - Math.min(...eppsValues);
+
+  return {
+    consistency:
+      spread < 0.16 ? "Stable" : spread < 0.32 ? "Variable" : "Volatile",
+    eppsTrend: formatTrend(eppsDelta, " EPPS"),
+    makeTrend: formatTrend(makeDelta * 100, "%"),
+  };
+}
+
+function formatTrend(value: number, suffix: string) {
+  const sign = value >= 0 ? "+" : "";
+
+  return `${sign}${value.toFixed(suffix === "%" ? 1 : 2)}${suffix}`;
+}
+
+function average(values: number[]) {
+  const validValues = values.filter(Number.isFinite);
+
+  if (!validValues.length) {
+    return 0;
+  }
+
+  return validValues.reduce((sum, value) => sum + value, 0) / validValues.length;
 }

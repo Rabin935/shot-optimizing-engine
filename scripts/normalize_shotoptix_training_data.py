@@ -27,6 +27,15 @@ MODEL_COLUMNS = [
     "loc_y",
     "game_clock_seconds",
     "is_home",
+    "player_id",
+    "player_height_inches",
+    "player_weight",
+    "player_season_exp",
+    "player_draft_number",
+    "defender_height_wo_shoes_in",
+    "defender_wingspan_in",
+    "defender_wingspan_diff_in",
+    "defender_d_dpm",
     "action_type",
     "shot_type",
     "position_group",
@@ -34,6 +43,13 @@ MODEL_COLUMNS = [
     "pressure_level",
     "shot_value",
     "shot_made",
+    "team_rest_days",
+    "team_travel_distance",
+    "team_win_pct",
+    "team_streak",
+    "opp_rest_days",
+    "opp_win_pct",
+    "has_real_schedule_context",
 ]
 
 COLUMN_ALIASES = {
@@ -48,6 +64,15 @@ COLUMN_ALIASES = {
     "loc_y": ["loc_y", "LOC_Y", "shotY"],
     "game_clock_seconds": ["game_clock_seconds", "time_remaining"],
     "is_home": ["is_home"],
+    "player_id": ["player_id", "PLAYER_ID", "playerId"],
+    "player_height_inches": ["player_height_inches"],
+    "player_weight": ["player_weight"],
+    "player_season_exp": ["player_season_exp"],
+    "player_draft_number": ["player_draft_number"],
+    "defender_height_wo_shoes_in": ["defender_height_wo_shoes_in"],
+    "defender_wingspan_in": ["defender_wingspan_in"],
+    "defender_wingspan_diff_in": ["defender_wingspan_diff_in"],
+    "defender_d_dpm": ["defender_d_dpm"],
     "action_type": ["action_type", "ACTION_TYPE"],
     "shot_type": ["shot_type", "SHOT_TYPE", "shot_type"],
     "position_group": ["position_group", "POSITION_GROUP"],
@@ -62,6 +87,13 @@ COLUMN_ALIASES = {
     "shot_value": ["shot_value", "PTS_TYPE"],
     "shot_made": ["shot_made", "FGM", "made", "is_made", "SHOT_MADE"],
     "shot_result": ["shot_result", "SHOT_RESULT"],
+    "team_rest_days": ["team_rest_days"],
+    "team_travel_distance": ["team_travel_distance"],
+    "team_win_pct": ["team_win_pct"],
+    "team_streak": ["team_streak"],
+    "opp_rest_days": ["opp_rest_days"],
+    "opp_win_pct": ["opp_win_pct"],
+    "has_real_schedule_context": ["has_real_schedule_context"],
 }
 
 
@@ -234,12 +266,28 @@ def normalize_dataset(df: pd.DataFrame) -> pd.DataFrame:
         "loc_y",
         "game_clock_seconds",
         "is_home",
+        "player_id",
+        "player_height_inches",
+        "player_weight",
+        "player_season_exp",
+        "player_draft_number",
+        "defender_height_wo_shoes_in",
+        "defender_wingspan_in",
+        "defender_wingspan_diff_in",
+        "defender_d_dpm",
         "action_type",
         "shot_type",
         "position_group",
         "shot_zone",
         "pressure_level",
         "shot_value",
+        "team_rest_days",
+        "team_travel_distance",
+        "team_win_pct",
+        "team_streak",
+        "opp_rest_days",
+        "opp_win_pct",
+        "has_real_schedule_context",
     ]:
         standardize_column(normalized, column)
 
@@ -256,7 +304,22 @@ def normalize_dataset(df: pd.DataFrame) -> pd.DataFrame:
         "loc_y",
         "game_clock_seconds",
         "is_home",
+        "player_height_inches",
+        "player_weight",
+        "player_season_exp",
+        "player_draft_number",
+        "defender_height_wo_shoes_in",
+        "defender_wingspan_in",
+        "defender_wingspan_diff_in",
+        "defender_d_dpm",
         "shot_value",
+        "team_rest_days",
+        "team_travel_distance",
+        "team_win_pct",
+        "team_streak",
+        "opp_rest_days",
+        "opp_win_pct",
+        "has_real_schedule_context",
     ]:
         if column in normalized.columns:
             normalized[column] = pd.to_numeric(normalized[column], errors="coerce")
@@ -266,14 +329,35 @@ def normalize_dataset(df: pd.DataFrame) -> pd.DataFrame:
         ("loc_y", 0.0),
         ("game_clock_seconds", 12.0),
         ("is_home", 0),
+        ("player_id", "unknown"),
+        ("player_height_inches", 79.0),
+        ("player_weight", 215.0),
+        ("player_season_exp", 4.0),
+        ("player_draft_number", 60.0),
+        ("defender_height_wo_shoes_in", 79.0),
+        ("defender_wingspan_in", 82.0),
+        ("defender_wingspan_diff_in", 3.0),
+        ("defender_d_dpm", 0.0),
         ("action_type", ""),
         ("shot_type", ""),
         ("position_group", ""),
+        ("team_rest_days", 1.3),
+        ("team_travel_distance", 533.0),
+        ("team_win_pct", 0.5),
+        ("team_streak", 0.0),
+        ("opp_rest_days", 1.3),
+        ("opp_win_pct", 0.5),
+        ("has_real_schedule_context", 0),
     ]:
         if column not in normalized.columns:
             normalized[column] = default
         else:
             normalized[column] = normalized[column].fillna(default)
+
+    normalized["player_id"] = normalized["player_id"].astype(str).str.strip()
+    normalized.loc[normalized["player_id"].isin({"", "nan", "None"}), "player_id"] = (
+        "unknown"
+    )
 
     # Shot angle is optional in some datasets, so default it to zero.
     if "shot_angle" not in normalized.columns:
@@ -320,8 +404,10 @@ def normalize_dataset(df: pd.DataFrame) -> pd.DataFrame:
     # Keep only the columns used for supervised ML training.
     normalize_target(normalized)
 
+    # Drop rows missing core model fields; player_id is allowed to be "unknown".
+    required_columns = [column for column in MODEL_COLUMNS if column != "player_id"]
     normalized = normalized[MODEL_COLUMNS].copy()
-    normalized = normalized.dropna(subset=MODEL_COLUMNS)
+    normalized = normalized.dropna(subset=required_columns)
 
     # Remove rows outside the supported ShotOptix modeling categories.
     normalized = normalized[

@@ -2,9 +2,11 @@
 
 import { RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { FilterBar } from "@/components/charts";
+import { Badge, Button, Dropdown, FieldLabel, Input } from "@/components/ui";
 import { ANALYTICS_PRESSURE_ORDER, ANALYTICS_ZONE_ORDER } from "@/lib/analytics/transforms";
-import { useAnalyticsFilterStore } from "@/lib/analytics/filter-store";
+import { DEFAULT_ANALYTICS_FILTERS, useAnalyticsFilterStore } from "@/lib/analytics/filter-store";
 import { useAnalyticsSessions } from "@/lib/analytics/useFilteredAnalyticsShots";
 import type { AnalyticsFilterState } from "@/types/charts";
 
@@ -21,9 +23,22 @@ export function GlobalAnalyticsFilterBar() {
   const updateFilters = useAnalyticsFilterStore((state) => state.updateFilters);
   const resetFilters = useAnalyticsFilterStore((state) => state.resetFilters);
   const sessions = useAnalyticsSessions();
+  const activeFilterCount = useMemo(
+    () =>
+      Object.entries(filters).filter(
+        ([key, value]) =>
+          value !== DEFAULT_ANALYTICS_FILTERS[key as keyof AnalyticsFilterState],
+      ).length,
+    [filters],
+  );
 
   return (
     <FilterBar title="Global Analytics Filters">
+      <div className="flex min-h-10 items-center">
+        <Badge tone={activeFilterCount ? "success" : "neutral"}>
+          {activeFilterCount} active
+        </Badge>
+      </div>
       <SelectControl label="Zone" value={filters.shotZone} onChange={(value) => updateFilters({ shotZone: value as AnalyticsFilterState["shotZone"] })}>
         <option value="all">All Zones</option>
         {ANALYTICS_ZONE_ORDER.map((zone) => (
@@ -52,18 +67,24 @@ export function GlobalAnalyticsFilterBar() {
           <option key={session} value={session}>{session}</option>
         ))}
       </SelectControl>
+      <TextControl label="Search" value={filters.searchQuery} onChange={(value) => updateFilters({ searchQuery: value })} />
+      <NumberControl label="EPPS Min" value={filters.eppsMin} onChange={(value) => updateFilters({ eppsMin: value })} max={3} step={0.05} />
+      <NumberControl label="EPPS Max" value={filters.eppsMax} onChange={(value) => updateFilters({ eppsMax: value })} max={3} step={0.05} />
+      <NumberControl label="Make Min" value={filters.makeProbabilityMin} onChange={(value) => updateFilters({ makeProbabilityMin: value })} max={1} step={0.01} />
+      <NumberControl label="Make Max" value={filters.makeProbabilityMax} onChange={(value) => updateFilters({ makeProbabilityMax: value })} max={1} step={0.01} />
       <NumberControl label="Mech Min" value={filters.mechanicsScoreMin} onChange={(value) => updateFilters({ mechanicsScoreMin: value })} />
       <NumberControl label="Mech Max" value={filters.mechanicsScoreMax} onChange={(value) => updateFilters({ mechanicsScoreMax: value })} />
       <DateControl label="From" value={filters.dateFrom} onChange={(value) => updateFilters({ dateFrom: value })} />
       <DateControl label="To" value={filters.dateTo} onChange={(value) => updateFilters({ dateTo: value })} />
-      <button
+      <Button
         type="button"
         onClick={resetFilters}
-        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3 text-sm font-black text-slate-100 transition hover:border-orange-300/35 hover:bg-orange-500/15"
+        disabled={!activeFilterCount}
+        variant="outline"
       >
         <RotateCcw className="size-4" />
         Reset
-      </button>
+      </Button>
     </FilterBar>
   );
 }
@@ -80,40 +101,68 @@ function SelectControl({
   value: string;
 }) {
   return (
-    <label className="grid gap-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+    <FieldLabel className="grid gap-1 text-slate-500">
       {label}
-      <select
+      <Dropdown
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-h-10 rounded-lg border border-white/10 bg-[#111] px-3 text-sm font-bold normal-case tracking-normal text-white"
+        className="normal-case tracking-normal"
       >
         {children}
-      </select>
-    </label>
+      </Dropdown>
+    </FieldLabel>
   );
 }
 
 function NumberControl({
   label,
+  max = 100,
+  onChange,
+  step = 1,
+  value,
+}: {
+  label: string;
+  max?: number;
+  onChange: (value: number) => void;
+  step?: number;
+  value: number;
+}) {
+  return (
+    <FieldLabel className="grid gap-1 text-slate-500">
+      {label}
+      <Input
+        type="number"
+        min={0}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="w-24 normal-case tracking-normal"
+      />
+    </FieldLabel>
+  );
+}
+
+function TextControl({
+  label,
   onChange,
   value,
 }: {
   label: string;
-  onChange: (value: number) => void;
-  value: number;
+  onChange: (value: string) => void;
+  value: string;
 }) {
   return (
-    <label className="grid gap-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+    <FieldLabel className="grid gap-1 text-slate-500">
       {label}
-      <input
-        type="number"
-        min={0}
-        max={100}
+      <Input
+        type="search"
         value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="min-h-10 w-24 rounded-lg border border-white/10 bg-[#111] px-3 text-sm font-bold normal-case tracking-normal text-white"
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Zone, pressure, session"
+        className="w-48 normal-case tracking-normal"
       />
-    </label>
+    </FieldLabel>
   );
 }
 
@@ -127,14 +176,14 @@ function DateControl({
   value: string;
 }) {
   return (
-    <label className="grid gap-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+    <FieldLabel className="grid gap-1 text-slate-500">
       {label}
-      <input
+      <Input
         type="date"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-h-10 rounded-lg border border-white/10 bg-[#111] px-3 text-sm font-bold normal-case tracking-normal text-white"
+        className="normal-case tracking-normal"
       />
-    </label>
+    </FieldLabel>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useChartPalette } from '@/lib/chart-theme';
 import { BrainCircuit, Gauge, PieChart as PieIcon, Timer } from "lucide-react";
 import { useMemo } from "react";
 import {
@@ -23,6 +24,7 @@ import type { ModelPerformanceDatum } from "@/types/charts";
 const sourceColors = ["#86efac", "#fb923c", "#60a5fa", "#f87171"];
 
 export function ModelPerformanceDashboard() {
+  const palette = useChartPalette();
   const shots = useFilteredAnalyticsShots();
   const modelRows = useMemo(() => buildModelPerformance(shots), [shots]);
   const totalPredictions = modelRows.reduce((sum, row) => sum + row.count, 0);
@@ -82,9 +84,9 @@ export function ModelPerformanceDashboard() {
         >
           <ChartContainer empty={!modelRows.length}>
             <BarChart data={modelRows} margin={{ bottom: 12, left: 0, right: 16, top: 16 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-              <XAxis dataKey="source" stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 800 }} tickLine={false} />
-              <YAxis domain={[0, 1]} stroke="#94a3b8" tickFormatter={(value) => formatPercent(Number(value))} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 700 }} tickLine={false} />
+              <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+              <XAxis dataKey="source" stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 800 }} tickLine={false} />
+              <YAxis domain={[0, 1]} stroke={palette.axis} tickFormatter={(value) => formatPercent(Number(value))} tick={{ fill: palette.axis, fontSize: 12, fontWeight: 700 }} tickLine={false} />
               <Tooltip content={<ModelTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
               <Bar dataKey="averageConfidence" name="Average Confidence" radius={[6, 6, 0, 0]}>
                 {modelRows.map((row, index) => (

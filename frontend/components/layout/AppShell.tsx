@@ -1,5 +1,9 @@
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
+import { PageTransition } from "@/components/navigation/PageTransition";
+import { ScreenReaderStatus } from "@/components/layout/ScreenReaderStatus";
+import { ToastViewport } from "@/components/layout/ToastViewport";
 
 type AppShellProps = {
   children: ReactNode;
@@ -7,15 +11,28 @@ type AppShellProps = {
 
 export function AppShell({ children }: AppShellProps) {
   return (
-    <div className="min-h-screen bg-[#070807] text-foreground">
-      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(135deg,rgba(249,115,22,0.1)_0%,transparent_34%,rgba(34,197,94,0.08)_72%,transparent_100%),linear-gradient(180deg,#101318_0%,#070807_45%,#050505_100%)]" />
-      <div className="pointer-events-none fixed inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,0.16)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:54px_54px]" />
+    <div className="min-h-screen bg-[var(--app-shell-bg)] text-foreground">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded-lg focus:border focus:border-orange-300/40 focus:bg-surface focus:px-4 focus:py-3 focus:text-sm focus:font-black focus:text-primary-strong"
+      >
+        Skip to main content
+      </a>
+      <div className="pointer-events-none fixed inset-0 bg-[image:var(--app-shell-wash)]" />
+      <div className="pointer-events-none fixed inset-0 opacity-[0.06] [background-image:linear-gradient(var(--line)_1px,transparent_1px),linear-gradient(90deg,var(--line)_1px,transparent_1px)] [background-size:54px_54px]" />
+      <ScreenReaderStatus />
+      <ToastViewport />
 
       <Sidebar />
 
-      <main className="relative z-10 min-h-screen lg:pl-72">
-        <div className="mx-auto w-full max-w-[1520px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          {children}
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="relative z-10 min-h-screen lg:pl-56"
+      >
+        <div className="mx-auto w-full max-w-[1520px] px-3 pb-32 pt-5 sm:px-6 lg:px-8 lg:py-8">
+          <Breadcrumbs />
+          <PageTransition>{children}</PageTransition>
         </div>
       </main>
     </div>

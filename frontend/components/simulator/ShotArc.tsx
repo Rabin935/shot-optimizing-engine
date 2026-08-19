@@ -77,25 +77,28 @@ export function ShotArc({
   // ShotArc intentionally uses a readable Bezier approximation. It explains
   // release shape without pretending to be a full ballistics simulation.
   const releasePoint = getReleasePoint({ shooterPose, shooterStage });
+  const shotReleaseAngle = releaseAngle;
   const shotTarget = aimTarget;
+  const pathTarget = shotTarget;
   const controlPoint = getArcControlPoint({
-    releaseAngle,
+    releaseAngle: shotReleaseAngle,
     releasePoint,
-    rim: shotTarget,
+    rim: pathTarget,
     shotDistance,
   });
   const arcPath = buildShotPath({
-    releaseAngle,
+    releaseAngle: shotReleaseAngle,
     releasePoint,
-    rim: shotTarget,
+    rim: pathTarget,
     shotDistance,
   });
   const visual = getBallVisualState({
     outcome,
     progress: timeline,
-    releaseAngle,
+    releaseAngle: shotReleaseAngle,
     releasePoint,
     rim: shotTarget,
+    scoreRim: rim,
     shotDistance,
     blockPoint,
     blockProgress,
@@ -362,15 +365,17 @@ function RimOutcomeEffects({
           transition={{ duration: 0.48, repeat: isPlaying ? Infinity : 0 }}
         />
       ) : null}
-      <text
-        x={rim.x - 72}
-        y={rim.y + 70}
-        fill="#fed7aa"
-        fontSize="13"
-        fontWeight="900"
-      >
-        {visual.label}
-      </text>
+      {visual.hasContact ? (
+        <text
+          x={rim.x - 72}
+          y={rim.y + 70}
+          fill="#fed7aa"
+          fontSize="13"
+          fontWeight="900"
+        >
+          {visual.label}
+        </text>
+      ) : null}
     </g>
   );
 }
@@ -458,33 +463,74 @@ function ShotResultCallout({
 }) {
   // The callout keeps the key prediction outputs visible while users scrub the
   // release timeline and explain why the simulated look is good or poor.
+  const recommendationLines = splitSvgText(recommendation, 45, 2);
+
   return (
     <g>
       <rect
         x="28"
         y="28"
-        width="250"
-        height="112"
+        width="360"
+        height="138"
         rx="10"
         fill="rgba(0,0,0,0.58)"
         stroke="rgba(255,255,255,0.14)"
       />
-      <text x="48" y="57" fill="#fed7aa" fontSize="15" fontWeight="900">
+      <text x="48" y="58" fill="#fed7aa" fontSize="15" fontWeight="900">
         Synthetic Release Preview
       </text>
-      <text x="48" y="82" fill="rgba(226,232,240,0.86)" fontSize="13">
+      <text x="48" y="84" fill="rgba(226,232,240,0.86)" fontSize="13">
         P(make): {(makeProbability * 100).toFixed(1)}% / EPPS {epps.toFixed(2)}
       </text>
-      <text x="48" y="105" fill={qualityStroke[shotQuality]} fontSize="13" fontWeight="900">
+      <text x="48" y="108" fill={qualityStroke[shotQuality]} fontSize="13" fontWeight="900">
         Quality: {shotQuality} / {outcomeLabel}
       </text>
-      <text x="48" y="126" fill="rgba(226,232,240,0.72)" fontSize="12">
-        {recommendation.length > 36
-          ? `${recommendation.slice(0, 35)}...`
-          : recommendation}
+      <text x="48" y="132" fill="rgba(226,232,240,0.72)" fontSize="12">
+        {recommendationLines.map((line, index) => (
+          <tspan key={line} x="48" dy={index === 0 ? 0 : 16}>
+            {line}
+          </tspan>
+        ))}
       </text>
     </g>
   );
+}
+
+function splitSvgText(text: string, maxLength: number, maxLines: number) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let currentLine = "";
+
+  words.forEach((word) => {
+    const nextLine = currentLine ? `${currentLine} ${word}` : word;
+
+    if (nextLine.length <= maxLength) {
+      currentLine = nextLine;
+      return;
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    currentLine = word;
+  });
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  if (lines.length <= maxLines) {
+    return lines;
+  }
+
+  const visibleLines = lines.slice(0, maxLines);
+  const finalLine = visibleLines[visibleLines.length - 1];
+  visibleLines[visibleLines.length - 1] =
+    finalLine.length > maxLength - 3
+      ? `${finalLine.slice(0, maxLength - 3)}...`
+      : `${finalLine}...`;
+
+  return visibleLines;
 }
 
 const qualityStroke: Record<SharedShotQuality, string> = {

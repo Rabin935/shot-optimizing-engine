@@ -5,10 +5,55 @@ import pandas as pd
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 RAW_DATA_PATH = ROOT_DIR / "data" / "raw" / "shot_logs.csv"
+DEFENDER_SHOT_LOG_PATH = ROOT_DIR / "data" / "raw" / "shot_logs_defender.csv"
+DEFENDER_WINGSPAN_PATH = ROOT_DIR / "data" / "raw" / "wingspan_all_2026-07-13.csv"
 NBA_SHOT_DATASET_DIR = ROOT_DIR / "data" / "raw" / "NBA shot dataset (2000 - 2024)"
+NBA_DAILY_SHOTS_DIR = ROOT_DIR / "data" / "raw" / "nba"
+PUBLIC_TRACKING_SHOTS_PATH = (
+    ROOT_DIR
+    / "data"
+    / "raw"
+    / "github_public_sport_science_datasets"
+    / "NBA Tracking"
+    / "shots"
+    / "shots_fixed.csv"
+)
+PLAYER_INFO_PATH = (
+    ROOT_DIR
+    / "data"
+    / "raw"
+    / "NBA shooting motion"
+    / "csv"
+    / "common_player_info.csv"
+)
+SCHEDULE_METRICS_PATH = (
+    ROOT_DIR
+    / "data"
+    / "raw"
+    / "github_public_sport_science_datasets"
+    / "NBA Schedule Metrics"
+    / "NBA_schedule_metrics.csv"
+)
 PROCESSED_DIR = ROOT_DIR / "data" / "processed"
 CLEANED_DATA_PATH = PROCESSED_DIR / "cleaned_shot_logs.csv"
 REPORT_PATH = PROCESSED_DIR / "cleaning_report.txt"
+
+SCHEDULE_CONTEXT_COLUMNS = {
+    "Rest": "team_rest_days",
+    "Distance": "team_travel_distance",
+    "win_pct": "team_win_pct",
+    "Streak": "team_streak",
+    "Opp_Rest": "opp_rest_days",
+    "opp_win_pct": "opp_win_pct",
+}
+SCHEDULE_CONTEXT_DEFAULTS = {
+    "team_rest_days": 1.3,
+    "team_travel_distance": 533.0,
+    "team_win_pct": 0.5,
+    "team_streak": 0.0,
+    "opp_rest_days": 1.3,
+    "opp_win_pct": 0.5,
+}
 
 
 def assign_shot_zone(row: pd.Series) -> str:
@@ -47,7 +92,261 @@ def game_clock_seconds(mins_left: pd.Series, secs_left: pd.Series) -> pd.Series:
     )
 
 
-def clean_nba_shot_dataset_file(path: Path) -> pd.DataFrame:
+def parse_period(value: object) -> float | None:
+    # Daily shot files store period labels like "1st quarter".
+    if pd.isna(value):
+        return None
+
+    text = str(value).strip().lower()
+    digits = "".join(character for character in text if character.isdigit())
+
+    if digits:
+        return float(digits)
+
+    if "ot" in text or "overtime" in text:
+        return 5.0
+
+    return None
+
+
+def parse_clock_seconds(value: object) -> float | None:
+    # Convert "MM:SS.s" style clock values into seconds remaining.
+    if pd.isna(value):
+        return None
+
+    text = str(value).strip()
+    if ":" not in text:
+        return pd.to_numeric(text, errors="coerce")
+
+    minutes, seconds = text.split(":", 1)
+    return pd.to_numeric(minutes, errors="coerce") * 60 + pd.to_numeric(
+        seconds,
+        errors="coerce",
+    )
+
+
+def normalize_player_name(value: object) -> str:
+    if pd.isna(value):
+        return ""
+
+    return " ".join(str(value).strip().lower().split())
+
+
+def normalize_defender_name(value: object) -> str:
+    name = normalize_player_name(value)
+    if "," not in name:
+        return name
+
+    last, first = [part.strip() for part in name.split(",", 1)]
+    return normalize_player_name(f"{first} {last}")
+
+
+def parse_height_inches(value: object) -> float | None:
+    if pd.isna(value):
+        return None
+
+    text = str(value).strip()
+    if "-" not in text:
+        return pd.to_numeric(text, errors="coerce")
+
+    feet, inches = text.split("-", 1)
+    return pd.to_numeric(feet, errors="coerce") * 12 + pd.to_numeric(
+        inches,
+        errors="coerce",
+    )
+
+
+def load_player_metadata() -> tuple[dict[float, dict[str, float]], dict[str, dict[str, float]]]:
+    # Player bio fields are safe pre-shot features and can be joined by id or name.
+    if not PLAYER_INFO_PATH.exists():
+        return {}, {}
+
+    raw = pd.read_csv(PLAYER_INFO_PATH, low_memory=False)
+    metadata = pd.DataFrame(
+        {
+            "player_id_key": pd.to_numeric(raw["person_id"], errors="coerce"),
+            "player_name_key": raw["display_first_last"].apply(normalize_player_name),
+            "player_height_inches": raw["height"].apply(parse_height_inches),
+            "player_weight": pd.to_numeric(raw["weight"], errors="coerce"),
+            "player_season_exp": pd.to_numeric(raw["season_exp"], errors="coerce"),
+            "player_draft_number": pd.to_numeric(
+                raw["draft_number"],
+                errors="coerce",
+            ),
+        }
+    )
+    metadata = metadata.dropna(subset=["player_id_key", "player_name_key"], how="all")
+    metadata = metadata.drop_duplicates("player_id_key", keep="last")
+
+    fields = [
+        "player_height_inches",
+        "player_weight",
+        "player_season_exp",
+        "player_draft_number",
+    ]
+    id_map = (
+        metadata.dropna(subset=["player_id_key"])
+        .set_index("player_id_key")[fields]
+        .to_dict("index")
+    )
+    name_map = (
+        metadata[metadata["player_name_key"].ne("")]
+        .drop_duplicates("player_name_key", keep="last")
+        .set_index("player_name_key")[fields]
+        .to_dict("index")
+    )
+
+    return id_map, name_map
+
+
+def load_defender_metadata() -> tuple[dict[float, dict[str, float]], dict[str, dict[str, float]]]:
+    # Defender length and defensive impact fields are joined before model training.
+    if not DEFENDER_WINGSPAN_PATH.exists():
+        return {}, {}
+
+    raw = pd.read_csv(DEFENDER_WINGSPAN_PATH, low_memory=False)
+    metadata = pd.DataFrame(
+        {
+            "defender_id_key": pd.to_numeric(raw["nba_id"], errors="coerce"),
+            "defender_name_key": raw["player"].apply(normalize_defender_name),
+            "defender_height_wo_shoes_in": pd.to_numeric(
+                raw["height_wo_shoes_in"],
+                errors="coerce",
+            ),
+            "defender_wingspan_in": pd.to_numeric(raw["wingspan_in"], errors="coerce"),
+            "defender_wingspan_diff_in": pd.to_numeric(
+                raw["height_wingspan_diff_in"],
+                errors="coerce",
+            ),
+            "defender_d_dpm": pd.to_numeric(raw["d_dpm"], errors="coerce"),
+        }
+    )
+    metadata = metadata.dropna(subset=["defender_id_key", "defender_name_key"], how="all")
+
+    fields = [
+        "defender_height_wo_shoes_in",
+        "defender_wingspan_in",
+        "defender_wingspan_diff_in",
+        "defender_d_dpm",
+    ]
+    id_map = (
+        metadata.dropna(subset=["defender_id_key"])
+        .drop_duplicates("defender_id_key", keep="last")
+        .set_index("defender_id_key")[fields]
+        .to_dict("index")
+    )
+    name_map = (
+        metadata[metadata["defender_name_key"].ne("")]
+        .drop_duplicates("defender_name_key", keep="last")
+        .set_index("defender_name_key")[fields]
+        .to_dict("index")
+    )
+
+    return id_map, name_map
+
+
+def enrich_player_metadata(cleaned_df: pd.DataFrame) -> pd.DataFrame:
+    # Fill player physical/profile fields without using any future shot result.
+    id_map, name_map = load_player_metadata()
+    if not id_map and not name_map:
+        return cleaned_df
+
+    id_key = pd.to_numeric(cleaned_df["player_id"], errors="coerce")
+    name_key = cleaned_df["player_name"].apply(normalize_player_name)
+    fields = [
+        "player_height_inches",
+        "player_weight",
+        "player_season_exp",
+        "player_draft_number",
+    ]
+
+    for field in fields:
+        by_id = id_key.map(lambda value: id_map.get(value, {}).get(field))
+        by_name = name_key.map(lambda value: name_map.get(value, {}).get(field))
+        cleaned_df[field] = by_id.combine_first(by_name).combine_first(
+            cleaned_df[field],
+        )
+
+    return cleaned_df
+
+
+def enrich_defender_metadata(cleaned_df: pd.DataFrame) -> pd.DataFrame:
+    id_map, name_map = load_defender_metadata()
+    if not id_map and not name_map:
+        return cleaned_df
+
+    id_key = pd.to_numeric(cleaned_df["closest_defender_player_id"], errors="coerce")
+    name_key = cleaned_df["closest_defender"].apply(normalize_defender_name)
+    fields = [
+        "defender_height_wo_shoes_in",
+        "defender_wingspan_in",
+        "defender_wingspan_diff_in",
+        "defender_d_dpm",
+    ]
+
+    for field in fields:
+        by_id = id_key.map(lambda value: id_map.get(value, {}).get(field))
+        by_name = name_key.map(lambda value: name_map.get(value, {}).get(field))
+        cleaned_df[field] = by_id.combine_first(by_name).combine_first(
+            cleaned_df[field],
+        )
+
+    return cleaned_df
+
+
+def load_schedule_metrics_lookup() -> dict[tuple[str, str], dict[str, float]]:
+    # Team rest/travel/streak/win-pct context, keyed by (team name, ISO date).
+    # NBA_schedule_metrics.csv already carries the opponent's Rest/win_pct on
+    # the same row, so no separate opponent lookup or abbreviation mapping
+    # is needed.
+    if not SCHEDULE_METRICS_PATH.exists():
+        return {}
+
+    raw = pd.read_csv(SCHEDULE_METRICS_PATH, low_memory=False)
+    raw = raw.drop_duplicates(subset=["Team", "Date"], keep="first")
+    dates = pd.to_datetime(raw["Date"], errors="coerce")
+
+    lookup: dict[tuple[str, str], dict[str, float]] = {}
+    for row, date in zip(raw.itertuples(index=False), dates):
+        if pd.isna(date) or pd.isna(row.Team):
+            continue
+        key = (str(row.Team), date.strftime("%Y-%m-%d"))
+        lookup[key] = {
+            project_name: getattr(row, source_name)
+            for source_name, project_name in SCHEDULE_CONTEXT_COLUMNS.items()
+        }
+
+    return lookup
+
+
+def attach_schedule_context(
+    cleaned: pd.DataFrame,
+    team_name: pd.Series,
+    game_date: pd.Series,
+    schedule_lookup: dict[tuple[str, str], dict[str, float]],
+) -> None:
+    # Fill schedule columns in place; rows with no lookup match keep defaults
+    # applied later in clean_project_columns.
+    if not schedule_lookup:
+        return
+
+    parsed_dates = pd.to_datetime(game_date, errors="coerce")
+    keys = list(zip(team_name.astype(str), parsed_dates.dt.strftime("%Y-%m-%d")))
+    matches = [schedule_lookup.get(key) for key in keys]
+
+    for project_name in SCHEDULE_CONTEXT_COLUMNS.values():
+        cleaned[project_name] = [
+            match[project_name] if match is not None else None for match in matches
+        ]
+    cleaned["has_real_schedule_context"] = [
+        1 if match is not None else 0 for match in matches
+    ]
+
+
+def clean_nba_shot_dataset_file(
+    path: Path,
+    schedule_lookup: dict[tuple[str, str], dict[str, float]],
+) -> pd.DataFrame:
     # Normalize one season file from the richer NBA shot-location dataset.
     raw = pd.read_csv(path)
     cleaned = pd.DataFrame(
@@ -64,6 +363,8 @@ def clean_nba_shot_dataset_file(path: Path) -> pd.DataFrame:
             "shot_zone": raw["BASIC_ZONE"],
             "defender_distance": None,
             "pressure_level": None,
+            "closest_defender": "",
+            "closest_defender_player_id": None,
             "shot_result": raw["EVENT_TYPE"],
             "shot_made": raw["SHOT_MADE"],
             "points": None,
@@ -79,6 +380,84 @@ def clean_nba_shot_dataset_file(path: Path) -> pd.DataFrame:
             "position_group": raw["POSITION_GROUP"],
         }
     )
+    attach_schedule_context(cleaned, raw["TEAM_NAME"], raw["GAME_DATE"], schedule_lookup)
+
+    return clean_project_columns(cleaned)
+
+
+def clean_public_tracking_shots() -> pd.DataFrame:
+    # This GitHub dataset is already shot-level and has true made/missed labels.
+    if not PUBLIC_TRACKING_SHOTS_PATH.exists():
+        return pd.DataFrame(columns=FINAL_COLUMNS)
+
+    raw = pd.read_csv(PUBLIC_TRACKING_SHOTS_PATH, low_memory=False)
+    cleaned = pd.DataFrame(
+        {
+            "game_id": raw["GAME_ID"],
+            "player_id": raw["PLAYER_ID"],
+            "player_name": raw["PLAYER_NAME"],
+            "period": raw["PERIOD"],
+            "shot_clock": None,
+            "dribbles": None,
+            "touch_time": None,
+            "shot_distance": raw["SHOT_DISTANCE"],
+            "shot_value": raw["SHOT_TYPE"].astype(str).str.extract(r"([23])")[0],
+            "shot_zone": raw["SHOT_ZONE_BASIC"],
+            "defender_distance": None,
+            "pressure_level": None,
+            "closest_defender": "",
+            "closest_defender_player_id": None,
+            "shot_result": raw["EVENT_TYPE"],
+            "shot_made": raw["SHOT_MADE_FLAG"],
+            "points": None,
+            "loc_x": raw["LOC_X"],
+            "loc_y": raw["LOC_Y"],
+            "game_clock_seconds": game_clock_seconds(
+                raw["MINUTES_REMAINING"],
+                raw["SECONDS_REMAINING"],
+            ),
+            "is_home": raw["TEAM_NAME"].eq(raw["HTM"]).astype(int),
+            "action_type": raw["ACTION_TYPE"],
+            "shot_type": raw["SHOT_TYPE"],
+            "position_group": "",
+        }
+    )
+
+    return clean_project_columns(cleaned)
+
+
+def clean_nba_daily_shot_file(path: Path) -> pd.DataFrame:
+    # Normalize one daily shot-location file from data/raw/nba.
+    raw = pd.read_csv(path, low_memory=False)
+    shot_type_text = raw["shot_type"].astype(str).str.lower()
+    cleaned = pd.DataFrame(
+        {
+            "game_id": raw["match_id"],
+            "player_id": raw["player"],
+            "player_name": raw["player"],
+            "period": raw["quarter"].apply(parse_period),
+            "shot_clock": None,
+            "dribbles": None,
+            "touch_time": None,
+            "shot_distance": raw["distance"],
+            "shot_value": shot_type_text.str.extract(r"([23])")[0],
+            "shot_zone": None,
+            "defender_distance": None,
+            "pressure_level": None,
+            "closest_defender": "",
+            "closest_defender_player_id": None,
+            "shot_result": raw["made"].map({True: "made", False: "miss"}),
+            "shot_made": raw["made"],
+            "points": None,
+            "loc_x": raw["shotX"],
+            "loc_y": raw["shotY"],
+            "game_clock_seconds": raw["time_remaining"].apply(parse_clock_seconds),
+            "is_home": 0,
+            "action_type": "",
+            "shot_type": raw["shot_type"],
+            "position_group": "",
+        }
+    )
 
     return clean_project_columns(cleaned)
 
@@ -89,13 +468,28 @@ def load_added_shot_datasets() -> list[pd.DataFrame]:
         return []
 
     season_files = sorted(NBA_SHOT_DATASET_DIR.glob("NBA_*_Shots.csv"))
+    schedule_lookup = load_schedule_metrics_lookup()
     cleaned_seasons = []
     for path in season_files:
-        cleaned = clean_nba_shot_dataset_file(path)
+        cleaned = clean_nba_shot_dataset_file(path, schedule_lookup)
         if not cleaned.empty:
             cleaned_seasons.append(cleaned)
 
     return cleaned_seasons
+
+
+def load_nba_daily_shot_datasets() -> list[pd.DataFrame]:
+    # Load the larger daily NBA shot files when present.
+    if not NBA_DAILY_SHOTS_DIR.exists():
+        return []
+
+    cleaned_days = []
+    for path in sorted(NBA_DAILY_SHOTS_DIR.glob("*.csv")):
+        cleaned = clean_nba_daily_shot_file(path)
+        if not cleaned.empty:
+            cleaned_days.append(cleaned)
+
+    return cleaned_days
 
 
 def clean_project_columns(cleaned: pd.DataFrame) -> pd.DataFrame:
@@ -106,6 +500,8 @@ def clean_project_columns(cleaned: pd.DataFrame) -> pd.DataFrame:
         "touch_time": 2.5,
         "defender_distance": 4.0,
         "pressure_level": None,
+        "closest_defender": "",
+        "closest_defender_player_id": None,
         "points": None,
         "loc_x": 0.0,
         "loc_y": 0.0,
@@ -114,6 +510,16 @@ def clean_project_columns(cleaned: pd.DataFrame) -> pd.DataFrame:
         "action_type": "",
         "shot_type": "",
         "position_group": "",
+        "player_height_inches": 79.0,
+        "player_weight": 215.0,
+        "player_season_exp": 4.0,
+        "player_draft_number": 60.0,
+        "defender_height_wo_shoes_in": 79.0,
+        "defender_wingspan_in": 82.0,
+        "defender_wingspan_diff_in": 3.0,
+        "defender_d_dpm": 0.0,
+        "has_real_schedule_context": 0,
+        **SCHEDULE_CONTEXT_DEFAULTS,
     }
     for column, default in defaults.items():
         if column not in cleaned.columns:
@@ -131,12 +537,23 @@ def clean_project_columns(cleaned: pd.DataFrame) -> pd.DataFrame:
         "shot_distance",
         "shot_value",
         "defender_distance",
+        "closest_defender_player_id",
         "shot_made",
         "points",
         "loc_x",
         "loc_y",
         "game_clock_seconds",
         "is_home",
+        "player_height_inches",
+        "player_weight",
+        "player_season_exp",
+        "player_draft_number",
+        "defender_height_wo_shoes_in",
+        "defender_wingspan_in",
+        "defender_wingspan_diff_in",
+        "defender_d_dpm",
+        "has_real_schedule_context",
+        *SCHEDULE_CONTEXT_COLUMNS.values(),
     ]
     for column in numeric_columns:
         cleaned[column] = pd.to_numeric(cleaned[column], errors="coerce")
@@ -181,6 +598,8 @@ FINAL_COLUMNS = [
     "shot_zone",
     "defender_distance",
     "pressure_level",
+    "closest_defender",
+    "closest_defender_player_id",
     "shot_result",
     "shot_made",
     "points",
@@ -191,6 +610,16 @@ FINAL_COLUMNS = [
     "action_type",
     "shot_type",
     "position_group",
+    "player_height_inches",
+    "player_weight",
+    "player_season_exp",
+    "player_draft_number",
+    "defender_height_wo_shoes_in",
+    "defender_wingspan_in",
+    "defender_wingspan_diff_in",
+    "defender_d_dpm",
+    "has_real_schedule_context",
+    *SCHEDULE_CONTEXT_COLUMNS.values(),
 ]
 
 
@@ -205,6 +634,8 @@ def clean_shot_logs(raw_df: pd.DataFrame) -> pd.DataFrame:
         "SHOT_DIST",
         "PTS_TYPE",
         "CLOSE_DEF_DIST",
+        "CLOSEST_DEFENDER",
+        "CLOSEST_DEFENDER_PLAYER_ID",
         "SHOT_RESULT",
         "FGM",
         "PTS",
@@ -224,6 +655,8 @@ def clean_shot_logs(raw_df: pd.DataFrame) -> pd.DataFrame:
             "SHOT_DIST": "shot_distance",
             "PTS_TYPE": "shot_value",
             "CLOSE_DEF_DIST": "defender_distance",
+            "CLOSEST_DEFENDER": "closest_defender",
+            "CLOSEST_DEFENDER_PLAYER_ID": "closest_defender_player_id",
             "SHOT_RESULT": "shot_result",
             "FGM": "shot_made",
             "PTS": "points",
@@ -266,8 +699,18 @@ def main() -> None:
     # Run the full cleaning pipeline and write both dataset and report artifacts.
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     raw_df = load_raw_data()
-    cleaned_sources = [clean_shot_logs(raw_df), *load_added_shot_datasets()]
+    cleaned_sources = [
+        clean_shot_logs(raw_df),
+        clean_shot_logs(pd.read_csv(DEFENDER_SHOT_LOG_PATH))
+        if DEFENDER_SHOT_LOG_PATH.exists()
+        else pd.DataFrame(columns=FINAL_COLUMNS),
+        clean_public_tracking_shots(),
+        *load_added_shot_datasets(),
+        *load_nba_daily_shot_datasets(),
+    ]
     cleaned_df = pd.concat(cleaned_sources, ignore_index=True)
+    cleaned_df = enrich_player_metadata(cleaned_df)
+    cleaned_df = enrich_defender_metadata(cleaned_df)
     cleaned_df = cleaned_df.drop_duplicates(
         subset=[
             "game_id",

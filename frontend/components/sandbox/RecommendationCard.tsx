@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { BrainCircuit } from "lucide-react";
+import { useMotionSettings } from "@/hooks/useMotionSettings";
 import type { ShotRecommendation } from "@/lib/sandbox-metrics";
 
 type RecommendationCardProps = {
@@ -11,10 +12,12 @@ type RecommendationCardProps = {
 export function RecommendationCard({
   recommendation,
 }: RecommendationCardProps) {
+  const { duration, reduceMotion } = useMotionSettings();
+
   return (
     <motion.div
-      layout
-      className={`rounded-lg border p-4 shadow-[0_18px_45px_rgba(0,0,0,0.22)] ${recommendationTone[recommendation.tone]}`}
+      layout={!reduceMotion}
+      className={`rounded-lg border p-4 shadow-[var(--shadow-panel)] ${recommendationTone[recommendation.tone]}`}
       transition={{ type: "spring", stiffness: 280, damping: 28 }}
     >
       <div className="flex items-center gap-3">
@@ -27,16 +30,16 @@ export function RecommendationCard({
           </p>
           <motion.p
             key={recommendation.title}
-            initial={{ opacity: 0.72, y: 4 }}
+            initial={reduceMotion ? false : { opacity: 0.72, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.18 }}
-            className="mt-1 text-base font-black text-white"
+            transition={{ duration: duration(0.18) }}
+            className="mt-1 text-base font-black text-foreground"
           >
             {recommendation.title}
           </motion.p>
         </div>
       </div>
-      <p className="mt-3 text-sm leading-6 text-slate-200">
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">
         {recommendation.message}
       </p>
     </motion.div>
@@ -44,8 +47,8 @@ export function RecommendationCard({
 }
 
 const recommendationTone: Record<ShotRecommendation["tone"], string> = {
-  green: "border-green-300/25 bg-green-400/10 text-green-100",
-  orange: "border-orange-300/25 bg-orange-500/10 text-orange-100",
-  red: "border-red-300/25 bg-red-500/10 text-red-100",
-  sky: "border-sky-300/25 bg-sky-500/10 text-sky-100",
+  green: "border-green-300/25 bg-green-400/10 text-success",
+  orange: "border-orange-300/25 bg-orange-500/10 text-primary-strong",
+  red: "border-red-300/25 bg-red-500/10 text-danger",
+  sky: "border-sky-300/25 bg-sky-500/10 text-secondary",
 };

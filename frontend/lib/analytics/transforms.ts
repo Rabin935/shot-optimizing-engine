@@ -67,6 +67,9 @@ export function applyAnalyticsFilters(
       !filters.dateFrom || createdAt >= new Date(`${filters.dateFrom}T00:00:00`);
     const beforeEnd =
       !filters.dateTo || createdAt <= new Date(`${filters.dateTo}T23:59:59`);
+    const searchText = `${shot.zone} ${shot.pressure} ${shot.sessionId} ${shot.predictionSource}`
+      .toLowerCase();
+    const query = filters.searchQuery.trim().toLowerCase();
 
     return (
       (filters.shotZone === "all" || shot.zone === filters.shotZone) &&
@@ -75,6 +78,11 @@ export function applyAnalyticsFilters(
       (filters.predictionSource === "all" ||
         shot.predictionSource === filters.predictionSource) &&
       (!filters.sessionId || shot.sessionId === filters.sessionId) &&
+      (!query || searchText.includes(query)) &&
+      shot.epps >= filters.eppsMin &&
+      shot.epps <= filters.eppsMax &&
+      shot.makeProbability >= filters.makeProbabilityMin &&
+      shot.makeProbability <= filters.makeProbabilityMax &&
       shot.mechanicsScore >= filters.mechanicsScoreMin &&
       shot.mechanicsScore <= filters.mechanicsScoreMax &&
       afterStart &&
@@ -467,10 +475,9 @@ function groupBy<T>(items: T[], getKey: (item: T) => string) {
   return items.reduce<Record<string, T[]>>((groups, item) => {
     const key = getKey(item);
 
-    return {
-      ...groups,
-      [key]: [...(groups[key] ?? []), item],
-    };
+    groups[key] ??= [];
+    groups[key].push(item);
+    return groups;
   }, {});
 }
 

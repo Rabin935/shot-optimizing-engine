@@ -1,5 +1,6 @@
 "use client";
 
+import { useChartPalette } from '@/lib/chart-theme';
 import { Shield, Target, TrendingDown, TrendingUp } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
@@ -29,6 +30,7 @@ import type { PressureDatum } from "@/types/charts";
 const pressureColors = ["#86efac", "#60a5fa", "#facc15", "#fb923c", "#f87171"];
 
 export function DefenderPressureAnalytics() {
+  const palette = useChartPalette();
   const shots = useFilteredAnalyticsShots();
   const pressureRows = useMemo(() => buildPressureAnalytics(shots), [shots]);
   const mostCommon = getMostCommonPressure(pressureRows);
@@ -90,9 +92,9 @@ export function DefenderPressureAnalytics() {
         >
           <ChartContainer empty={!shots.length}>
             <BarChart data={pressureRows} margin={{ bottom: 12, left: 0, right: 16, top: 16 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.09)" strokeDasharray="4 4" />
-              <XAxis dataKey="pressure" stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 800 }} tickLine={false} />
-              <YAxis stroke="#94a3b8" tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 700 }} tickLine={false} />
+              <CartesianGrid stroke={palette.grid} strokeDasharray="4 4" />
+              <XAxis dataKey="pressure" stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 11, fontWeight: 800 }} tickLine={false} />
+              <YAxis stroke={palette.axis} tick={{ fill: palette.axis, fontSize: 12, fontWeight: 700 }} tickLine={false} />
               <Tooltip content={<PressureTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
               <Bar dataKey="averageEpps" name="Average EPPS" radius={[6, 6, 0, 0]}>
                 {pressureRows.map((row, index) => (
