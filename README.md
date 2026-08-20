@@ -609,7 +609,6 @@ Or run the GPU collaborative notebook in Google Colab:
 | Phase 4 | Machine learning pipeline and XGBoost model | Complete |
 | Phase 5 | EPPS engine and simulator integration | Complete |
 | Phase 6 | UX polish, analytics, and workspace refinement | Complete |
-| Phase 7 | Testing and deployment | Planned |
 
 ---
 
